@@ -14,7 +14,7 @@ main = "workers/app.ts"
 [[d1_databases]]
 binding = "DB"
 database_name = "social_rpg_db"
-database_id = "your-database-id-here" # This will be created automatically on first deploy
+database_id = "fa8ff2b3-6fc2-4ae7-bcd9-eaf5bb2ef6e6"
 migrations_dir = "migrations"
 
 # Durable Object Bindings
@@ -29,17 +29,15 @@ bindings = [
 # https://developers.cloudflare.com/kv/
 [[kv_namespaces]]
 binding = "APP_CONFIG"
-id = "your-kv-namespace-id-here" # Create with `wrangler kv:namespace create APP_CONFIG`
-preview_id = "your-kv-namespace-preview-id-here"
-
+id = "fe2dc674037f49cc84498977f55f5d39"
 # Queue Producer Bindings
 # https://developers.cloudflare.com/queues/
 [[queues.producers]]
 queue = "background-jobs"
 binding = "JOBS_QUEUE"
 
-# Queue Consumer Configuration
-# https://developers.cloudflare.com/queues/
+#Configure your Worker to consume messages from this queue:
+
 [[queues.consumers]]
 queue = "background-jobs"
 max_batch_size = 10
