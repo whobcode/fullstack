@@ -1,10 +1,15 @@
 import { Hono } from "hono";
 import { createRequestHandler } from "react-router";
+import api from "./src/api";
+import { handleScheduled } from "./src/core/cron";
+import { Bindings } from "./src/bindings";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Bindings }>();
 
-// Add more routes here
+// Mount the API routes
+app.route("/api", api);
 
+// Serve the React application for all other requests
 app.get("*", (c) => {
   const requestHandler = createRequestHandler(
     () => import("virtual:react-router/server-build"),
@@ -16,4 +21,9 @@ app.get("*", (c) => {
   });
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleScheduled(env));
+  },
+};

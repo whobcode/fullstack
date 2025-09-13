@@ -6,6 +6,8 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import { NavBar } from "./components/NavBar";
+import { AuthProvider } from "./lib/AuthContext";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -32,8 +34,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
-        {children}
+      <body className="bg-gray-900 text-gray-100">
+        <NavBar />
+        <main className="container mx-auto p-4">
+          {children}
+        </main>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -42,7 +47,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
