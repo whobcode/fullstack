@@ -1,49 +1,102 @@
-# Hono + React Router + Vite + ShadCN UI on Cloudflare Workers
+# Cloudflare Social RPG Platform
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/react-router-hono-fullstack-template)
-![Build modern full-stack apps with Hono, React Router, and ShadCN UI on Cloudflare Workers](https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/24c5a7dd-e1e3-43a9-b912-d78d9a4293bc/public)
+This is a full-stack social platform with a dedicated RPG game section, built entirely on the Cloudflare developer platform. It features a robust backend using Cloudflare Workers, D1, and Durable Objects, and a reactive frontend built with React and Vite.
 
-<!-- dash-content-start -->
+## Project Overview
 
-A modern full-stack template powered by [Cloudflare Workers](https://workers.cloudflare.com/), using [Hono](https://hono.dev/) for backend APIs, [React Router](https://reactrouter.com/) for frontend routing, and [shadcn/ui](https://ui.shadcn.com/) for beautiful, accessible components styled with [Tailwind CSS](https://tailwindcss.com/).
+This platform is designed as a comprehensive social network where users can manage profiles, interact with friends, and post content. Uniquely, every user account is automatically linked to an RPG character, which they can develop and use in a separate, dedicated game section of the application.
 
-Built with the [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/) for optimized static asset delivery and seamless local development. React is configured in single-page app (SPA) mode via Workers.
-
-A perfect starting point for building interactive, styled, and edge-deployed SPAs with minimal configuration.
-
-## Features
-
-- ⚡ Full-stack app on Cloudflare Workers
-- 🔁 Hono for backend API endpoints
-- 🧭 React Router for client-side routing
-- 🎨 ShadCN UI with Tailwind CSS for components and styling
-- 🧱 File-based route separation
-- 🚀 Zero-config Vite build for Workers
-- 🛠️ Automatically deploys with Wrangler
-- 🔎 Built-in Observability to monitor your Worker
-<!-- dash-content-end -->
+- **Social Platform**: Handles user accounts, profiles, friends, posts, and groups.
+- **RPG Game Section**: A distinct area for character management, turn-based battles (asynchronous implemented), and progression.
 
 ## Tech Stack
 
-- **Frontend**: React + React Router + ShadCN UI
-  - SPA architecture powered by React Router
-  - Includes accessible, themeable UI from ShadCN
-  - Styled with utility-first Tailwind CSS
-  - Built and optimized with Vite
-
 - **Backend**: Hono on Cloudflare Workers
-  - API routes defined and handled via Hono in `/api/*`
-  - Supports REST-like endpoints, CORS, and middleware
+  - **Database**: Cloudflare D1 for all relational data.
+  - **Real-time**: Cloudflare Durable Objects (scaffolded for real-time battles).
+  - **Background Jobs**: Cloudflare Queues (scaffolded) and Cron Triggers (for offline XP).
+  - **Configuration**: Cloudflare KV (scaffolded).
+- **Frontend**: React + Vite + React Router
+  - SPA architecture with file-based routing.
+  - Styled with Tailwind CSS.
+- **Deployment**: Cloudflare Workers via Wrangler.
 
-- **Deployment**: Cloudflare Workers via Wrangler
-  - Vite plugin auto-bundles frontend and backend together
-  - Deployed worldwide on Cloudflare’s edge network
+## Getting Started
 
-## Resources
+Follow these instructions to get the project running on your local machine for development and testing.
 
-- 🧩 [Hono on Cloudflare Workers](https://hono.dev/docs/getting-started/cloudflare-workers)
-- 📦 [Vite Plugin for Cloudflare](https://developers.cloudflare.com/workers/vite-plugin/)
-- 🛠 [Wrangler CLI reference](https://developers.cloudflare.com/workers/wrangler/)
-- 🎨 [shadcn/ui](https://ui.shadcn.com)
-- 💨 [Tailwind CSS Documentation](https://tailwindcss.com/)
-- 🔀 [React Router Docs](https://reactrouter.com/)
+### Prerequisites
+
+- [Node.js](https://nodejs.org/en/) (v18 or later)
+- [npm](https://www.npmjs.com/) (comes with Node.js)
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd <repository-directory>
+```
+
+### 2. Install Dependencies
+
+This project uses `npm` for package management.
+
+```bash
+npm install
+```
+
+### 3. Set up Local Database
+
+The application uses Cloudflare D1 for its database. You can create a local version for development.
+
+**Create the D1 Database:**
+The `wrangler.toml` is configured to use a database named `social_rpg_db`. Create it locally:
+
+```bash
+npx wrangler d1 create social_rpg_db --local
+```
+
+**Run Migrations:**
+Apply the database schema to your local D1 database.
+
+```bash
+npx wrangler d1 migrations apply social_rpg_db --local
+```
+
+### 4. Run the Development Server
+
+The development server will run both the frontend (Vite) and the backend (Wrangler) concurrently. It supports hot-reloading for a seamless development experience.
+
+```bash
+npm run dev
+```
+
+The application should now be running at `http://localhost:5173`.
+
+### 5. Seeding the Database
+
+To populate your local database with sample data, the recommended approach is to use the application's UI:
+
+1.  Run the development server (`npm run dev`).
+2.  Open your browser to `http://localhost:5173`.
+3.  Navigate to the **Register** page.
+4.  Create two or more users.
+
+This ensures that all data relationships, password hashes, and initial character records are created correctly by the application logic.
+
+## Project Structure
+
+- `app/`: Contains the React frontend application code.
+  - `app/components/`: Shared React components (e.g., `NavBar`).
+  - `app/lib/`: Frontend utility functions (e.g., `apiClient`).
+  - `app/routes/`: Page components, mapped by file-based routing.
+  - `app/root.tsx`: The root layout of the application.
+  - `app/routes.ts`: The route configuration file.
+- `migrations/`: Contains D1 database schema migrations.
+- `workers/`: Contains the Cloudflare Worker backend code.
+  - `workers/app.ts`: The main entry point for the Worker, including cron handlers.
+  - `workers/src/api/`: Hono API route handlers.
+  - `workers/src/core/`: Core application logic (e.g., `battle-engine.ts`, `cron.ts`).
+  - `workers/src/lib/`: Backend utility functions.
+  - `workers/src/shared/`: Code shared with the frontend (e.g., Zod schemas).
+- `wrangler.toml`: The configuration file for Wrangler and Cloudflare resources.

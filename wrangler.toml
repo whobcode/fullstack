@@ -1,0 +1,80 @@
+# For more details on how to configure Wrangler, refer to:
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "social-rpg-platform"
+compatibility_date = "2024-04-05"
+main = "workers/app.ts"
+
+# Bindings
+# These allow your Worker to interact with Cloudflare resources.
+# https://developers.cloudflare.com/workers/runtime-apis/bindings/
+
+# D1 Database Bindings
+# https://developers.cloudflare.com/d1/get-started/
+[[d1_databases]]
+binding = "DB"
+database_name = "social_rpg_db"
+database_id = "your-database-id-here" # This will be created automatically on first deploy
+migrations_dir = "migrations"
+
+# Durable Object Bindings
+# https://developers.cloudflare.com/workers/wrangler/configuration/#durable-objects
+[durable_objects]
+bindings = [
+  { name = "BATTLE_ROOM", class_name = "BattleRoom" },
+  { name = "GAME_PRESENCE_ROOM", class_name = "GamePresenceRoom" }
+]
+
+# KV Namespace Bindings
+# https://developers.cloudflare.com/kv/
+[[kv_namespaces]]
+binding = "APP_CONFIG"
+id = "your-kv-namespace-id-here" # Create with `wrangler kv:namespace create APP_CONFIG`
+preview_id = "your-kv-namespace-preview-id-here"
+
+# Queue Producer Bindings
+# https://developers.cloudflare.com/queues/
+[[queues.producers]]
+queue = "background-jobs"
+binding = "JOBS_QUEUE"
+
+# Queue Consumer Configuration
+# https://developers.cloudflare.com/queues/
+[[queues.consumers]]
+queue = "background-jobs"
+max_batch_size = 10
+max_wait_time_ms = 5000
+
+# Cron Triggers
+# https://developers.cloudflare.com/workers/wrangler/configuration/#cron-triggers
+[triggers]
+crons = ["*/15 * * * *"] # Every 15 minutes for offline XP accrual
+
+# Environment Variables & Secrets
+# https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+[vars]
+XP_RATE_PER_HOUR = 10
+DAILY_XP_CAP = 240 # 24 hours * 10 XP/hour
+WIN_XP_AWARD = 50
+MITIGATION_FACTOR = 0.8
+# Using JSON string for class modifiers to be easily parsable
+CLASS_MODS = """
+{
+  "phoenix": { "attack": 1.1, "defense": 0.95 },
+  "dphoenix": { "attack": 1.1, "defense": 0.95 },
+  "dragon": { "attack": 0.95, "defense": 1.1 },
+  "ddragon": { "attack": 0.95, "defense": 1.1 },
+  "kies": { "attack": 1.0, "defense": 1.0 }
+}
+"""
+
+[placement]
+mode = "smart"
+
+[build]
+command = "npm run build"
+
+# The `new_classes` field is required by wrangler for the first migration that introduces Durable Objects.
+[[migrations]]
+tag = "v1"
+new_classes = ["BattleRoom", "GamePresenceRoom"]
