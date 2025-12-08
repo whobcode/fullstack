@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { createRequestHandler } from "react-router";
 import api from "./src/api";
 import { handleScheduled } from "./src/core/cron";
-import { Bindings } from "./src/bindings";
+import { BattleRoom, GamePresenceRoom } from "./src/core/durable-objects";
+import type { Bindings } from "./src/bindings";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -27,3 +28,6 @@ export default {
     ctx.waitUntil(handleScheduled(env));
   },
 };
+
+// Export Durable Objects for Wrangler bindings
+export { BattleRoom, GamePresenceRoom };

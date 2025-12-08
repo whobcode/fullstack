@@ -35,6 +35,19 @@ export async function hashPassword(password: string): Promise<string> {
   return `${saltArray.join('.')}:${hashArray.join('.')}`;
 }
 
+function timingSafeEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  const aBytes = new Uint8Array(a);
+  const bBytes = new Uint8Array(b);
+
+  if (aBytes.length !== bBytes.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    diff |= aBytes[i] ^ bBytes[i];
+  }
+  return diff === 0;
+}
+
 /**
  * Verifies a password against a stored hash.
  * @param password The password to verify.
@@ -70,5 +83,5 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     256
   );
 
-  return crypto.subtle.timingSafeEqual(newHashBuffer, hash.buffer);
+  return timingSafeEqual(newHashBuffer, hash.buffer);
 }

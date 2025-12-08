@@ -1,4 +1,4 @@
-import { Bindings } from "../bindings";
+import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
 
 interface CharacterWithLedger {

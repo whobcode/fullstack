@@ -35,10 +35,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="bg-gray-900 text-gray-100">
-        <NavBar />
-        <main className="container mx-auto p-4">
-          {children}
-        </main>
+        <AuthProvider>
+          <NavBar />
+          <main className="container mx-auto p-4">
+            {children}
+          </main>
+        </AuthProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -47,11 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <Outlet />
-    </AuthProvider>
-  );
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

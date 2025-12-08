@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { Bindings } from '../bindings';
-import { authMiddleware, AuthenticatedUser } from './middleware/auth';
+import type { Bindings } from '../bindings';
+import { authMiddleware } from './middleware/auth';
+import type { AuthenticatedUser } from './middleware/auth';
 import { updateProfileSchema } from '../shared/schemas/profile';
 
 // We need to extend the Hono generic type to include the 'user' variable

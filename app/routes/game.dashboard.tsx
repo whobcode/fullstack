@@ -115,6 +115,7 @@ export default function GameDashboardPage() {
     const [character, setCharacter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [battles, setBattles] = useState<any[]>([]);
 
     const fetchCharacter = async () => {
         setLoading(true);
@@ -132,15 +133,6 @@ export default function GameDashboardPage() {
         fetchCharacter();
     }, []);
 
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div className="text-red-500">Error: {error}</div>;
-
-    if (!character || !character.first_game_access_completed) {
-        return <FirstAccessWizard onSetupComplete={fetchCharacter} />;
-    }
-
-    const [battles, setBattles] = useState<any[]>([]);
-
     const fetchBattles = async () => {
         try {
             const res = await apiClient.get<{ data: any[] }>('/game/battles');
@@ -154,7 +146,14 @@ export default function GameDashboardPage() {
         if (character?.first_game_access_completed) {
             fetchBattles();
         }
-    }, [character]);
+    }, [character?.first_game_access_completed]);
+
+    if (loading) return <div>Loading...</div>;
+    if (error) return <div className="text-red-500">Error: {error}</div>;
+
+    if (!character || !character.first_game_access_completed) {
+        return <FirstAccessWizard onSetupComplete={fetchCharacter} />;
+    }
 
     return (
         <div>

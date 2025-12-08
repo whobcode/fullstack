@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { Bindings } from '../bindings';
-import { authMiddleware, AuthenticatedUser } from './middleware/auth';
+import type { Bindings } from '../bindings';
+import { authMiddleware } from './middleware/auth';
+import type { AuthenticatedUser } from './middleware/auth';
 import { friendRequestSchema, respondToRequestSchema } from '../shared/schemas/friends';
 
 type App = {

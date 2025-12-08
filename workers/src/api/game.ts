@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { Bindings } from '../bindings';
-import { authMiddleware, AuthenticatedUser } from './middleware/auth';
+import type { Bindings } from '../bindings';
+import { authMiddleware } from './middleware/auth';
+import type { AuthenticatedUser } from './middleware/auth';
 import { firstAccessSchema } from '../shared/schemas/game';
 
 type App = {
@@ -9,6 +10,24 @@ type App = {
   Variables: {
     user: AuthenticatedUser;
   };
+};
+
+type BattleRow = {
+  id: string;
+  attacker_char_id: string;
+  defender_char_id: string;
+  mode: string;
+  state: 'pending' | 'active' | 'completed' | 'canceled';
+  seed: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  winner_char_id?: string | null;
+};
+
+type CharacterRow = CharacterStats & {
+  id: string;
+  xp: number;
+  level: number;
 };
 
 const game = new Hono<App>();
@@ -137,7 +156,8 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
 
 
 import { createBattleSchema, submitTurnSchema } from '../shared/schemas/game';
-import { resolveTurn, ClassMods } from '../core/battle-engine';
+import { resolveTurn } from '../core/battle-engine';
+import type { ClassMods, CharacterStats } from '../core/battle-engine';
 import { checkForLevelUp } from '../core/leveling';
 
 // Create a new battle
@@ -203,15 +223,16 @@ game.post('/battles/:id/turn', zValidator('json', submitTurnSchema), async (c) =
 
     // This is a complex transaction, many things need to happen at once.
     // 1. Get battle and character data
-    const battle = await db.prepare('SELECT * FROM battles WHERE id = ?').bind(battleId).first();
+    const battle = await db.prepare('SELECT * FROM battles WHERE id = ?').bind(battleId).first<BattleRow>();
     if (!battle) return c.json({ error: 'Battle not found' }, 404);
+    if (battle.state === 'completed') return c.json({ error: 'Battle already completed' }, 400);
 
-    const charQuery = 'SELECT id, hp, atk, def, class FROM characters WHERE';
-    const attackerChar = await db.prepare(`${charQuery} user_id = ?`).bind(user.id).first();
+    const charQuery = 'SELECT id, hp, atk, def, class, xp, level FROM characters WHERE';
+    const attackerChar = await db.prepare(`${charQuery} user_id = ?`).bind(user.id).first<CharacterRow>();
     if (!attackerChar) return c.json({ error: 'Attacker not found' }, 404);
     if (attackerChar.id !== battle.attacker_char_id) return c.json({ error: 'You are not the attacker in this battle' }, 403);
 
-    const defenderChar = await db.prepare(`${charQuery} id = ?`).bind(battle.defender_char_id).first();
+    const defenderChar = await db.prepare(`${charQuery} id = ?`).bind(battle.defender_char_id).first<CharacterRow>();
     if (!defenderChar) return c.json({ error: 'Defender not found' }, 404);
 
     const lastTurn = await db.prepare('SELECT turn_index FROM battle_turns WHERE battle_id = ? ORDER BY turn_index DESC LIMIT 1').bind(battleId).first<{turn_index: number}>();
@@ -220,7 +241,7 @@ game.post('/battles/:id/turn', zValidator('json', submitTurnSchema), async (c) =
     // 2. Resolve the turn
     const classMods: ClassMods = JSON.parse(c.env.CLASS_MODS);
     const mitigationFactor = parseFloat(c.env.MITIGATION_FACTOR);
-    const turnResult = resolveTurn(attackerChar, defenderChar, classMods, battle.seed + currentTurnIndex, mitigationFactor);
+    const turnResult = resolveTurn(attackerChar, defenderChar, classMods, `${battle.seed}${currentTurnIndex}`, mitigationFactor);
 
     // 3. Create D1 batch statements
     const turnId = crypto.randomUUID();
@@ -232,11 +253,14 @@ game.post('/battles/:id/turn', zValidator('json', submitTurnSchema), async (c) =
             .bind(turnId, battleId, currentTurnIndex, attackerChar.id, 'attack', turnResult.damage, defenderHpAfter),
         // Update defender's HP
         db.prepare('UPDATE characters SET hp = ? WHERE id = ?').bind(defenderHpAfter, defenderChar.id),
-        // Update trophies (win/loss)
+        // Update trophies (win/loss) per attack
         db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
             .bind(turnResult.attackerWins ? 1 : 0, turnResult.attackerWins ? 0 : 1, attackerChar.id),
         db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
             .bind(turnResult.defenderWins ? 1 : 0, turnResult.defenderWins ? 0 : 1, defenderChar.id),
+        // Mark battle as started if this is the first turn
+        db.prepare('UPDATE battles SET state = ?, started_at = COALESCE(started_at, ?) WHERE id = ? AND state = ?')
+            .bind('active', new Date().toISOString(), battleId, 'pending'),
     ];
 
     // 4. Handle kill

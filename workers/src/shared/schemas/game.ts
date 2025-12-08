@@ -9,7 +9,7 @@ export const firstAccessSchema = z.object({
       message: 'Gamertag can only contain letters, numbers, underscores, dots, and hyphens',
     }),
   class: z.enum(['phoenix', 'dphoenix', 'dragon', 'ddragon', 'kies'], {
-    errorMap: () => ({ message: 'Invalid class selected' }),
+    message: 'Invalid class selected',
   }),
 });
 

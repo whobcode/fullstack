@@ -1,5 +1,3 @@
-import { D1Database, R2Bucket, KVNamespace, Queue, DurableObjectNamespace } from '@cloudflare/workers-types';
-
 export type Bindings = {
   // D1 Database
   DB: D1Database;
@@ -25,5 +23,6 @@ export type Bindings = {
   CLASS_MODS: string;
 
   // Secrets
-  // Add any secrets here, e.g., JWT_SECRET: string;
+  FACEBOOK_APP_ID?: string;
+  FACEBOOK_APP_SECRET?: string;
 };

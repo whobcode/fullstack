@@ -41,7 +41,6 @@ binding = "JOBS_QUEUE"
 [[queues.consumers]]
 queue = "background-jobs"
 max_batch_size = 10
-max_wait_time_ms = 5000
 
 # Cron Triggers
 # https://developers.cloudflare.com/workers/wrangler/configuration/#cron-triggers
@@ -68,9 +67,6 @@ CLASS_MODS = """
 
 [placement]
 mode = "smart"
-
-[build]
-command = "npm run build"
 
 # The `new_classes` field is required by wrangler for the first migration that introduces Durable Objects.
 [[migrations]]

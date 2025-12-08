@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 import { getCookie } from 'hono/cookie';
-import { Bindings } from '../../bindings';
+import type { Bindings } from '../../bindings';
 import { hashToken } from '../../lib/session';
 
 // This is a simplified user type for the context
