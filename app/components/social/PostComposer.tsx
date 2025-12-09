@@ -30,27 +30,27 @@ export function PostComposer({ onPostCreated }: Props) {
 
   if (!isAuthenticated) {
     return (
-      <div className="rounded-2xl beveled-panel p-4 text-sm text-shade-red-200">
-        Log in to post battle reports and guild updates.
+      <div className="rounded-2xl social-panel p-4 text-sm text-social-navy-500">
+        Log in to share updates with your network.
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl beveled-panel p-4">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl social-panel p-4">
       <textarea
-        className="w-full rounded-xl neon-border bg-shade-black-900 px-3 py-2 text-sm text-shade-red-100 focus:neon-glow outline-none transition-all"
+        className="w-full rounded-xl social-input px-3 py-2 text-sm"
         rows={3}
-        placeholder="Share your last raid, build, or trading tip..."
+        placeholder="What's on your mind?"
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      {error && <p className="text-xs neon-text">{error}</p>}
+      {error && <p className="text-xs text-social-orange-700">{error}</p>}
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-full bg-shade-black-900 neon-border px-4 py-2 text-sm font-semibold text-shade-red-600 hover:neon-glow-strong disabled:opacity-60 transition-all"
+          className="rounded-lg social-button px-4 py-2 text-sm font-semibold disabled:opacity-60"
         >
           {submitting ? "Posting..." : "Post"}
         </button>

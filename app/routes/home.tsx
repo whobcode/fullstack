@@ -3,8 +3,8 @@ import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "me.shade - Everyone has a shade. This is where yours lives." },
-    { name: "description", content: "A mysterious, neon-lit social RPG platform where everyone's shade can thrive." },
+    { title: "hwmnbn - Connect. Share. Belong." },
+    { name: "description", content: "A social platform to connect with friends, share updates, and build community." },
   ];
 }
 

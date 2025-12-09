@@ -49,15 +49,15 @@ export function CommentList({ postId, onCommentAdded }: Props) {
   return (
     <div className="mt-3 space-y-3">
       {loading ? (
-        <p className="text-sm text-shade-red-300 neon-pulse">Loading comments...</p>
+        <p className="text-sm text-social-navy-400">Loading comments...</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-shade-red-400">No comments yet.</p>
+        <p className="text-sm text-social-navy-400">No comments yet.</p>
       ) : (
         <ul className="space-y-2">
           {comments.map((c) => (
-            <li key={c.id} className="rounded-xl bg-shade-black-600 neon-border px-3 py-2">
-              <p className="text-xs text-shade-red-400">{c.author_username}</p>
-              <p className="text-sm text-shade-red-200">{c.body}</p>
+            <li key={c.id} className="rounded-xl bg-social-cream-200 border border-social-cream-400 px-3 py-2">
+              <p className="text-xs text-social-navy-500">{c.author_username}</p>
+              <p className="text-sm text-social-navy-600">{c.body}</p>
             </li>
           ))}
         </ul>
@@ -66,21 +66,21 @@ export function CommentList({ postId, onCommentAdded }: Props) {
       {isAuthenticated ? (
         <form onSubmit={handleSubmit} className="space-y-2">
           <textarea
-            className="w-full rounded-lg neon-border bg-shade-black-900 px-3 py-2 text-sm text-shade-red-100 focus:neon-glow outline-none transition-all"
+            className="w-full rounded-lg social-input px-3 py-2 text-sm"
             rows={2}
-            placeholder="Add a comment"
+            placeholder="Add a comment..."
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
-          {error && <p className="text-xs neon-text">{error}</p>}
+          {error && <p className="text-xs text-social-orange-700">{error}</p>}
           <div className="flex justify-end">
-            <button className="rounded-full bg-shade-black-900 neon-border px-3 py-1 text-xs font-semibold text-shade-red-200 hover:neon-glow transition-all">
+            <button className="rounded-lg social-button px-3 py-1 text-xs font-semibold">
               Comment
             </button>
           </div>
         </form>
       ) : (
-        <p className="text-xs text-shade-red-400">Log in to comment.</p>
+        <p className="text-xs text-social-navy-400">Log in to comment.</p>
       )}
     </div>
   );

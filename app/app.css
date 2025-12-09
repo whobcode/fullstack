@@ -44,6 +44,86 @@
   --color-shade-black-800: #050505;
   --color-shade-black-900: #000000;
   --color-shade-black-950: #000000;
+
+  /* Social Color Palette */
+  --color-social-orange-dark: #FF8C00;
+  --color-social-orange: #FFA500;
+  --color-social-gold: #FFD700;
+  --color-social-goldenrod: #DAA520;
+  --color-social-cream-light: #FFFAF0;
+  --color-social-cream: #FFF8DC;
+  --color-social-blue-electric: #00BFFF;
+  --color-social-blue-bright: #1E90FF;
+  --color-social-navy: #000080;
+  --color-social-navy-dark: #191970;
+  --color-social-orange-glow: rgba(255, 140, 0, 0.5);
+  --color-social-gold-glow: rgba(255, 215, 0, 0.5);
+  --color-social-blue-glow: rgba(0, 191, 255, 0.5);
+
+  /* Social Orange Scale */
+  --color-social-orange-50: #FFF5E6;
+  --color-social-orange-100: #FFE5CC;
+  --color-social-orange-200: #FFCC99;
+  --color-social-orange-300: #FFB266;
+  --color-social-orange-400: #FF9933;
+  --color-social-orange-500: #FFA500;
+  --color-social-orange-600: #FF8C00;
+  --color-social-orange-700: #CC7000;
+  --color-social-orange-800: #995400;
+  --color-social-orange-900: #663800;
+  --color-social-orange-950: #331C00;
+
+  /* Social Gold Scale */
+  --color-social-gold-50: #FFFEF5;
+  --color-social-gold-100: #FFFACC;
+  --color-social-gold-200: #FFF599;
+  --color-social-gold-300: #FFEB66;
+  --color-social-gold-400: #FFE033;
+  --color-social-gold-500: #FFD700;
+  --color-social-gold-600: #DAA520;
+  --color-social-gold-700: #B8860B;
+  --color-social-gold-800: #8B6914;
+  --color-social-gold-900: #5E4609;
+  --color-social-gold-950: #2F2305;
+
+  /* Social Cream Scale */
+  --color-social-cream-50: #FFFEFB;
+  --color-social-cream-100: #FFFDF5;
+  --color-social-cream-200: #FFFAF0;
+  --color-social-cream-300: #FFF8DC;
+  --color-social-cream-400: #FFF4C8;
+  --color-social-cream-500: #FFF0B4;
+  --color-social-cream-600: #FFECA0;
+  --color-social-cream-700: #E6D28F;
+  --color-social-cream-800: #CCB87E;
+  --color-social-cream-900: #998A5F;
+  --color-social-cream-950: #66593F;
+
+  /* Social Electric Blue Scale */
+  --color-social-blue-50: #E6F7FF;
+  --color-social-blue-100: #CCF0FF;
+  --color-social-blue-200: #99E0FF;
+  --color-social-blue-300: #66D1FF;
+  --color-social-blue-400: #33C1FF;
+  --color-social-blue-500: #00BFFF;
+  --color-social-blue-600: #1E90FF;
+  --color-social-blue-700: #0073CC;
+  --color-social-blue-800: #005699;
+  --color-social-blue-900: #003A66;
+  --color-social-blue-950: #001D33;
+
+  /* Social Navy Scale */
+  --color-social-navy-50: #E6E6F0;
+  --color-social-navy-100: #CCCCDB;
+  --color-social-navy-200: #9999B8;
+  --color-social-navy-300: #666694;
+  --color-social-navy-400: #333371;
+  --color-social-navy-500: #000080;
+  --color-social-navy-600: #191970;
+  --color-social-navy-700: #14145A;
+  --color-social-navy-800: #0F0F43;
+  --color-social-navy-900: #0A0A2D;
+  --color-social-navy-950: #050516;
 }
 
 /* Neon Glow Animations */
@@ -174,6 +254,274 @@
   border: 2px solid var(--color-neon-red);
   box-shadow: 0 0 10px var(--color-neon-red-glow),
               inset 0 0 10px var(--color-neon-red-glow);
+}
+
+/* ============================================ */
+/* Social Theme Utility Classes */
+/* ============================================ */
+
+/* Social Panel Backgrounds */
+.social-panel {
+  background: linear-gradient(135deg, var(--color-social-orange-dark) 0%, var(--color-social-gold) 100%);
+  border: 1px solid var(--color-social-gold);
+  box-shadow: 0 0 10px var(--color-social-gold-glow),
+              inset 0 0 10px rgba(255, 215, 0, 0.1);
+}
+
+.social-panel-alt {
+  background: linear-gradient(135deg, var(--color-social-navy-dark) 0%, var(--color-social-navy) 50%, var(--color-social-blue-bright) 100%);
+  border: 1px solid var(--color-social-blue-electric);
+  box-shadow: 0 0 10px var(--color-social-blue-glow),
+              inset 0 0 10px rgba(0, 191, 255, 0.1);
+}
+
+.social-panel-cream {
+  background: linear-gradient(135deg, var(--color-social-cream) 0%, var(--color-social-cream-light) 100%);
+  border: 1px solid var(--color-social-gold);
+  box-shadow: 0 0 5px var(--color-social-gold-glow);
+}
+
+/* Social Borders */
+.social-border {
+  border: 1px solid var(--color-social-gold);
+  box-shadow: 0 0 5px var(--color-social-gold-glow),
+              inset 0 0 5px var(--color-social-gold-glow);
+}
+
+.social-border-thick {
+  border: 2px solid var(--color-social-gold);
+  box-shadow: 0 0 10px var(--color-social-gold-glow),
+              inset 0 0 10px var(--color-social-gold-glow);
+}
+
+.social-border-blue {
+  border: 1px solid var(--color-social-blue-electric);
+  box-shadow: 0 0 5px var(--color-social-blue-glow),
+              inset 0 0 5px var(--color-social-blue-glow);
+}
+
+.social-border-blue-thick {
+  border: 2px solid var(--color-social-blue-electric);
+  box-shadow: 0 0 10px var(--color-social-blue-glow),
+              inset 0 0 10px var(--color-social-blue-glow);
+}
+
+.social-border-orange {
+  border: 1px solid var(--color-social-orange);
+  box-shadow: 0 0 5px var(--color-social-orange-glow),
+              inset 0 0 5px var(--color-social-orange-glow);
+}
+
+/* Social Glow Effects */
+.social-glow {
+  box-shadow: 0 0 5px var(--color-social-gold-glow),
+              0 0 10px var(--color-social-gold-glow),
+              0 0 15px var(--color-social-gold-glow);
+}
+
+.social-glow-strong {
+  box-shadow: 0 0 10px var(--color-social-gold),
+              0 0 20px var(--color-social-gold-glow),
+              0 0 30px var(--color-social-gold-glow),
+              0 0 40px var(--color-social-gold-glow);
+}
+
+.social-glow-blue {
+  box-shadow: 0 0 5px var(--color-social-blue-glow),
+              0 0 10px var(--color-social-blue-glow),
+              0 0 15px var(--color-social-blue-glow);
+}
+
+.social-glow-blue-strong {
+  box-shadow: 0 0 10px var(--color-social-blue-electric),
+              0 0 20px var(--color-social-blue-glow),
+              0 0 30px var(--color-social-blue-glow),
+              0 0 40px var(--color-social-blue-glow);
+}
+
+.social-glow-orange {
+  box-shadow: 0 0 5px var(--color-social-orange-glow),
+              0 0 10px var(--color-social-orange-glow),
+              0 0 15px var(--color-social-orange-glow);
+}
+
+/* Social Text Effects */
+.social-text {
+  background: linear-gradient(90deg, var(--color-social-orange) 0%, var(--color-social-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 5px var(--color-social-gold-glow);
+}
+
+.social-text-gold {
+  color: var(--color-social-gold);
+  text-shadow: 0 0 5px var(--color-social-gold-glow),
+               0 0 10px var(--color-social-gold-glow);
+}
+
+.social-text-gold-strong {
+  color: var(--color-social-gold);
+  text-shadow: 0 0 10px var(--color-social-gold),
+               0 0 20px var(--color-social-gold-glow),
+               0 0 30px var(--color-social-gold-glow);
+}
+
+.social-text-blue {
+  color: var(--color-social-blue-electric);
+  text-shadow: 0 0 5px var(--color-social-blue-glow),
+               0 0 10px var(--color-social-blue-glow);
+}
+
+.social-text-blue-strong {
+  color: var(--color-social-blue-bright);
+  text-shadow: 0 0 10px var(--color-social-blue-electric),
+               0 0 20px var(--color-social-blue-glow),
+               0 0 30px var(--color-social-blue-glow);
+}
+
+.social-text-orange {
+  color: var(--color-social-orange);
+  text-shadow: 0 0 5px var(--color-social-orange-glow),
+               0 0 10px var(--color-social-orange-glow);
+}
+
+/* Social Animations */
+@keyframes social-gold-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px var(--color-social-gold))
+            drop-shadow(0 0 5px var(--color-social-gold-glow))
+            drop-shadow(0 0 10px var(--color-social-gold-glow));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 4px var(--color-social-gold))
+            drop-shadow(0 0 8px var(--color-social-gold-glow))
+            drop-shadow(0 0 15px var(--color-social-gold-glow));
+  }
+}
+
+@keyframes social-blue-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px var(--color-social-blue-electric))
+            drop-shadow(0 0 5px var(--color-social-blue-glow))
+            drop-shadow(0 0 10px var(--color-social-blue-glow));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 4px var(--color-social-blue-electric))
+            drop-shadow(0 0 8px var(--color-social-blue-glow))
+            drop-shadow(0 0 15px var(--color-social-blue-glow));
+  }
+}
+
+@keyframes social-breathing-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--color-social-gold-glow),
+                0 0 10px var(--color-social-gold-glow),
+                inset 0 0 10px var(--color-social-gold-glow);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--color-social-gold-glow),
+                0 0 20px var(--color-social-gold-glow),
+                inset 0 0 15px var(--color-social-gold-glow);
+  }
+}
+
+.social-pulse-gold {
+  animation: social-gold-pulse 2s ease-in-out infinite;
+}
+
+.social-pulse-blue {
+  animation: social-blue-pulse 2s ease-in-out infinite;
+}
+
+.social-breathing-glow {
+  animation: social-breathing-glow 3s ease-in-out infinite;
+}
+
+/* Social Glass Panel */
+.social-glass-panel {
+  background: rgba(255, 140, 0, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-social-gold);
+  box-shadow: 0 0 20px var(--color-social-gold-glow),
+              inset 0 0 20px rgba(255, 215, 0, 0.05);
+}
+
+.social-glass-panel-blue {
+  background: rgba(0, 191, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-social-blue-electric);
+  box-shadow: 0 0 20px var(--color-social-blue-glow),
+              inset 0 0 20px rgba(0, 191, 255, 0.05);
+}
+
+/* Social Navigation */
+.social-nav {
+  background: linear-gradient(135deg, var(--color-social-cream-100) 0%, var(--color-social-cream-200) 100%);
+  border-bottom: 2px solid var(--color-social-gold-400);
+  box-shadow: 0 2px 10px rgba(218, 165, 32, 0.2);
+}
+
+/* Social Buttons */
+.social-button {
+  background: linear-gradient(135deg, var(--color-social-orange-500) 0%, var(--color-social-gold-500) 100%);
+  color: white;
+  font-weight: 600;
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(255, 140, 0, 0.3);
+}
+
+.social-button:hover {
+  background: linear-gradient(135deg, var(--color-social-orange-600) 0%, var(--color-social-gold-600) 100%);
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.social-button-outline {
+  background: transparent;
+  color: var(--color-social-navy-600);
+  font-weight: 500;
+  border: 2px solid var(--color-social-gold-400);
+  transition: all 0.2s ease;
+}
+
+.social-button-outline:hover {
+  background: var(--color-social-cream-200);
+  border-color: var(--color-social-orange-500);
+  color: var(--color-social-orange-600);
+}
+
+/* Social Input Fields */
+.social-input {
+  background: var(--color-social-cream-100);
+  border: 2px solid var(--color-social-cream-300);
+  color: var(--color-social-navy-700);
+  transition: all 0.2s ease;
+}
+
+.social-input:focus {
+  outline: none;
+  border-color: var(--color-social-gold-400);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+}
+
+.social-input::placeholder {
+  color: var(--color-social-navy-400);
+}
+
+/* Social Link */
+.social-link {
+  color: var(--color-social-navy-600);
+  transition: color 0.2s ease;
+}
+
+.social-link:hover {
+  color: var(--color-social-orange-600);
 }
 
 html,

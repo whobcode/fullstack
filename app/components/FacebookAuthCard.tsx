@@ -90,22 +90,22 @@ export function FacebookAuthCard({
 
   if (!appId) {
     return (
-      <div className="rounded-2xl neon-border bg-shade-black-500 px-4 py-3 text-sm text-shade-red-200">
+      <div className="rounded-2xl border border-social-cream-400 bg-social-cream-200 px-4 py-3 text-sm text-social-navy-500">
         Add `VITE_FACEBOOK_APP_ID` to enable Facebook SSO ({endpointHint}).
       </div>
     );
   }
 
   if (!isClient) {
-    return <div className="h-24 w-full rounded-2xl bg-shade-black-600 neon-border animate-pulse" aria-hidden />;
+    return <div className="h-24 w-full rounded-2xl bg-social-cream-200 border border-social-cream-400 animate-pulse" aria-hidden />;
   }
 
   return (
-    <div className="space-y-3 rounded-2xl beveled-panel p-4 shadow">
+    <div className="space-y-3 rounded-2xl social-panel p-4 shadow">
       <div>
-        <p className="text-xs uppercase tracking-wide text-shade-red-600">Social login</p>
-        <h3 className="text-lg font-semibold neon-text">{title}</h3>
-        <p className="text-xs text-shade-red-400">Uses Facebook JS SDK; posts token to {endpointHint}</p>
+        <p className="text-xs uppercase tracking-wide text-social-gold-600">Social login</p>
+        <h3 className="text-lg font-semibold text-social-navy-700">{title}</h3>
+        <p className="text-xs text-social-navy-400">Quick and easy sign in with your Facebook account</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -114,13 +114,13 @@ export function FacebookAuthCard({
           disabled={!isClient || isBusy}
           className="inline-flex items-center gap-2 rounded-full bg-[#1877f2] px-4 py-2 text-sm font-semibold text-white shadow hover:bg-[#0f6ae0] disabled:opacity-60 transition-all"
         >
-          {isBusy ? "Connecting…" : "Continue with Facebook"}
+          {isBusy ? "Connecting..." : "Continue with Facebook"}
         </button>
       </div>
 
-      {error && <p className="text-xs neon-text">{error}</p>}
+      {error && <p className="text-xs text-social-orange-700">{error}</p>}
 
-      <p className="text-[11px] text-shade-red-400">We'll exchange the Facebook access token at {endpointHint}.</p>
+      <p className="text-[11px] text-social-navy-400">By continuing, you agree to our terms of service.</p>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export default function PlayersPage() {
     const handleChallenge = async (defenderId: string) => {
         try {
             const res = await apiClient.post<{ data: { battleId: string }}>('/game/battles', { defenderId, mode: 'async' });
-            navigate(`/battles/${res.data.battleId}`);
+            navigate(`/shade/battles/${res.data.battleId}`);
         } catch (err: any) {
             alert(`Failed to create battle: ${err.message}`);
         }

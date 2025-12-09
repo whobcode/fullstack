@@ -10,8 +10,8 @@ type Props = {
 
 const reactionLabels: { kind: ReactionKind; label: string }[] = [
   { kind: "like", label: "Like" },
-  { kind: "hype", label: "Hype" },
-  { kind: "gg", label: "GG" },
+  { kind: "hype", label: "Love" },
+  { kind: "gg", label: "Celebrate" },
 ];
 
 export function PostCard({ post }: Props) {
@@ -40,34 +40,34 @@ export function PostCard({ post }: Props) {
   };
 
   return (
-    <article className="rounded-2xl beveled-panel p-5 shadow">
+    <article className="rounded-2xl social-panel p-5 shadow">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-shade-red-100">{post.author_username}</p>
-          <p className="text-xs text-shade-red-400">{new Date(post.created_at).toLocaleString()}</p>
+          <p className="text-sm font-semibold text-social-navy-700">{post.author_username}</p>
+          <p className="text-xs text-social-navy-400">{new Date(post.created_at).toLocaleString()}</p>
         </div>
       </header>
-      <p className="mt-3 text-shade-red-200 whitespace-pre-wrap">{post.body}</p>
+      <p className="mt-3 text-social-navy-600 whitespace-pre-wrap">{post.body}</p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-shade-red-200">
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
         {reactionLabels.map(({ kind, label }) => (
           <button
             key={kind}
             onClick={() => react(kind)}
-            className="rounded-full bg-shade-black-900 neon-border px-3 py-1 hover:neon-glow transition-all"
+            className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-navy-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
           >
-            {label} • {counts[kind] ?? 0}
+            {label} {counts[kind] ?? 0}
           </button>
         ))}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-shade-black-900 neon-border px-3 py-1 hover:neon-glow transition-all"
+          className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-navy-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
         >
-          Comments • {counts.comments}
+          Comments {counts.comments}
         </button>
       </div>
 
-      {error && <p className="mt-2 text-xs neon-text">{error}</p>}
+      {error && <p className="mt-2 text-xs text-social-orange-700">{error}</p>}
 
       {expanded && (
         <CommentList

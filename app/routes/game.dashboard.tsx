@@ -15,7 +15,8 @@ function FirstAccessWizard({ onSetupComplete }: { onSetupComplete: () => void })
             await apiClient.post('/game/first-access', { gamertag, class: selectedClass });
             onSetupComplete();
         } catch (err: any) {
-            setError(err.message);
+            const errorMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'An error occurred');
+            setError(errorMsg);
         }
     };
 
@@ -186,7 +187,7 @@ export default function GameDashboardPage() {
                      <h2 className="text-xl font-semibold neon-text">Active Battles</h2>
                      <div className="space-y-2 mt-2">
                         {battles.length > 0 ? battles.map(b => (
-                            <Link to={`/battles/${b.id}`} key={b.id} className="block p-2 bg-shade-black-600 neon-border hover:neon-glow transition-all rounded">
+                            <Link to={`/shade/battles/${b.id}`} key={b.id} className="block p-2 bg-shade-black-600 neon-border hover:neon-glow transition-all rounded">
                                 <p className="text-shade-red-100">vs. {b.defender_char_id === character.id ? b.attacker_char_id : b.defender_char_id}</p>
                                 <p className="text-sm text-shade-black-400">Status: {b.state}</p>
                             </Link>
