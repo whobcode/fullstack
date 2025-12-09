@@ -29,6 +29,7 @@ export function CommentList({ postId, onCommentAdded }: Props) {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -22,6 +22,7 @@ export default function MyProfilePage() {
       }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +31,9 @@ export default function MyProfilePage() {
     setError(null);
     try {
       await apiClient.put("/users/me", { username, bio, avatar_url: avatarUrl });
-      login({ ...(user || { id: "" }), username });
+      if (user) {
+        login({ ...user, username });
+      }
       setStatus("Saved");
     } catch (err: any) {
       setError(err.message);

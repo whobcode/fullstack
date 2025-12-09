@@ -26,6 +26,7 @@ export default function BattlePage() {
 
     useEffect(() => {
         fetchBattle();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [battleId]);
 
     const handleTakeTurn = async () => {

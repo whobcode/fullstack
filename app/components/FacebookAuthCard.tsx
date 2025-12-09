@@ -49,6 +49,9 @@ export function FacebookAuthCard({
         version: "v20.0",
       });
     };
+    js.onerror = () => {
+      setError("Failed to load Facebook SDK");
+    };
     document.body.appendChild(js);
   }, [isClient, appId]);
 

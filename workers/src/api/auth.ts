@@ -169,12 +169,15 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
 async function generateUniqueUsername(db: D1Database, base: string): Promise<string> {
   let candidate = base || 'player';
   let suffix = 0;
-  while (true) {
+  const MAX_ATTEMPTS = 10000;
+  while (suffix < MAX_ATTEMPTS) {
     const exists = await db.prepare('SELECT 1 FROM users WHERE username = ?').bind(candidate).first();
     if (!exists) return candidate;
     suffix += 1;
     candidate = `${base}${suffix}`;
   }
+  // Fallback: use timestamp if we exhausted attempts
+  return `${base}_${Date.now()}`;
 }
 
 auth.post('/logout', authMiddleware, async (c) => {

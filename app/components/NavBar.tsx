@@ -36,7 +36,8 @@ export function NavBar() {
           <div className="flex items-center space-x-4">
             <span className="font-semibold">Game</span>
             <Link to="/game/dashboard" className="hover:text-gray-300">Dashboard</Link>
-            <Link to="/game/players" className="hover:text-gray-300">Find Battle</Link>
+            <Link to="/game/storm8" className="hover:text-gray-300">Battle</Link>
+            <Link to="/game/players" className="hover:text-gray-300">Find Players</Link>
             <Link to="/game/leaderboard" className="hover:text-gray-300">Leaderboard</Link>
           </div>
         </div>

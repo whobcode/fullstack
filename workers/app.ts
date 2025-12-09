@@ -27,6 +27,33 @@ export default {
   async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(handleScheduled(env));
   },
+  async queue(batch: MessageBatch<any>, env: Bindings, ctx: ExecutionContext): Promise<void> {
+    // Process background jobs from the queue
+    for (const message of batch.messages) {
+      try {
+        const job = message.body;
+        console.log('Processing job:', job);
+
+        // Handle different job types
+        switch (job.type) {
+          case 'battle_resolution':
+            // Process battle resolution in background
+            // This can be implemented later when needed
+            break;
+          case 'xp_accrual':
+            // Process XP accrual
+            break;
+          default:
+            console.warn('Unknown job type:', job.type);
+        }
+
+        message.ack();
+      } catch (error) {
+        console.error('Error processing queue message:', error);
+        message.retry();
+      }
+    }
+  },
 };
 
 // Export Durable Objects for Wrangler bindings

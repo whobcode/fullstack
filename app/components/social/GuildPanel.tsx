@@ -19,6 +19,7 @@ export function GuildPanel() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const join = async (id: string) => {

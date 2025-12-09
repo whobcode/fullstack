@@ -25,7 +25,8 @@ export default function PlayersPage() {
         if (user?.characterId) {
             fetchPlayers();
         }
-    }, [user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.characterId]);
 
     const handleChallenge = async (defenderId: string) => {
         try {

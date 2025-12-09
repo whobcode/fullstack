@@ -131,6 +131,7 @@ export default function GameDashboardPage() {
 
     useEffect(() => {
         fetchCharacter();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchBattles = async () => {
@@ -146,6 +147,7 @@ export default function GameDashboardPage() {
         if (character?.first_game_access_completed) {
             fetchBattles();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character?.first_game_access_completed]);
 
     if (loading) return <div>Loading...</div>;
