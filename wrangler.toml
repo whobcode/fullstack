@@ -39,21 +39,14 @@ routes = [
 #   /api/game/*          - Game features (character, battles)
 
 # Observability Configuration
-# Enable logging and tracing for debugging and monitoring
+# Enable logging for debugging and monitoring
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]
 enabled = true
-head_sampling_rate = 1
-persist = true
 invocation_logs = true
-
-[observability.traces]
-enabled = true
-persist = true
-head_sampling_rate = 1
 
 # Bindings
 # These allow your Worker to interact with Cloudflare resources.
