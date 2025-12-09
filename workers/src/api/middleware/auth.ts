@@ -3,11 +3,17 @@ import { getCookie } from 'hono/cookie';
 import type { Bindings } from '../../bindings';
 import { hashToken } from '../../lib/session';
 
-// This is a simplified user type for the context
+// User type for authenticated context with Facebook profile data
 export type AuthenticatedUser = {
   id: string;
   email: string;
-  username:string;
+  username: string;
+  avatar_url?: string;
+  bio?: string;
+  cover_photo_url?: string;
+  fb_about?: string;
+  fb_location?: string;
+  fb_data_synced_at?: string;
 };
 
 // We extend the Hono context with the user and variables
@@ -42,7 +48,7 @@ export const authMiddleware = createMiddleware<AuthContext & { Bindings: Binding
       }
 
       const user = await db
-        .prepare('SELECT id, email, username FROM users WHERE id = ?')
+        .prepare('SELECT id, email, username, avatar_url, bio, cover_photo_url, fb_about, fb_location, fb_data_synced_at FROM users WHERE id = ?')
         .bind(session.user_id)
         .first<AuthenticatedUser>();
 

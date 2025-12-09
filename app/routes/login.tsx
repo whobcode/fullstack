@@ -46,60 +46,75 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-12">
-            <div className="max-w-3xl mx-auto space-y-5 px-4">
-                <div className="rounded-3xl social-panel p-6 shadow-xl">
-                    <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Welcome back</p>
-                    <h1 className="text-3xl font-bold text-social-navy-700 mb-2">Sign In</h1>
-                    <p className="text-social-navy-500">Access your account with email/password or Facebook.</p>
+        <div className="min-h-screen bg-social-cream-100 flex items-center justify-center py-12 px-4">
+            <div className="w-full max-w-md">
+                {/* Logo */}
+                <div className="text-center mb-8">
+                    <Link to="/" className="text-6xl font-bold text-social-blue-600">me</Link>
+                    <p className="text-social-navy-500 mt-2">Log in to see updates from friends</p>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-2">
-                    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl social-panel p-5 shadow">
-                        <div>
-                            <label className="block text-sm text-social-navy-600 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-lg social-input"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-social-navy-600 mb-1">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 rounded-lg social-input"
-                                required
-                            />
-                        </div>
-                        {error && <p className="text-social-orange-700 text-sm">{error}</p>}
+                {/* Login Card */}
+                <div className="bg-white rounded-lg shadow-xl p-6 space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-3">
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email address"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            required
+                        />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            required
+                        />
+                        {error && <p className="text-red-500 text-sm">{error}</p>}
                         <button
                             type="submit"
-                            className="w-full social-button p-3 rounded-lg font-semibold"
+                            className="w-full bg-social-blue-600 hover:bg-social-blue-700 text-white text-xl font-bold py-3 rounded-lg transition-colors"
                         >
-                            Sign In
+                            Log In
                         </button>
-                        <p className="text-center text-sm text-social-navy-500">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="text-social-orange-600 hover:text-social-orange-700 font-medium">
-                                Register
-                            </Link>
-                        </p>
                     </form>
+
+                    <div className="text-center">
+                        <Link to="/login" className="text-social-blue-600 hover:underline text-sm">
+                            Forgotten password?
+                        </Link>
+                    </div>
+
+                    <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500">or</span>
+                        </div>
+                    </div>
 
                     <FacebookAuthCard
                         onAuthenticated={handleFacebookAuth}
-                        title="Connect with Facebook"
+                        title="Continue with Facebook"
                         endpointHint={import.meta.env.VITE_FACEBOOK_AUTH_ENDPOINT || "/auth/facebook"}
                     />
+
+                    <div className="border-t border-gray-300 pt-4 mt-4">
+                        <Link
+                            to="/register"
+                            className="block w-full bg-social-gold-500 hover:bg-social-gold-600 text-white text-lg font-bold py-3 rounded-lg text-center transition-colors"
+                        >
+                            Create New Account
+                        </Link>
+                    </div>
                 </div>
 
                 {isSocialBusy && (
-                    <div className="text-sm text-social-navy-500">Finishing Facebook sign-in...</div>
+                    <div className="text-center mt-4 text-social-navy-500">Signing in with Facebook...</div>
                 )}
             </div>
         </div>

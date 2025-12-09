@@ -10,7 +10,7 @@ export default function ShadeIndexPage() {
         {/* Neon Silhouette Logo Area */}
         <div className="mb-8">
           <h1 className="text-7xl font-bold neon-text-strong neon-pulse tracking-wider mb-4">
-            SHADE
+            .shade
           </h1>
           <div className="w-32 h-32 mx-auto silhouette-avatar rounded-full breathing-glow mb-6" />
         </div>

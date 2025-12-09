@@ -3,8 +3,8 @@ import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "hwmnbn - Connect. Share. Belong." },
-    { name: "description", content: "A social platform to connect with friends, share updates, and build community." },
+    { title: "me - Connect with friends and the world around you" },
+    { name: "description", content: "me helps you connect and share with the people in your life." },
   ];
 }
 

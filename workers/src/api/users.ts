@@ -72,7 +72,7 @@ users.get('/:id/profile', async (c) => {
 
   const profile = await db
     .prepare(
-      'SELECT username, avatar_url, bio, created_at FROM users WHERE id = ?'
+      'SELECT username, avatar_url, bio, cover_photo_url, fb_about, fb_location, created_at FROM users WHERE id = ?'
     )
     .bind(id)
     .first();

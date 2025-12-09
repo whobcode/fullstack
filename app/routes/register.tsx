@@ -33,7 +33,7 @@ export default function RegisterPage() {
             if (needsUsername || (res as any)?.data?.needs_username_confirmation) {
                 navigate('/profile/me');
             } else {
-                navigate('/login');
+                navigate('/feed');
             }
         } catch (err: any) {
             setError(err.message ?? 'Facebook signup failed');
@@ -43,67 +43,79 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-12">
-            <div className="max-w-3xl mx-auto space-y-5 px-4">
-                <div className="rounded-3xl social-panel p-6 shadow-xl">
-                    <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Join us</p>
-                    <h1 className="text-3xl font-bold text-social-navy-700 mb-2">Create Account</h1>
-                    <p className="text-social-navy-500">Start connecting with friends and sharing your story.</p>
+        <div className="min-h-screen bg-social-cream-100 flex items-center justify-center py-12 px-4">
+            <div className="w-full max-w-md">
+                {/* Logo */}
+                <div className="text-center mb-8">
+                    <Link to="/" className="text-6xl font-bold text-social-blue-600">me</Link>
+                    <p className="text-social-navy-500 mt-2">It's quick and easy.</p>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-2">
-                    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl social-panel p-5 shadow">
-                        <div>
-                            <label className="block text-sm text-social-navy-600 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-lg social-input"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-social-navy-600 mb-1">Username</label>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full p-3 rounded-lg social-input"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-social-navy-600 mb-1">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 rounded-lg social-input"
-                                required
-                            />
-                        </div>
-                        {error && <p className="text-social-orange-700 text-sm">{error}</p>}
-                        <button type="submit" className="w-full social-button p-3 rounded-lg font-semibold">
-                            Create Account
-                        </button>
-                        <p className="text-center text-sm text-social-navy-500">
-                            Already have an account?{' '}
-                            <Link to="/login" className="text-social-orange-600 hover:text-social-orange-700 font-medium">
-                                Sign In
-                            </Link>
+                {/* Register Card */}
+                <div className="bg-white rounded-lg shadow-xl p-6 space-y-4">
+                    <h2 className="text-2xl font-bold text-social-navy-700 text-center">Create a new account</h2>
+
+                    <form onSubmit={handleSubmit} className="space-y-3">
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Username"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            required
+                        />
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email address"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            required
+                        />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="New password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            required
+                        />
+                        <p className="text-xs text-gray-500">
+                            By clicking Sign Up, you agree to our Terms, Privacy Policy and Cookies Policy.
                         </p>
+                        {error && <p className="text-red-500 text-sm">{error}</p>}
+                        <button
+                            type="submit"
+                            className="w-full bg-social-gold-500 hover:bg-social-gold-600 text-white text-xl font-bold py-3 rounded-lg transition-colors"
+                        >
+                            Sign Up
+                        </button>
                     </form>
+
+                    <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500">or</span>
+                        </div>
+                    </div>
 
                     <FacebookAuthCard
                         onAuthenticated={handleFacebookAuth}
                         title="Sign up with Facebook"
                         endpointHint={import.meta.env.VITE_FACEBOOK_AUTH_ENDPOINT || "/auth/facebook"}
                     />
+
+                    <div className="text-center pt-4 border-t border-gray-300 mt-4">
+                        <Link to="/login" className="text-social-blue-600 hover:underline font-medium">
+                            Already have an account?
+                        </Link>
+                    </div>
                 </div>
 
                 {isSocialBusy && (
-                    <div className="text-sm text-social-navy-500">Creating account via Facebook...</div>
+                    <div className="text-center mt-4 text-social-navy-500">Creating account with Facebook...</div>
                 )}
             </div>
         </div>

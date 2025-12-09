@@ -109,7 +109,22 @@ import { authMiddleware } from './middleware/auth';
 import { deleteCookie, getCookie } from 'hono/cookie';
 import { hashToken } from '../lib/session';
 
-type FBProfile = { id: string; name?: string; email?: string };
+type FBProfile = {
+  id: string;
+  name?: string;
+  email?: string;
+  picture?: { data?: { url?: string } };
+  cover?: { source?: string };
+  about?: string;
+  location?: { name?: string };
+};
+
+type FBTokenDebugData = {
+  data?: {
+    is_valid?: boolean;
+    scopes?: string[];
+  };
+};
 
 async function fetchFacebookProfile(accessToken: string, appId?: string, appSecret?: string): Promise<FBProfile> {
   // If app credentials are present, validate the token
@@ -117,53 +132,105 @@ async function fetchFacebookProfile(accessToken: string, appId?: string, appSecr
     const appToken = `${appId}|${appSecret}`;
     const debugUrl = `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`;
     const dbg = await fetch(debugUrl);
-    const dbgJson = await dbg.json<any>();
+    const dbgJson = await dbg.json<FBTokenDebugData>();
     if (!dbg.ok || !dbgJson?.data?.is_valid) {
       throw new Error('Invalid Facebook token');
     }
   }
 
-  const profileUrl = `https://graph.facebook.com/me?fields=id,name,email&access_token=${accessToken}`;
+  // Fetch extended profile data including cover photo, picture, about, and location
+  const profileUrl = `https://graph.facebook.com/me?fields=id,name,email,picture.type(large),cover,about,location&access_token=${accessToken}`;
   const res = await fetch(profileUrl);
   const json = await res.json<FBProfile & { error?: any }>();
   if (!res.ok || json.error) {
     throw new Error('Failed to fetch Facebook profile');
   }
-  return { id: json.id, name: json.name, email: json.email };
+  return json;
 }
 
-type FBUserResult = { id: string; email: string; username: string; characterId: string | null; needs_username_confirmation: boolean };
+type FBUserResult = {
+  id: string;
+  email: string;
+  username: string;
+  characterId: string | null;
+  needs_username_confirmation: boolean;
+  avatar_url?: string;
+  cover_photo_url?: string;
+};
 
 async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promise<FBUserResult> {
+  const avatarUrl = profile.picture?.data?.url;
+  const coverPhotoUrl = profile.cover?.source;
+  const fbAbout = profile.about;
+  const fbLocation = profile.location?.name;
+  const rawProfileJson = JSON.stringify(profile);
+
   const existing = await db
-    .prepare(`SELECT u.id, u.email, u.username, c.id as characterId
+    .prepare(`SELECT u.id, u.email, u.username, u.avatar_url, u.cover_photo_url, c.id as characterId
               FROM oauth_accounts oa
               JOIN users u ON oa.user_id = u.id
               LEFT JOIN characters c ON c.user_id = u.id
               WHERE oa.provider = 'facebook' AND oa.provider_account_id = ?`)
     .bind(profile.id)
-    .first<{ id: string; email: string; username: string; characterId: string | null }>();
+    .first<{ id: string; email: string; username: string; avatar_url: string | null; cover_photo_url: string | null; characterId: string | null }>();
 
-  if (existing) return { ...existing, needs_username_confirmation: existing.username.startsWith('fb_') };
+  if (existing) {
+    // Update profile data on each login to keep it fresh
+    await db.prepare(`
+      UPDATE users SET
+        avatar_url = COALESCE(?, avatar_url),
+        cover_photo_url = COALESCE(?, cover_photo_url),
+        fb_about = COALESCE(?, fb_about),
+        fb_location = COALESCE(?, fb_location),
+        fb_data_synced_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(avatarUrl, coverPhotoUrl, fbAbout, fbLocation, existing.id).run();
 
+    // Update oauth_accounts with latest token scope and profile data
+    await db.prepare(`
+      UPDATE oauth_accounts SET
+        raw_profile_json = ?,
+        scope = ?
+      WHERE provider = 'facebook' AND provider_account_id = ?
+    `).bind(rawProfileJson, 'public_profile,email,user_photos,user_friends', profile.id).run();
+
+    return {
+      ...existing,
+      avatar_url: avatarUrl || existing.avatar_url || undefined,
+      cover_photo_url: coverPhotoUrl || existing.cover_photo_url || undefined,
+      needs_username_confirmation: existing.username.startsWith('fb_')
+    };
+  }
+
+  // New user - create account with Facebook profile data
   const userId = crypto.randomUUID();
   const characterId = crypto.randomUUID();
-  const email = profile.email ?? `fb_${profile.id}@facebook.local`; // fallback if email not granted
+  const email = profile.email ?? `fb_${profile.id}@facebook.local`;
   const baseUsername = (profile.name || 'fb_user').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'fbuser';
   const username = await generateUniqueUsername(db, baseUsername);
 
   const batch = [
-    db.prepare('INSERT INTO users (id, email, username, email_verified) VALUES (?, ?, ?, ?)')
-      .bind(userId, email, username, !!profile.email),
-    db.prepare('INSERT INTO oauth_accounts (id, user_id, provider, provider_account_id) VALUES (?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), userId, 'facebook', profile.id),
+    db.prepare(`INSERT INTO users (id, email, username, email_verified, avatar_url, cover_photo_url, fb_about, fb_location, fb_data_synced_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+      .bind(userId, email, username, !!profile.email, avatarUrl, coverPhotoUrl, fbAbout, fbLocation),
+    db.prepare(`INSERT INTO oauth_accounts (id, user_id, provider, provider_account_id, scope, raw_profile_json)
+                VALUES (?, ?, ?, ?, ?, ?)`)
+      .bind(crypto.randomUUID(), userId, 'facebook', profile.id, 'public_profile,email,user_photos,user_friends', rawProfileJson),
     db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
       .bind(characterId, userId, false),
     db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
       .bind(characterId),
   ];
   await db.batch(batch);
-  return { id: userId, email, username, characterId, needs_username_confirmation: true };
+  return {
+    id: userId,
+    email,
+    username,
+    characterId,
+    needs_username_confirmation: true,
+    avatar_url: avatarUrl,
+    cover_photo_url: coverPhotoUrl
+  };
 }
 
 async function generateUniqueUsername(db: D1Database, base: string): Promise<string> {
@@ -209,7 +276,17 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    return c.json({ data: { id: user.id, email: user.email, username: user.username, characterId: user.characterId, needs_username_confirmation: user.needs_username_confirmation } });
+    return c.json({
+      data: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        characterId: user.characterId,
+        needs_username_confirmation: user.needs_username_confirmation,
+        avatar_url: user.avatar_url,
+        cover_photo_url: user.cover_photo_url
+      }
+    });
   } catch (err: any) {
     console.error('Facebook auth failed:', err);
     return c.json({ error: 'Facebook authentication failed' }, 401);
