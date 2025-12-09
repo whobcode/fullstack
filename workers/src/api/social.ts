@@ -1,3 +1,7 @@
+/**
+ * @module social
+ * This module exports a Hono app for social features like posts, comments, reactions, and groups.
+ */
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../bindings';
@@ -12,7 +16,11 @@ type App = {
 
 const social = new Hono<App>();
 
-// Public feed
+/**
+ * Retrieves the public feed of posts.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the latest posts.
+ */
 social.get('/posts', async (c) => {
   const db = c.env.DB;
   const { results } = await db
@@ -33,7 +41,11 @@ social.get('/posts', async (c) => {
   return c.json({ data: results });
 });
 
-// Public comments fetch
+/**
+ * Retrieves the comments for a specific post.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the comments for the post.
+ */
 social.get('/posts/:id/comments', async (c) => {
   const db = c.env.DB;
   const { id } = c.req.param();
@@ -54,6 +66,11 @@ social.get('/posts/:id/comments', async (c) => {
 // Protected routes below
 social.use('*', authMiddleware);
 
+/**
+ * Creates a new post.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the new post's ID and body.
+ */
 social.post('/posts', zValidator('json', createPostSchema), async (c) => {
   const user = c.get('user');
   const { body } = c.req.valid('json');
@@ -68,6 +85,11 @@ social.post('/posts', zValidator('json', createPostSchema), async (c) => {
   return c.json({ data: { id, body } }, 201);
 });
 
+/**
+ * Creates a new comment on a post.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the new comment's ID.
+ */
 social.post('/posts/:id/comments', zValidator('json', createCommentSchema), async (c) => {
   const user = c.get('user');
   const { id } = c.req.param();
@@ -83,6 +105,11 @@ social.post('/posts/:id/comments', zValidator('json', createCommentSchema), asyn
   return c.json({ data: { id: commentId } }, 201);
 });
 
+/**
+ * Adds a reaction to a post.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response indicating success.
+ */
 social.post('/posts/:id/react', zValidator('json', reactSchema), async (c) => {
   const user = c.get('user');
   const { id } = c.req.param();
@@ -104,7 +131,11 @@ social.post('/posts/:id/react', zValidator('json', reactSchema), async (c) => {
   return c.json({ message: 'Reacted' }, 201);
 });
 
-// Groups / guilds
+/**
+ * Retrieves a list of groups.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing a list of groups.
+ */
 social.get('/groups', async (c) => {
   const db = c.env.DB;
   const { results } = await db
@@ -120,6 +151,11 @@ social.get('/groups', async (c) => {
   return c.json({ data: results });
 });
 
+/**
+ * Joins a group.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response indicating success.
+ */
 social.post('/groups/:id/join', async (c) => {
   const user = c.get('user');
   const { id } = c.req.param();

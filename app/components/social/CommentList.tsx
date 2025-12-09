@@ -3,11 +3,21 @@ import { apiClient } from "../../lib/api";
 import type { Comment } from "../../types/social";
 import { useAuth } from "../../lib/AuthContext";
 
+/**
+ * @typedef {object} Props
+ * @property {string} postId - The ID of the post to display comments for.
+ * @property {() => void} [onCommentAdded] - A callback function to be called when a comment is added.
+ */
 type Props = {
   postId: string;
   onCommentAdded?: () => void;
 };
 
+/**
+ * A component that displays a list of comments for a given post and allows authenticated users to add new comments.
+ * @param {Props} props - The props for the component.
+ * @returns {JSX.Element} The CommentList component.
+ */
 export function CommentList({ postId, onCommentAdded }: Props) {
   const { isAuthenticated } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);

@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 
+/**
+ * @typedef {object} FacebookAuthCardProps
+ * @property {(payload: { accessToken: string; userID?: string; needsUsername?: boolean }) => Promise<void> | void} [onAuthenticated] - Callback function to be called when the user is authenticated.
+ * @property {string} [title] - The title of the card.
+ * @property {string} [endpointHint] - A hint for the endpoint to be used for authentication.
+ */
 type FacebookAuthCardProps = {
   onAuthenticated?: (payload: { accessToken: string; userID?: string; needsUsername?: boolean }) => Promise<void> | void;
   title?: string;
@@ -14,6 +20,11 @@ declare global {
   }
 }
 
+/**
+ * A card component that provides a button to sign in with Facebook.
+ * @param {FacebookAuthCardProps} props - The props for the component.
+ * @returns {JSX.Element} The FacebookAuthCard component.
+ */
 export function FacebookAuthCard({
   onAuthenticated,
   title = "Sign in with Facebook",

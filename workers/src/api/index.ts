@@ -1,7 +1,16 @@
+/**
+ * @module api
+ * This module exports the main Hono app that aggregates all the API routes.
+ */
 import { Hono } from 'hono';
 
 const api = new Hono();
 
+/**
+ * The root endpoint of the API.
+ * @param {object} c - The Hono context object.
+ * @returns {Response} A JSON response with a welcome message.
+ */
 api.get('/', (c) => {
   return c.json({
     ok: true,

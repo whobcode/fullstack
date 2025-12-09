@@ -3,6 +3,10 @@ import { apiClient } from "../../lib/api";
 import type { Group } from "../../types/social";
 import { useAuth } from "../../lib/AuthContext";
 
+/**
+ * A component that displays a list of groups (guilds) and allows authenticated users to join them.
+ * @returns {JSX.Element} The GuildPanel component.
+ */
 export function GuildPanel() {
   const { isAuthenticated } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
