@@ -2,15 +2,203 @@
 
 @theme {
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Rajdhani", "Orbitron", "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* me.shade Neon Red Color Palette */
+  --color-neon-red: #ff2a2a;
+  --color-neon-red-bright: #ff3b3b;
+  --color-neon-red-dark: #cc2222;
+  --color-neon-red-glow: rgba(255, 42, 42, 0.5);
+
+  --color-void-black: #000000;
+  --color-charcoal: #0d0d0d;
+  --color-charcoal-light: #151515;
+
+  --color-gray-dark: #222222;
+  --color-gray-mid: #333333;
+  --color-gray-light: #555555;
+
+  /* Custom color tokens for Tailwind */
+  --color-shade-red: #ff2a2a;
+  --color-shade-red-50: #fff5f5;
+  --color-shade-red-100: #ffe5e5;
+  --color-shade-red-200: #ffcccc;
+  --color-shade-red-300: #ff9999;
+  --color-shade-red-400: #ff6666;
+  --color-shade-red-500: #ff3b3b;
+  --color-shade-red-600: #ff2a2a;
+  --color-shade-red-700: #cc2222;
+  --color-shade-red-800: #991919;
+  --color-shade-red-900: #660f0f;
+  --color-shade-red-950: #330808;
+
+  --color-shade-black-50: #555555;
+  --color-shade-black-100: #444444;
+  --color-shade-black-200: #333333;
+  --color-shade-black-300: #222222;
+  --color-shade-black-400: #1a1a1a;
+  --color-shade-black-500: #151515;
+  --color-shade-black-600: #0d0d0d;
+  --color-shade-black-700: #0a0a0a;
+  --color-shade-black-800: #050505;
+  --color-shade-black-900: #000000;
+  --color-shade-black-950: #000000;
+}
+
+/* Neon Glow Animations */
+@keyframes neon-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px var(--color-neon-red))
+            drop-shadow(0 0 5px var(--color-neon-red-glow))
+            drop-shadow(0 0 10px var(--color-neon-red-glow));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 4px var(--color-neon-red))
+            drop-shadow(0 0 8px var(--color-neon-red-glow))
+            drop-shadow(0 0 15px var(--color-neon-red-glow));
+  }
+}
+
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  40% { opacity: 0.95; }
+  42% { opacity: 1; }
+  43% { opacity: 0.9; }
+  45% { opacity: 1; }
+}
+
+@keyframes breathing-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--color-neon-red-glow),
+                0 0 10px var(--color-neon-red-glow),
+                inset 0 0 10px var(--color-neon-red-glow);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--color-neon-red-glow),
+                0 0 20px var(--color-neon-red-glow),
+                inset 0 0 15px var(--color-neon-red-glow);
+  }
+}
+
+@keyframes red-streak {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Utility Classes for Neon Effects */
+.neon-border {
+  border: 1px solid var(--color-neon-red);
+  box-shadow: 0 0 5px var(--color-neon-red-glow),
+              inset 0 0 5px var(--color-neon-red-glow);
+}
+
+.neon-border-thick {
+  border: 2px solid var(--color-neon-red);
+  box-shadow: 0 0 10px var(--color-neon-red-glow),
+              inset 0 0 10px var(--color-neon-red-glow);
+}
+
+.neon-glow {
+  box-shadow: 0 0 5px var(--color-neon-red-glow),
+              0 0 10px var(--color-neon-red-glow),
+              0 0 15px var(--color-neon-red-glow);
+}
+
+.neon-glow-strong {
+  box-shadow: 0 0 10px var(--color-neon-red),
+              0 0 20px var(--color-neon-red-glow),
+              0 0 30px var(--color-neon-red-glow),
+              0 0 40px var(--color-neon-red-glow);
+}
+
+.neon-text {
+  color: var(--color-neon-red);
+  text-shadow: 0 0 5px var(--color-neon-red-glow),
+               0 0 10px var(--color-neon-red-glow);
+}
+
+.neon-text-strong {
+  color: var(--color-neon-red-bright);
+  text-shadow: 0 0 10px var(--color-neon-red),
+               0 0 20px var(--color-neon-red-glow),
+               0 0 30px var(--color-neon-red-glow);
+}
+
+.breathing-glow {
+  animation: breathing-glow 3s ease-in-out infinite;
+}
+
+.neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+.neon-flicker {
+  animation: neon-flicker 4s linear infinite;
+}
+
+/* Beveled Edge Effect */
+.beveled-panel {
+  background: linear-gradient(135deg, var(--color-charcoal) 0%, var(--color-void-black) 100%);
+  border: 1px solid var(--color-neon-red);
+  box-shadow:
+    0 0 10px var(--color-neon-red-glow),
+    inset 0 0 10px rgba(255, 42, 42, 0.1),
+    inset 2px 2px 4px rgba(255, 42, 42, 0.2),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark Glass Panel (for shade console) */
+.glass-panel {
+  background: rgba(13, 13, 13, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-neon-red);
+  box-shadow: 0 0 20px var(--color-neon-red-glow),
+              inset 0 0 20px rgba(255, 42, 42, 0.05);
+}
+
+/* Silhouette Avatar Default */
+.silhouette-avatar {
+  background: var(--color-void-black);
+  border: 2px solid var(--color-neon-red);
+  box-shadow: 0 0 10px var(--color-neon-red-glow),
+              inset 0 0 10px var(--color-neon-red-glow);
 }
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  @apply bg-black text-shade-red-100;
+  color-scheme: dark;
+  font-family: var(--font-sans);
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-void-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-dark);
+  border: 1px solid var(--color-neon-red);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-mid);
+  box-shadow: 0 0 5px var(--color-neon-red-glow);
 }

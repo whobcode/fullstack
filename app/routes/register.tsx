@@ -45,47 +45,47 @@ export default function RegisterPage() {
 
     return (
         <div className="max-w-3xl mx-auto space-y-5">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-                <p className="text-xs uppercase tracking-[0.25rem] text-emerald-200/80">Create account</p>
-                <h1 className="text-3xl font-bold text-white mb-2">Register</h1>
-                <p className="text-slate-200/80">Forge your profile for the social MMO. Email signup or Facebook fast-lane.</p>
+            <div className="rounded-3xl beveled-panel p-6 shadow-xl neon-glow">
+                <p className="text-xs uppercase tracking-[0.25rem] text-shade-red-600">Claim your shade</p>
+                <h1 className="text-3xl font-bold neon-text mb-2">Register</h1>
+                <p className="text-shade-red-200">Everyone has a shade. This is where yours begins.</p>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
-                <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 shadow">
+                <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl beveled-panel p-5 shadow">
                     <div>
-                        <label className="block text-sm text-slate-200">Email</label>
+                        <label className="block text-sm text-shade-red-200 mb-1">Email</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                            className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 focus:neon-glow outline-none transition-all"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-slate-200">Username</label>
+                        <label className="block text-sm text-shade-red-200 mb-1">Username</label>
                         <input
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                            className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 focus:neon-glow outline-none transition-all"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-slate-200">Password</label>
+                        <label className="block text-sm text-shade-red-200 mb-1">Password</label>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                            className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 focus:neon-glow outline-none transition-all"
                             required
                         />
                     </div>
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
-                    <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white p-2 rounded font-semibold">
-                        Register
+                    {error && <p className="text-shade-red-600 neon-text text-sm">{error}</p>}
+                    <button type="submit" className="w-full bg-shade-black-900 neon-border text-shade-red-600 p-2 rounded font-semibold hover:neon-glow-strong transition-all duration-200">
+                        Claim Your Shade
                     </button>
                 </form>
 
@@ -97,7 +97,7 @@ export default function RegisterPage() {
             </div>
 
             {isSocialBusy && (
-                <div className="text-sm text-slate-300">Creating your account via Facebook…</div>
+                <div className="text-sm text-shade-red-300 neon-pulse">Creating your shade via Facebook…</div>
             )}
         </div>
     );

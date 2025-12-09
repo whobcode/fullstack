@@ -5,6 +5,29 @@ name = "social-rpg-platform"
 compatibility_date = "2024-04-05"
 main = "workers/app.ts"
 
+# Custom Domain Configuration
+# Configure hwmnbn.me as the custom domain for this Worker
+routes = [
+  { pattern = "hwmnbn.me/*", zone_name = "hwmnbn.me" }
+]
+
+# Observability Configuration
+# Enable logging and tracing for debugging and monitoring
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1
+
 # Bindings
 # These allow your Worker to interact with Cloudflare resources.
 # https://developers.cloudflare.com/workers/runtime-apis/bindings/
@@ -49,7 +72,12 @@ crons = ["*/15 * * * *"] # Every 15 minutes for offline XP accrual
 
 # Environment Variables & Secrets
 # https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+# Note: VITE_FACEBOOK_APP_ID is configured as a secret via Cloudflare Dashboard or wrangler CLI
 [vars]
+# Facebook OAuth
+VITE_FACEBOOK_AUTH_ENDPOINT = "/auth/facebook"
+VITE_FACEBOOK_APP_ID = "1165354375707892"
+# Game Configuration
 XP_RATE_PER_HOUR = 10
 DAILY_XP_CAP = 240 # 24 hours * 10 XP/hour
 WIN_XP_AWARD = 50

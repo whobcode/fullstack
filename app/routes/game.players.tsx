@@ -37,22 +37,22 @@ export default function PlayersPage() {
         }
     };
 
-    if (loading) return <div>Loading players...</div>;
-    if (error) return <div className="text-red-500">Error: {error}</div>;
+    if (loading) return <div className="neon-text">Loading players...</div>;
+    if (error) return <div className="text-shade-red-600">Error: {error}</div>;
 
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-4">Find an Opponent</h1>
+            <h1 className="text-2xl font-bold mb-4 neon-text">Find an Opponent</h1>
             <div className="space-y-2">
                 {players.map(player => (
-                    <div key={player.id} className="p-4 bg-gray-800 rounded flex justify-between items-center">
+                    <div key={player.id} className="p-4 beveled-panel flex justify-between items-center">
                         <div>
-                            <p className="font-bold">{player.gamertag}</p>
-                            <p className="text-sm text-gray-400">Lvl {player.level} {player.class}</p>
+                            <p className="font-bold neon-text">{player.gamertag}</p>
+                            <p className="text-sm text-shade-black-400">Lvl {player.level} {player.class}</p>
                         </div>
                         <button
                             onClick={() => handleChallenge(player.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
+                            className="bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all px-4 py-2 rounded">
                             Challenge
                         </button>
                     </div>

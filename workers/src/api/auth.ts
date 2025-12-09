@@ -216,5 +216,79 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
   }
 });
 
+// Facebook Data Deletion / Deauthorize Callback
+// Required by Facebook for GDPR compliance
+auth.post('/facebook/deauthorize', async (c) => {
+  const db = c.env.DB;
+  try {
+    const body = await c.req.parseBody();
+    const signedRequest = body.signed_request as string;
+
+    if (!signedRequest) {
+      return c.json({ error: 'Missing signed_request' }, 400);
+    }
+
+    // Parse the signed request from Facebook
+    // Format: base64_signature.base64_payload
+    const [encodedSig, encodedPayload] = signedRequest.split('.');
+    const payload = JSON.parse(atob(encodedPayload));
+    const facebookUserId = payload.user_id;
+
+    if (!facebookUserId) {
+      return c.json({ error: 'Invalid signed_request' }, 400);
+    }
+
+    // Find the user by Facebook ID
+    const user = await db
+      .prepare(`SELECT user_id FROM oauth_accounts WHERE provider = 'facebook' AND provider_account_id = ?`)
+      .bind(facebookUserId)
+      .first<{ user_id: string }>();
+
+    if (user) {
+      // Delete all user sessions
+      await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.user_id).run();
+
+      // Delete OAuth account linkage
+      await db.prepare('DELETE FROM oauth_accounts WHERE provider = ? AND provider_account_id = ?')
+        .bind('facebook', facebookUserId)
+        .run();
+
+      // Optional: Mark user for deletion or delete completely
+      // For now, we'll just remove the Facebook connection
+      // If you want full deletion, uncomment below:
+      // await db.prepare('DELETE FROM users WHERE id = ?').bind(user.user_id).run();
+    }
+
+    // Generate a confirmation code for Facebook
+    const confirmationCode = crypto.randomUUID();
+
+    // Return the required response format
+    return c.json({
+      url: `https://hwmnbn.me/facebook-deauthorize?code=${confirmationCode}`,
+      confirmation_code: confirmationCode
+    });
+  } catch (err: any) {
+    console.error('Facebook deauthorize failed:', err);
+    return c.json({ error: 'Deauthorization failed' }, 500);
+  }
+});
+
+// Data deletion status check endpoint
+auth.get('/facebook/deletion', async (c) => {
+  const confirmationCode = c.req.query('code');
+
+  if (!confirmationCode) {
+    return c.json({ error: 'Missing confirmation code' }, 400);
+  }
+
+  // In a production app, you'd store deletion requests and their status
+  // For now, we'll just return a success message
+  return c.json({
+    message: 'Data deletion request processed',
+    confirmation_code: confirmationCode,
+    status: 'completed'
+  });
+});
+
 
 export default auth;

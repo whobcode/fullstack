@@ -40,34 +40,34 @@ export function PostCard({ post }: Props) {
   };
 
   return (
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow">
+    <article className="rounded-2xl beveled-panel p-5 shadow">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-white">{post.author_username}</p>
-          <p className="text-xs text-slate-400">{new Date(post.created_at).toLocaleString()}</p>
+          <p className="text-sm font-semibold text-shade-red-100">{post.author_username}</p>
+          <p className="text-xs text-shade-red-400">{new Date(post.created_at).toLocaleString()}</p>
         </div>
       </header>
-      <p className="mt-3 text-slate-100 whitespace-pre-wrap">{post.body}</p>
+      <p className="mt-3 text-shade-red-200 whitespace-pre-wrap">{post.body}</p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-shade-red-200">
         {reactionLabels.map(({ kind, label }) => (
           <button
             key={kind}
             onClick={() => react(kind)}
-            className="rounded-full bg-slate-800 px-3 py-1 hover:bg-slate-700"
+            className="rounded-full bg-shade-black-900 neon-border px-3 py-1 hover:neon-glow transition-all"
           >
             {label} • {counts[kind] ?? 0}
           </button>
         ))}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-slate-800 px-3 py-1 hover:bg-slate-700"
+          className="rounded-full bg-shade-black-900 neon-border px-3 py-1 hover:neon-glow transition-all"
         >
           Comments • {counts.comments}
         </button>
       </div>
 
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs neon-text">{error}</p>}
 
       {expanded && (
         <CommentList

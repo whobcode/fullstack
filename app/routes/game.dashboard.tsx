@@ -20,25 +20,25 @@ function FirstAccessWizard({ onSetupComplete }: { onSetupComplete: () => void })
     };
 
     return (
-        <div className="max-w-md mx-auto p-4 border border-gray-700 rounded">
-            <h2 className="text-xl font-bold mb-4">Create Your Character</h2>
+        <div className="max-w-md mx-auto p-4 beveled-panel">
+            <h2 className="text-xl font-bold mb-4 neon-text">Create Your Character</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block">Gamertag</label>
+                    <label className="block text-shade-red-100">Gamertag</label>
                     <input
                         type="text"
                         value={gamertag}
                         onChange={(e) => setGamertag(e.target.value)}
-                        className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                        className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
                         required
                     />
                 </div>
                 <div>
-                    <label className="block">Class</label>
+                    <label className="block text-shade-red-100">Class</label>
                     <select
                         value={selectedClass}
                         onChange={(e) => setSelectedClass(e.target.value)}
-                        className="w-full p-2 rounded bg-gray-800 border border-gray-700"
+                        className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
                     >
                         <option value="phoenix">Phoenix Rider</option>
                         <option value="dphoenix">Dark Phoenix Rider</option>
@@ -47,8 +47,8 @@ function FirstAccessWizard({ onSetupComplete }: { onSetupComplete: () => void })
                         <option value="kies">Kies Warrior</option>
                     </select>
                 </div>
-                {error && <p className="text-red-500">{error}</p>}
-                <button type="submit" className="w-full bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">
+                {error && <p className="text-shade-red-600">{error}</p>}
+                <button type="submit" className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded">
                     Create Character
                 </button>
             </form>
@@ -88,22 +88,22 @@ function AllocatePointsForm({ character, onAllocationComplete }: { character: an
     };
 
     return (
-        <div className="mt-6 p-4 border border-green-700 rounded">
-            <h3 className="text-lg font-bold">You have {character.unspent_stat_points - totalAllocated} unspent stat points!</h3>
+        <div className="mt-6 p-4 border border-shade-red-700 rounded">
+            <h3 className="text-lg font-bold neon-text">You have {character.unspent_stat_points - totalAllocated} unspent stat points!</h3>
             <form onSubmit={handleSubmit} className="space-y-2 mt-2">
                 {Object.keys(points).map(stat => (
                     <div key={stat} className="flex items-center justify-between">
-                        <label className="uppercase">{stat}</label>
+                        <label className="uppercase text-shade-red-100">{stat}</label>
                         <input
                             type="number"
                             value={points[stat as keyof typeof points]}
                             onChange={e => handlePointChange(stat as keyof typeof points, parseInt(e.target.value, 10) || 0)}
-                            className="w-24 p-1 rounded bg-gray-700 border border-gray-600"
+                            className="w-24 p-1 rounded bg-shade-black-600 neon-border hover:neon-glow transition-all"
                         />
                     </div>
                 ))}
-                 {error && <p className="text-red-500">{error}</p>}
-                <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white p-2 rounded mt-2">
+                 {error && <p className="text-shade-red-600">{error}</p>}
+                <button type="submit" className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded mt-2">
                     Allocate Points
                 </button>
             </form>
@@ -150,8 +150,8 @@ export default function GameDashboardPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character?.first_game_access_completed]);
 
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div className="text-red-500">Error: {error}</div>;
+    if (loading) return <div className="neon-text">Loading...</div>;
+    if (error) return <div className="text-shade-red-600">Error: {error}</div>;
 
     if (!character || !character.first_game_access_completed) {
         return <FirstAccessWizard onSetupComplete={fetchCharacter} />;
@@ -159,38 +159,38 @@ export default function GameDashboardPage() {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-4">Welcome, {character.gamertag}!</h1>
+            <h1 className="text-2xl font-bold mb-4 neon-text">Welcome, {character.gamertag}!</h1>
             {character.unspent_stat_points > 0 && (
                 <AllocatePointsForm character={character} onAllocationComplete={fetchCharacter} />
             )}
             <div className="mt-6 grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-800 rounded">
-                    <h2 className="text-xl font-semibold">Stats</h2>
-                    <p>Class: {character.class}</p>
-                    <p>Level: {character.level} ({character.xp} XP)</p>
-                    <p>HP: {character.hp}</p>
-                    <p>ATK: {character.atk}</p>
-                    <p>DEF: {character.def}</p>
-                    <p>MP: {character.mp}</p>
-                    <p>SPD: {character.spd}</p>
-                    <p>Unspent Points: {character.unspent_stat_points}</p>
+                <div className="p-4 beveled-panel">
+                    <h2 className="text-xl font-semibold neon-text">Stats</h2>
+                    <p className="text-shade-red-100">Class: {character.class}</p>
+                    <p className="text-shade-red-100">Level: {character.level} ({character.xp} XP)</p>
+                    <p className="text-shade-red-100">HP: {character.hp}</p>
+                    <p className="text-shade-red-100">ATK: {character.atk}</p>
+                    <p className="text-shade-red-100">DEF: {character.def}</p>
+                    <p className="text-shade-red-100">MP: {character.mp}</p>
+                    <p className="text-shade-red-100">SPD: {character.spd}</p>
+                    <p className="text-shade-red-100">Unspent Points: {character.unspent_stat_points}</p>
                 </div>
-                <div className="p-4 bg-gray-800 rounded">
-                    <h2 className="text-xl font-semibold">Trophies</h2>
-                    <p>Wins: {character.wins}</p>
-                    <p>Losses: {character.losses}</p>
-                    <p>Kills: {character.kills}</p>
-                    <p>Deaths: {character.deaths}</p>
+                <div className="p-4 beveled-panel">
+                    <h2 className="text-xl font-semibold neon-text">Trophies</h2>
+                    <p className="text-shade-red-100">Wins: {character.wins}</p>
+                    <p className="text-shade-red-100">Losses: {character.losses}</p>
+                    <p className="text-shade-red-100">Kills: {character.kills}</p>
+                    <p className="text-shade-red-100">Deaths: {character.deaths}</p>
                 </div>
-                <div className="p-4 bg-gray-800 rounded col-span-2">
-                     <h2 className="text-xl font-semibold">Active Battles</h2>
+                <div className="p-4 beveled-panel col-span-2">
+                     <h2 className="text-xl font-semibold neon-text">Active Battles</h2>
                      <div className="space-y-2 mt-2">
                         {battles.length > 0 ? battles.map(b => (
-                            <Link to={`/battles/${b.id}`} key={b.id} className="block p-2 bg-gray-700 hover:bg-gray-600 rounded">
-                                <p>vs. {b.defender_char_id === character.id ? b.attacker_char_id : b.defender_char_id}</p>
-                                <p className="text-sm text-gray-400">Status: {b.state}</p>
+                            <Link to={`/battles/${b.id}`} key={b.id} className="block p-2 bg-shade-black-600 neon-border hover:neon-glow transition-all rounded">
+                                <p className="text-shade-red-100">vs. {b.defender_char_id === character.id ? b.attacker_char_id : b.defender_char_id}</p>
+                                <p className="text-sm text-shade-black-400">Status: {b.state}</p>
                             </Link>
-                        )) : <p>No active battles.</p>}
+                        )) : <p className="text-shade-red-100">No active battles.</p>}
                      </div>
                 </div>
             </div>

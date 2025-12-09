@@ -44,47 +44,47 @@ export default function MyProfilePage() {
 
   return (
     <div className="space-y-4">
-      <header className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow">
-        <p className="text-xs uppercase tracking-wide text-indigo-200/80">Profile</p>
-        <h1 className="text-3xl font-bold text-white">My Profile</h1>
+      <header className="rounded-3xl beveled-panel p-6 shadow neon-glow">
+        <p className="text-xs uppercase tracking-wide text-shade-red-600">Your Shade Profile</p>
+        <h1 className="text-3xl font-bold neon-text">My Shade</h1>
         {needsUsername && (
-          <p className="mt-2 text-sm text-amber-200">Pick a custom username to replace the temporary Facebook one.</p>
+          <p className="mt-2 text-sm text-shade-red-300">Pick a custom username to replace the temporary Facebook one.</p>
         )}
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl beveled-panel p-5 shadow">
         <div>
-          <label className="block text-sm text-slate-200">Username</label>
+          <label className="block text-sm text-shade-red-200 mb-1">Username</label>
           <input
-            className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"
+            className="w-full rounded-lg neon-border bg-shade-black-900 px-3 py-2 text-shade-red-100 focus:neon-glow outline-none transition-all"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-200">Avatar URL</label>
+          <label className="block text-sm text-shade-red-200 mb-1">Avatar URL</label>
           <input
-            className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"
+            className="w-full rounded-lg neon-border bg-shade-black-900 px-3 py-2 text-shade-red-100 focus:neon-glow outline-none transition-all"
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
             placeholder="https://..."
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-200">Bio</label>
+          <label className="block text-sm text-shade-red-200 mb-1">Bio</label>
           <textarea
-            className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"
+            className="w-full rounded-lg neon-border bg-shade-black-900 px-3 py-2 text-shade-red-100 focus:neon-glow outline-none transition-all"
             rows={3}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
           />
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {status && <p className="text-sm text-emerald-300">{status}</p>}
+        {error && <p className="text-sm neon-text">{error}</p>}
+        {status && <p className="text-sm text-shade-red-600 neon-text">{status}</p>}
         <button
           type="submit"
-          className="rounded-full bg-emerald-600 px-4 py-2 text-white font-semibold hover:bg-emerald-500"
+          className="rounded-full bg-shade-black-900 neon-border px-4 py-2 text-shade-red-600 font-semibold hover:neon-glow-strong transition-all"
         >
           Save profile
         </button>

@@ -32,16 +32,16 @@ export default function FeedPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-indigo-900/40 to-slate-950 p-6 shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.25rem] text-indigo-200/80">Social HQ</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Squad Feed</h1>
-        <p className="mt-2 max-w-3xl text-slate-200/80">
+      <header className="rounded-3xl beveled-panel p-6 shadow-2xl neon-glow">
+        <p className="text-xs uppercase tracking-[0.25rem] text-shade-red-600">Social HQ</p>
+        <h1 className="text-3xl font-bold neon-text sm:text-4xl">Shade Feed</h1>
+        <p className="mt-2 max-w-3xl text-shade-red-200">
           Rally friends from Facebook, swap loot stories, and spin up turn-based raids without
           leaving the social stream.
         </p>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-300">
-          <span className="rounded-full bg-indigo-700/30 px-3 py-1">Connected as {user?.username ?? "guest"}</span>
-          <Link to="/game/dashboard" className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white hover:bg-emerald-500">
+        <div className="mt-4 flex flex-wrap gap-3 text-sm text-shade-red-200">
+          <span className="rounded-full bg-shade-black-500 neon-border px-3 py-1">Connected as {user?.username ?? "guest"}</span>
+          <Link to="/game/dashboard" className="rounded-full bg-shade-black-900 neon-border px-3 py-1 font-semibold text-shade-red-600 hover:neon-glow transition-all">
             Open Game Dashboard
           </Link>
         </div>
@@ -49,31 +49,31 @@ export default function FeedPage() {
 
       <PostComposer onPostCreated={load} />
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm neon-text">{error}</p>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
           {loading ? (
-            <p className="text-sm text-slate-400">Loading feed...</p>
+            <p className="text-sm text-shade-red-300 neon-pulse">Loading feed...</p>
           ) : posts.length === 0 ? (
-            <p className="text-sm text-slate-400">No posts yet. Be the first to share a raid recap!</p>
+            <p className="text-sm text-shade-red-300">No posts yet. Be the first to share a raid recap!</p>
           ) : (
             posts.map((p) => <PostCard key={p.id} post={p} />)
           )}
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Game status</p>
-            <h3 className="text-xl font-semibold text-white">MMORPG quick links</h3>
-            <div className="mt-3 space-y-2 text-sm text-slate-200/80">
-              <Link to="/game/dashboard" className="block rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700">
+          <div className="rounded-2xl beveled-panel p-4 shadow">
+            <p className="text-xs uppercase tracking-wide text-shade-red-600">Game status</p>
+            <h3 className="text-xl font-semibold neon-text">MMORPG quick links</h3>
+            <div className="mt-3 space-y-2 text-sm text-shade-red-200">
+              <Link to="/game/dashboard" className="block rounded-lg bg-shade-black-600 neon-border px-3 py-2 hover:neon-glow transition-all">
                 Character sheet & stat spend
               </Link>
-              <Link to="/game/leaderboard" className="block rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700">
+              <Link to="/game/leaderboard" className="block rounded-lg bg-shade-black-600 neon-border px-3 py-2 hover:neon-glow transition-all">
                 Leaderboard & trophies
               </Link>
-              <Link to="/game/players" className="block rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700">
+              <Link to="/game/players" className="block rounded-lg bg-shade-black-600 neon-border px-3 py-2 hover:neon-glow transition-all">
                 Matchmaking & live battles
               </Link>
             </div>

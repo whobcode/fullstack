@@ -49,15 +49,15 @@ export function CommentList({ postId, onCommentAdded }: Props) {
   return (
     <div className="mt-3 space-y-3">
       {loading ? (
-        <p className="text-sm text-slate-400">Loading comments...</p>
+        <p className="text-sm text-shade-red-300 neon-pulse">Loading comments...</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-slate-500">No comments yet.</p>
+        <p className="text-sm text-shade-red-400">No comments yet.</p>
       ) : (
         <ul className="space-y-2">
           {comments.map((c) => (
-            <li key={c.id} className="rounded-xl bg-slate-950/60 px-3 py-2">
-              <p className="text-xs text-slate-400">{c.author_username}</p>
-              <p className="text-sm text-slate-100">{c.body}</p>
+            <li key={c.id} className="rounded-xl bg-shade-black-600 neon-border px-3 py-2">
+              <p className="text-xs text-shade-red-400">{c.author_username}</p>
+              <p className="text-sm text-shade-red-200">{c.body}</p>
             </li>
           ))}
         </ul>
@@ -66,21 +66,21 @@ export function CommentList({ postId, onCommentAdded }: Props) {
       {isAuthenticated ? (
         <form onSubmit={handleSubmit} className="space-y-2">
           <textarea
-            className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+            className="w-full rounded-lg neon-border bg-shade-black-900 px-3 py-2 text-sm text-shade-red-100 focus:neon-glow outline-none transition-all"
             rows={2}
             placeholder="Add a comment"
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs neon-text">{error}</p>}
           <div className="flex justify-end">
-            <button className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-700">
+            <button className="rounded-full bg-shade-black-900 neon-border px-3 py-1 text-xs font-semibold text-shade-red-200 hover:neon-glow transition-all">
               Comment
             </button>
           </div>
         </form>
       ) : (
-        <p className="text-xs text-slate-500">Log in to comment.</p>
+        <p className="text-xs text-shade-red-400">Log in to comment.</p>
       )}
     </div>
   );
