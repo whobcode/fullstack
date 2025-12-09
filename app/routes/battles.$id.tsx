@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
+/**
+ * A page that displays the details of a single battle, including the turn history.
+ * It also allows the current user to take their turn if it's their turn.
+ * @returns {JSX.Element} The BattlePage component.
+ */
 export default function BattlePage() {
     const { id: battleId } = useParams();
     const { user } = useAuth();

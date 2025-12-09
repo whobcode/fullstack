@@ -2,6 +2,10 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useState } from "react";
 
+/**
+ * A navigation bar component that displays different links depending on the user's authentication status and the current route.
+ * @returns {JSX.Element} The NavBar component.
+ */
 export function NavBar() {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
   const navigate = useNavigate();

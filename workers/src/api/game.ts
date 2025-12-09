@@ -1,3 +1,8 @@
+/**
+ * @module game
+ * This module exports a Hono app that handles all game-related actions,
+ * including character creation, battles, and stat allocation.
+ */
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../bindings';
@@ -35,6 +40,33 @@ const game = new Hono<App>();
 // All routes in this file are protected
 game.use('*', authMiddleware);
 
+/**
+ * @typedef {object} BattleRow
+ * Represents a battle record from the database.
+ * @property {string} id - The unique identifier for the battle.
+ * @property {string} attacker_char_id - The ID of the attacking character.
+ * @property {string} defender_char_id - The ID of the defending character.
+ * @property {string} mode - The mode of the battle (e.g., 'async').
+ * @property {'pending' | 'active' | 'completed' | 'canceled'} state - The current state of the battle.
+ * @property {string} seed - A random seed for battle calculations.
+ * @property {string | null} [started_at] - The timestamp when the battle started.
+ * @property {string | null} [ended_at] - The timestamp when the battle ended.
+ * @property {string | null} [winner_char_id] - The ID of the winning character, if applicable.
+ */
+
+/**
+ * @typedef {object} CharacterRow
+ * Represents a character record from the database, including stats.
+ * @property {string} id - The unique identifier for the character.
+ * @property {number} xp - The character's experience points.
+ * @property {number} level - The character's current level.
+ * @property {number} hp - Health points.
+ * @property {number} atk - Attack power.
+ * @property {number} def - Defense power.
+ * @property {number} mp - Magic points.
+ * @property {number} spd - Speed.
+ */
+
 const BASE_STATS = {
     phoenix:      { hp: 10000, atk: 1000, def: 500, mp: 175, spd: 100 },
     dphoenix:     { hp: 10000, atk: 1750, def: 375, mp: 150, spd: 150 },
@@ -43,7 +75,12 @@ const BASE_STATS = {
     kies:         { hp: 15000, atk: 750,  def: 750,  mp: 225, spd: 150 },
 };
 
-// First time game access setup
+/**
+ * Handles the initial setup for a user's character when they first access the game.
+ * This includes setting their gamertag, class, and initial stats.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response confirming setup or providing an error.
+ */
 game.post('/first-access', zValidator('json', firstAccessSchema), async (c) => {
   const user = c.get('user');
   const { gamertag, class: chosenClass } = c.req.valid('json');
@@ -85,14 +122,22 @@ game.post('/first-access', zValidator('json', firstAccessSchema), async (c) => {
   }
 });
 
-// List all characters to challenge
+/**
+ * Retrieves a list of all characters that can be challenged to a battle.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing a list of characters.
+ */
 game.get('/characters', async (c) => {
     const db = c.env.DB;
     const characters = await db.prepare('SELECT id, gamertag, level, class FROM characters WHERE first_game_access_completed = TRUE').all();
     return c.json({ data: characters.results });
 });
 
-// Get character details
+/**
+ * Retrieves the detailed profile of the authenticated user's character, including stats and trophies.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the character's details.
+ */
 game.get('/character', async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
@@ -113,7 +158,11 @@ game.get('/character', async (c) => {
 
 import { allocatePointsSchema } from '../shared/schemas/game';
 
-// Allocate stat points
+/**
+ * Allocates unspent stat points to a character's attributes (e.g., HP, ATK).
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response confirming the allocation or providing an error.
+ */
 game.post('/character/allocate-points', zValidator('json', allocatePointsSchema), async (c) => {
     const user = c.get('user');
     const pointsToAllocate = c.req.valid('json');
@@ -160,7 +209,11 @@ import { resolveTurn } from '../core/battle-engine';
 import type { ClassMods, CharacterStats } from '../core/battle-engine';
 import { checkForLevelUp } from '../core/leveling';
 
-// Create a new battle
+/**
+ * Creates a new battle between the authenticated user's character and another character.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the ID of the newly created battle.
+ */
 game.post('/battles', zValidator('json', createBattleSchema), async (c) => {
     const user = c.get('user');
     const { defenderId, mode } = c.req.valid('json');
@@ -185,7 +238,11 @@ game.post('/battles', zValidator('json', createBattleSchema), async (c) => {
     return c.json({ data: { battleId } });
 });
 
-// Get battles for the current user
+/**
+ * Retrieves a list of all battles the authenticated user's character is involved in.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing a list of battles.
+ */
 game.get('/battles', authMiddleware, async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
@@ -200,7 +257,11 @@ game.get('/battles', authMiddleware, async (c) => {
     return c.json({ data: battles.results });
 });
 
-// Get a specific battle's state
+/**
+ * Retrieves the detailed state of a specific battle, including all turns taken.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the battle's state.
+ */
 game.get('/battles/:id', async (c) => {
     const battleId = c.req.param('id');
     const db = c.env.DB;
@@ -215,7 +276,12 @@ game.get('/battles/:id', async (c) => {
     return c.json({ data: { ...battle, turns: turns.results } });
 });
 
-// Submit a turn for a battle
+/**
+ * Submits a turn for an ongoing battle. This is the core of the asynchronous battle system.
+ * It resolves the turn's outcome, updates character stats, awards XP, and checks for level-ups.
+ * @param {object} c The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing the result of the turn.
+ */
 game.post('/battles/:id/turn', zValidator('json', submitTurnSchema), async (c) => {
     const user = c.get('user');
     const battleId = c.req.param('id');

@@ -1,6 +1,21 @@
+/**
+ * @module durable-objects
+ * This module defines Durable Objects for managing real-time game state.
+ */
+
+/**
+ * A Durable Object for managing a single battle room.
+ * This can be extended to handle real-time, turn-by-turn battle updates via WebSockets.
+ */
 export class BattleRoom implements DurableObject {
   constructor(private state: DurableObjectState, private env: Env) {}
 
+  /**
+   * Handles incoming requests to the BattleRoom.
+   * It can handle health checks and WebSocket upgrade requests.
+   * @param {Request} request - The incoming HTTP request.
+   * @returns {Promise<Response>} A response, which may include a WebSocket pair.
+   */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
@@ -29,9 +44,19 @@ export class BattleRoom implements DurableObject {
   }
 }
 
+/**
+ * A Durable Object for managing user presence in the game.
+ * This can be used to track which users are currently online and in the game.
+ */
 export class GamePresenceRoom implements DurableObject {
   constructor(private state: DurableObjectState, private env: Env) {}
 
+  /**
+   * Handles incoming requests to the GamePresenceRoom.
+   * It can handle health checks and WebSocket upgrade requests.
+   * @param {Request} request - The incoming HTTP request.
+   * @returns {Promise<Response>} A response, which may include a WebSocket pair.
+   */
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.endsWith('/health')) {

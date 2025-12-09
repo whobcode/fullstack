@@ -1,6 +1,19 @@
+/**
+ * @module cron
+ * This module handles scheduled tasks, specifically awarding offline XP to characters.
+ */
 import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
 
+/**
+ * @interface CharacterWithLedger
+ * Represents a character's data along with the timestamp of their last XP award.
+ * @property {string} id - The character's unique identifier.
+ * @property {number} xp - The character's current experience points.
+ * @property {number} level - The character's current level.
+ * @property {string} created_at - The timestamp of the character's creation.
+ * @property {string | null} last_updated - The timestamp of the last time offline XP was awarded.
+ */
 interface CharacterWithLedger {
     id: string;
     xp: number;
@@ -9,6 +22,13 @@ interface CharacterWithLedger {
     last_updated: string | null;
 }
 
+/**
+ * Handles the scheduled cron job to award offline XP to all characters.
+ * It calculates the time passed since the last update, awards XP based on a configured rate,
+ * respects a daily cap, and triggers level-ups if necessary.
+ * @param {Bindings} env - The Cloudflare environment bindings, including the database.
+ * @returns {Promise<void>}
+ */
 export async function handleScheduled(env: Bindings) {
     console.log('Cron job started: Awarding offline XP');
     const db = env.DB;

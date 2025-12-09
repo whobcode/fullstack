@@ -1,3 +1,7 @@
+/**
+ * @module auth
+ * This module exports a Hono app that handles user authentication, including registration, login, logout, and Facebook SSO.
+ */
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { setCookie } from 'hono/cookie';
@@ -9,6 +13,11 @@ import { createSession } from '../lib/session';
 
 const auth = new Hono<{ Bindings: Bindings }>();
 
+/**
+ * Handles user registration.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response indicating success or failure.
+ */
 auth.post('/register', zValidator('json', registerSchema), async (c) => {
   const { email, username, password } = c.req.valid('json');
   const db = c.env.DB;
@@ -61,6 +70,11 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
   }
 });
 
+/**
+ * Handles user login.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing user data or an error message.
+ */
 auth.post('/login', zValidator('json', loginSchema), async (c) => {
     const { email, password } = c.req.valid('json');
     const db = c.env.DB;
@@ -111,6 +125,13 @@ import { hashToken } from '../lib/session';
 
 type FBProfile = { id: string; name?: string; email?: string };
 
+/**
+ * Fetches a user's profile from Facebook.
+ * @param {string} accessToken - The user's Facebook access token.
+ * @param {string} [appId] - The Facebook app ID.
+ * @param {string} [appSecret] - The Facebook app secret.
+ * @returns {Promise<FBProfile>} The user's Facebook profile.
+ */
 async function fetchFacebookProfile(accessToken: string, appId?: string, appSecret?: string): Promise<FBProfile> {
   // If app credentials are present, validate the token
   if (appId && appSecret) {
@@ -134,6 +155,12 @@ async function fetchFacebookProfile(accessToken: string, appId?: string, appSecr
 
 type FBUserResult = { id: string; email: string; username: string; characterId: string | null; needs_username_confirmation: boolean };
 
+/**
+ * Creates a new user from a Facebook profile if one doesn't exist.
+ * @param {D1Database} db - The D1 database instance.
+ * @param {FBProfile} profile - The user's Facebook profile.
+ * @returns {Promise<FBUserResult>} The user's data.
+ */
 async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promise<FBUserResult> {
   const existing = await db
     .prepare(`SELECT u.id, u.email, u.username, c.id as characterId
@@ -166,6 +193,12 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
   return { id: userId, email, username, characterId, needs_username_confirmation: true };
 }
 
+/**
+ * Generates a unique username.
+ * @param {D1Database} db - The D1 database instance.
+ * @param {string} base - The base username to start with.
+ * @returns {Promise<string>} A unique username.
+ */
 async function generateUniqueUsername(db: D1Database, base: string): Promise<string> {
   let candidate = base || 'player';
   let suffix = 0;
@@ -180,6 +213,11 @@ async function generateUniqueUsername(db: D1Database, base: string): Promise<str
   return `${base}_${Date.now()}`;
 }
 
+/**
+ * Handles user logout.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response indicating success.
+ */
 auth.post('/logout', authMiddleware, async (c) => {
     const sessionToken = getCookie(c, 'session_token');
     const db = c.env.DB;
@@ -193,7 +231,11 @@ auth.post('/logout', authMiddleware, async (c) => {
     return c.json({ message: 'Logged out successfully' });
 });
 
-// Facebook SSO token exchange
+/**
+ * Handles Facebook SSO.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing user data or an error message.
+ */
 auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
   const { accessToken } = c.req.valid('json');
   const db = c.env.DB;
@@ -216,8 +258,11 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
   }
 });
 
-// Facebook Data Deletion / Deauthorize Callback
-// Required by Facebook for GDPR compliance
+/**
+ * Handles Facebook data deletion/deauthorization.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response containing a confirmation URL and code.
+ */
 auth.post('/facebook/deauthorize', async (c) => {
   const db = c.env.DB;
   try {
@@ -273,7 +318,11 @@ auth.post('/facebook/deauthorize', async (c) => {
   }
 });
 
-// Data deletion status check endpoint
+/**
+ * Handles Facebook data deletion status check.
+ * @param {object} c - The Hono context object.
+ * @returns {Promise<Response>} A JSON response indicating the status of the deletion request.
+ */
 auth.get('/facebook/deletion', async (c) => {
   const confirmationCode = c.req.query('code');
 

@@ -4,6 +4,10 @@ import type { Post, ReactionKind } from "../../types/social";
 import { CommentList } from "./CommentList";
 import { useAuth } from "../../lib/AuthContext";
 
+/**
+ * @typedef {object} Props
+ * @property {Post} post - The post to display.
+ */
 type Props = {
   post: Post;
 };
@@ -14,6 +18,12 @@ const reactionLabels: { kind: ReactionKind; label: string }[] = [
   { kind: "gg", label: "Celebrate" },
 ];
 
+/**
+ * A component that displays a single post, including its author, body, and reactions.
+ * It also allows users to react to the post and view its comments.
+ * @param {Props} props - The props for the component.
+ * @returns {JSX.Element} The PostCard component.
+ */
 export function PostCard({ post }: Props) {
   const { isAuthenticated } = useAuth();
   const [expanded, setExpanded] = useState(false);

@@ -1,3 +1,7 @@
+/**
+ * @module friends
+ * This module exports a Hono app that handles friend requests and relationships.
+ */
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../bindings';
@@ -17,7 +21,11 @@ const friends = new Hono<App>();
 // All routes in this file are protected
 friends.use('*', authMiddleware);
 
-// Send a friend request
+/**
+ * Sends a friend request to another user.
+ * @param {object} c The Hono context object, containing the authenticated user and request body.
+ * @returns {Promise<Response>} A JSON response confirming the request was sent or an error message.
+ */
 friends.post('/request', zValidator('json', friendRequestSchema), async (c) => {
   const user = c.get('user');
   const { addresseeId } = c.req.valid('json');
@@ -50,7 +58,11 @@ friends.post('/request', zValidator('json', friendRequestSchema), async (c) => {
   }
 });
 
-// Respond to a friend request
+/**
+ * Responds to a pending friend request.
+ * @param {object} c The Hono context object, containing the authenticated user (the addressee) and request body.
+ * @returns {Promise<Response>} A JSON response confirming the action.
+ */
 friends.post('/respond', zValidator('json', respondToRequestSchema), async (c) => {
     const user = c.get('user'); // This is the addressee
     const { requesterId, status } = c.req.valid('json');
@@ -71,7 +83,11 @@ friends.post('/respond', zValidator('json', respondToRequestSchema), async (c) =
     return c.json({ message: 'Friend request responded to' });
 });
 
-// Get all friends and pending requests
+/**
+ * Retrieves a list of the user's friends, including pending and accepted requests.
+ * @param {object} c The Hono context object, containing the authenticated user.
+ * @returns {Promise<Response>} A JSON response containing the list of friends.
+ */
 friends.get('/', async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
@@ -86,7 +102,11 @@ friends.get('/', async (c) => {
     return c.json({ data: friends.results });
 });
 
-// Unfriend a user
+/**
+ * Removes a friend.
+ * @param {object} c The Hono context object, containing the authenticated user and the friend's ID from the URL parameter.
+ * @returns {Promise<Response>} A JSON response confirming the friend was removed.
+ */
 friends.delete('/:friendId', async (c) => {
     const user = c.get('user');
     const { friendId } = c.req.param();

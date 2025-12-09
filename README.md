@@ -100,3 +100,42 @@ This ensures that all data relationships, password hashes, and initial character
   - `workers/src/lib/`: Backend utility functions.
   - `workers/src/shared/`: Code shared with the frontend (e.g., Zod schemas).
 - `wrangler.toml`: The configuration file for Wrangler and Cloudflare resources.
+
+## API Endpoints
+
+The backend API is organized into several modules:
+
+*   **Auth**: Handles user registration, login, logout, and Facebook SSO.
+*   **Users**: Manages user profiles and settings.
+*   **Friends**: Manages friend requests and relationships.
+*   **Game**: Handles game-related actions, including character creation, battles, and stat allocation.
+*   **Social**: Manages posts, comments, reactions, and groups.
+
+For more details on the specific endpoints, please refer to the JSDoc comments in the `workers/src/api/` directory.
+
+## Battle System
+
+The battle system is a turn-based, asynchronous system. Here's how it works:
+
+1.  A user challenges another user to a battle.
+2.  The battle is created in a "pending" state.
+3.  The attacker can then submit a turn.
+4.  The `battle-engine.ts` module resolves the turn, calculating damage based on the characters' stats, class modifiers, and a random seed.
+5.  The battle state is updated, and the defender's HP is reduced.
+6.  If the defender's HP drops to 0 or below, the battle is marked as "completed," and the attacker is declared the winner.
+7.  The winner is awarded XP, and the loser receives a loss.
+
+This system can be extended to support real-time battles using the `BattleRoom` Durable Object.
+
+## Contributing
+
+Contributions are welcome! If you'd like to contribute, please follow these steps:
+
+1.  Fork the repository.
+2.  Create a new branch for your feature or bug fix.
+3.  Make your changes.
+4.  Write tests for your changes.
+5.  Run the tests to ensure they pass.
+6.  Submit a pull request.
+
+Please make sure to follow the existing code style and to document your changes thoroughly.

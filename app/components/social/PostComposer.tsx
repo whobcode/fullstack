@@ -2,10 +2,19 @@ import { useState } from "react";
 import { apiClient } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 
+/**
+ * @typedef {object} Props
+ * @property {() => void} [onPostCreated] - A callback function to be called when a post is created.
+ */
 type Props = {
   onPostCreated?: () => void;
 };
 
+/**
+ * A component that allows authenticated users to create new posts.
+ * @param {Props} props - The props for the component.
+ * @returns {JSX.Element} The PostComposer component.
+ */
 export function PostComposer({ onPostCreated }: Props) {
   const { isAuthenticated } = useAuth();
   const [body, setBody] = useState("");
