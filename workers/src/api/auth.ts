@@ -44,6 +44,9 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
 
     await db.batch(batch);
 
+    // Check and grant special account status if applicable
+    await checkAndGrantSpecialAccount(db, userId, username);
+
     // Create session
     const sessionToken = await createSession(db, userId);
     setCookie(c, 'session_token', sessionToken, {
@@ -85,6 +88,9 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
         if (!isPasswordValid) {
             return c.json({ error: 'Invalid credentials' }, 401);
         }
+
+        // Check and grant special account status if applicable
+        await checkAndGrantSpecialAccount(db, userQuery.id, userQuery.username);
 
         // Create session
         const sessionToken = await createSession(db, userQuery.id);
@@ -132,18 +138,20 @@ async function fetchFacebookProfile(accessToken: string, appId?: string, appSecr
     const appToken = `${appId}|${appSecret}`;
     const debugUrl = `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`;
     const dbg = await fetch(debugUrl);
-    const dbgJson = await dbg.json<FBTokenDebugData>();
+    const dbgJson = await dbg.json<FBTokenDebugData & { error?: { message?: string } }>();
     if (!dbg.ok || !dbgJson?.data?.is_valid) {
-      throw new Error('Invalid Facebook token');
+      console.error('Facebook token validation failed:', JSON.stringify(dbgJson));
+      throw new Error(dbgJson?.error?.message || 'Invalid Facebook token');
     }
   }
 
   // Fetch extended profile data including cover photo, picture, about, and location
   const profileUrl = `https://graph.facebook.com/me?fields=id,name,email,picture.type(large),cover,about,location&access_token=${accessToken}`;
   const res = await fetch(profileUrl);
-  const json = await res.json<FBProfile & { error?: any }>();
+  const json = await res.json<FBProfile & { error?: { message?: string; code?: number; type?: string } }>();
   if (!res.ok || json.error) {
-    throw new Error('Failed to fetch Facebook profile');
+    console.error('Facebook profile fetch failed:', JSON.stringify(json.error));
+    throw new Error(json.error?.message || 'Failed to fetch Facebook profile');
   }
   return json;
 }
@@ -159,10 +167,11 @@ type FBUserResult = {
 };
 
 async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promise<FBUserResult> {
-  const avatarUrl = profile.picture?.data?.url;
-  const coverPhotoUrl = profile.cover?.source;
-  const fbAbout = profile.about;
-  const fbLocation = profile.location?.name;
+  // D1 doesn't accept undefined, so convert to null
+  const avatarUrl = profile.picture?.data?.url ?? null;
+  const coverPhotoUrl = profile.cover?.source ?? null;
+  const fbAbout = profile.about ?? null;
+  const fbLocation = profile.location?.name ?? null;
   const rawProfileJson = JSON.stringify(profile);
 
   const existing = await db
@@ -198,7 +207,7 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
       ...existing,
       avatar_url: avatarUrl || existing.avatar_url || undefined,
       cover_photo_url: coverPhotoUrl || existing.cover_photo_url || undefined,
-      needs_username_confirmation: existing.username.startsWith('fb_')
+      needs_username_confirmation: existing.username.startsWith('fb_') || existing.username.startsWith('fbuser')
     };
   }
 
@@ -228,8 +237,8 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
     username,
     characterId,
     needs_username_confirmation: true,
-    avatar_url: avatarUrl,
-    cover_photo_url: coverPhotoUrl
+    avatar_url: avatarUrl || undefined,
+    cover_photo_url: coverPhotoUrl || undefined
   };
 }
 
@@ -245,6 +254,35 @@ async function generateUniqueUsername(db: D1Database, base: string): Promise<str
   }
   // Fallback: use timestamp if we exhausted attempts
   return `${base}_${Date.now()}`;
+}
+
+// Special account usernames that get elevated privileges
+const SPECIAL_USERNAMES = ['trubone'];
+
+// Helper to check and grant special account status
+async function checkAndGrantSpecialAccount(db: D1Database, userId: string, username: string): Promise<void> {
+  // Check if this is a special username
+  if (!SPECIAL_USERNAMES.includes(username.toLowerCase())) {
+    return;
+  }
+
+  // Check if already has special account status
+  const existing = await db.prepare('SELECT id FROM special_accounts WHERE user_id = ?').bind(userId).first();
+  if (existing) {
+    return;
+  }
+
+  // Grant special account status
+  try {
+    await db.prepare(`
+      INSERT INTO special_accounts (user_id, flag_type, all_slots_unlocked, auto_max_level, notes)
+      VALUES (?, 'founder', TRUE, TRUE, 'Auto-granted to founder account')
+    `).bind(userId).run();
+    console.log(`Granted special account status to ${username} (${userId})`);
+  } catch (err) {
+    // Table might not exist yet if migration hasn't run
+    console.warn('Could not grant special account status:', err);
+  }
 }
 
 auth.post('/logout', authMiddleware, async (c) => {
@@ -267,6 +305,10 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
   try {
     const profile = await fetchFacebookProfile(accessToken, c.env.FACEBOOK_APP_ID, c.env.FACEBOOK_APP_SECRET);
     const user = await ensureUserFromFacebook(db, profile);
+
+    // Check and grant special account status if applicable
+    await checkAndGrantSpecialAccount(db, user.id, user.username);
+
     const sessionToken = await createSession(db, user.id);
     setCookie(c, 'session_token', sessionToken, {
       httpOnly: true,
@@ -288,8 +330,8 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
       }
     });
   } catch (err: any) {
-    console.error('Facebook auth failed:', err);
-    return c.json({ error: 'Facebook authentication failed' }, 401);
+    console.error('Facebook auth failed:', err?.message || err);
+    return c.json({ error: err?.message || 'Facebook authentication failed' }, 401);
   }
 });
 

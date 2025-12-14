@@ -22,4 +22,8 @@ export default [
 
   // Facebook callbacks
   route("facebook-deauthorize", "routes/facebook-deauthorize.tsx"),
+
+  // Legal pages
+  route("privacy", "routes/privacy.tsx"),
+  route("terms", "routes/terms.tsx"),
 ] satisfies RouteConfig;

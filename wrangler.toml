@@ -2,7 +2,8 @@
 # https://developers.cloudflare.com/workers/wrangler/configuration/
 
 name = "social-rpg-platform"
-compatibility_date = "2024-04-05"
+compatibility_date = "2025-12-12"
+compatibility_flags = ["nodejs_compat"]
 main = "workers/app.ts"
 
 # Custom Domain Configuration
@@ -73,6 +74,11 @@ bindings = [
 [[kv_namespaces]]
 binding = "APP_CONFIG"
 id = "fe2dc674037f49cc84498977f55f5d39"
+
+# Workers AI Binding
+# https://developers.cloudflare.com/workers-ai/
+[ai]
+binding = "AI"
 # Queue Producer Bindings
 # https://developers.cloudflare.com/queues/
 [[queues.producers]]
@@ -97,6 +103,7 @@ crons = ["*/15 * * * *"] # Every 15 minutes for offline XP accrual
 # Facebook OAuth
 VITE_FACEBOOK_AUTH_ENDPOINT = "/auth/facebook"
 VITE_FACEBOOK_APP_ID = "1165354375707892"
+FACEBOOK_APP_ID = "1165354375707892"
 # Game Configuration
 XP_RATE_PER_HOUR = 10
 DAILY_XP_CAP = 240 # 24 hours * 10 XP/hour

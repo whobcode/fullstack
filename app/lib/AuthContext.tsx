@@ -7,6 +7,12 @@ interface User {
   email: string;
   username: string;
   characterId?: string;
+  avatar_url?: string;
+  cover_photo_url?: string;
+  bio?: string;
+  fb_about?: string;
+  fb_location?: string;
+  fb_data_synced_at?: string;
 }
 
 interface AuthContextType {
