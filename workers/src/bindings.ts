@@ -15,6 +15,9 @@ export type Bindings = {
   BATTLE_ROOM: DurableObjectNamespace;
   GAME_PRESENCE_ROOM: DurableObjectNamespace;
 
+  // Workers AI
+  AI: Ai;
+
   // Environment Variables
   XP_RATE_PER_HOUR: string;
   DAILY_XP_CAP: string;
@@ -25,4 +28,10 @@ export type Bindings = {
   // Secrets
   FACEBOOK_APP_ID?: string;
   FACEBOOK_APP_SECRET?: string;
+
+  // Square Payment Integration
+  SQUARE_ACCESS_TOKEN?: string;
+  SQUARE_APPLICATION_ID?: string;
+  SQUARE_LOCATION_ID?: string;
+  SQUARE_ENVIRONMENT?: 'sandbox' | 'production';
 };
