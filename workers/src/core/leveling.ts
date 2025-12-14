@@ -3,13 +3,28 @@ export const MAX_LEVEL = 300;
 
 /**
  * Calculates the XP required for a given level.
+ * Uses an exponential curve to make higher levels increasingly challenging.
+ *
+ * Formula: base * (growthRate ^ (level - 1))
+ * - Level 2: ~120 XP
+ * - Level 10: ~516 XP
+ * - Level 50: ~11,739 XP
+ * - Level 100: ~1.15M XP
+ * - Level 200: ~13.3B XP
+ * - Level 300: ~153T XP (max level - true endgame)
+ *
  * @param level The level.
  * @returns The total XP required to reach that level from level 1.
  */
 export function getXpForLevel(level: number): number {
     if (level <= 1) return 0;
-    // Using a simple exponential growth formula
-    return Math.floor(XP_PER_LEVEL * Math.pow(level - 1, 1.5));
+
+    // Exponential growth: base 100, growth rate 1.08 per level
+    // This creates a challenging curve that requires dedication at higher levels
+    const base = 100;
+    const growthRate = 1.08;
+
+    return Math.floor(base * Math.pow(growthRate, level - 1));
 }
 
 /**

@@ -317,6 +317,98 @@ export function areInSameBracket(clanSize1: number, clanSize2: number): boolean 
   return getClanBracket(clanSize1) === getClanBracket(clanSize2);
 }
 
+// ============================================================================
+// LEVEL-BASED BRACKET SYSTEM (25-level increments)
+// ============================================================================
+
+const MAX_LEVEL = 300;
+const LEVEL_BRACKET_SIZE = 25;
+
+/**
+ * Get the level bracket for a given level (1-25 = bracket 1, 26-50 = bracket 2, etc.)
+ */
+export function getLevelBracket(level: number): number {
+  return Math.ceil(level / LEVEL_BRACKET_SIZE);
+}
+
+/**
+ * Check if an attacker can attack a defender based on level brackets.
+ *
+ * Rules:
+ * - Lower levels can ALWAYS attack higher levels (no restrictions attacking up)
+ * - Higher levels CANNOT attack lower brackets (restricted from attacking down)
+ * - Level 300 players can attack ANYONE without restriction
+ *
+ * @param attackerLevel - The attacker's level
+ * @param defenderLevel - The defender's level
+ * @returns Object with canAttack boolean and reason string
+ */
+export function canAttackByLevel(
+  attackerLevel: number,
+  defenderLevel: number
+): { canAttack: boolean; reason: string } {
+  // Level 300 can attack anyone
+  if (attackerLevel >= MAX_LEVEL) {
+    return { canAttack: true, reason: 'Max level - no restrictions' };
+  }
+
+  const attackerBracket = getLevelBracket(attackerLevel);
+  const defenderBracket = getLevelBracket(defenderLevel);
+
+  // Can always attack same bracket or higher
+  if (defenderBracket >= attackerBracket) {
+    return { canAttack: true, reason: 'Target is in same or higher bracket' };
+  }
+
+  // Cannot attack lower brackets
+  return {
+    canAttack: false,
+    reason: `Cannot attack lower level brackets. You are bracket ${attackerBracket} (${(attackerBracket - 1) * LEVEL_BRACKET_SIZE + 1}-${attackerBracket * LEVEL_BRACKET_SIZE}), target is bracket ${defenderBracket} (${(defenderBracket - 1) * LEVEL_BRACKET_SIZE + 1}-${defenderBracket * LEVEL_BRACKET_SIZE})`,
+  };
+}
+
+/**
+ * Calculate XP multiplier for attacking higher level players.
+ * Higher level difference = more bonus XP to incentivize attacking up.
+ *
+ * Formula: Base 1.0x + 0.1x per bracket above attacker (max 3.0x)
+ *
+ * @param attackerLevel - The attacker's level
+ * @param defenderLevel - The defender's level
+ * @returns XP multiplier (1.0 to 3.0)
+ */
+export function getAttackXpMultiplier(attackerLevel: number, defenderLevel: number): number {
+  const attackerBracket = getLevelBracket(attackerLevel);
+  const defenderBracket = getLevelBracket(defenderLevel);
+
+  // No bonus for attacking same or lower brackets
+  if (defenderBracket <= attackerBracket) {
+    return 1.0;
+  }
+
+  // +0.1x per bracket above, max 3.0x total (20 brackets above = 2.0 bonus)
+  const bracketDifference = defenderBracket - attackerBracket;
+  const bonus = bracketDifference * 0.1;
+
+  return Math.min(3.0, 1.0 + bonus);
+}
+
+/**
+ * Get the base XP reward for a successful attack.
+ *
+ * @param defenderLevel - The defender's level
+ * @param attackerWon - Whether the attacker won
+ * @returns Base XP reward
+ */
+export function getBaseAttackXp(defenderLevel: number, attackerWon: boolean): number {
+  if (!attackerWon) {
+    return 5; // Small consolation XP for trying
+  }
+
+  // Base XP scales with defender level
+  return Math.floor(10 + (defenderLevel * 0.5));
+}
+
 /**
  * Calculate usable clan members in battle
  * Storm8 formula: 5 × level

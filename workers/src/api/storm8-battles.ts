@@ -26,8 +26,13 @@ import {
   getClanBracket,
   areInSameBracket,
   calculateRegeneration,
+  canAttackByLevel,
+  getAttackXpMultiplier,
+  getBaseAttackXp,
+  getLevelBracket,
   type CharacterBattleStats,
 } from '../core/storm8-battle-engine';
+import { checkForLevelUp } from '../core/leveling';
 
 type App = {
   Bindings: Bindings;
@@ -469,33 +474,47 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     return c.json({ error: 'Insufficient stamina' }, 400);
   }
 
-  // Check bracket visibility
-  const attackerClanSize = await db
-    .prepare('SELECT COUNT(*) as total FROM clan_members WHERE character_id = ?')
-    .bind(attackerStats.id)
-    .first<{ total: number }>();
-
-  const defenderClanSize = await db
-    .prepare('SELECT COUNT(*) as total FROM clan_members WHERE character_id = ?')
-    .bind(defenderStats.id)
-    .first<{ total: number }>();
-
-  if (!areInSameBracket(attackerClanSize?.total || 0, defenderClanSize?.total || 0)) {
-    return c.json({ error: 'Target not in your bracket' }, 400);
+  // Check level bracket restrictions
+  // - Lower levels can ALWAYS attack higher levels
+  // - Higher levels CANNOT attack lower brackets (except level 300)
+  const levelCheck = canAttackByLevel(attackerStats.level, defenderStats.level);
+  if (!levelCheck.canAttack) {
+    return c.json({
+      error: levelCheck.reason,
+      attacker_bracket: getLevelBracket(attackerStats.level),
+      defender_bracket: getLevelBracket(defenderStats.level),
+    }, 400);
   }
 
   // Resolve battle
   const seed = crypto.randomUUID();
   const result = resolveBattle(attackerStats, defenderStats, seed, {}, false);
 
+  // Calculate XP reward with multiplier for attacking higher levels
+  const baseXp = getBaseAttackXp(defenderStats.level, result.attacker_won);
+  const xpMultiplier = getAttackXpMultiplier(attackerStats.level, defenderStats.level);
+  const xpGained = Math.floor(baseXp * xpMultiplier);
+
+  // Get attacker's current XP and level for level-up check
+  const attackerChar = await db
+    .prepare('SELECT xp, level FROM characters WHERE id = ?')
+    .bind(attackerStats.id)
+    .first<{ xp: number; level: number }>();
+
+  const currentXp = attackerChar?.xp || 0;
+  const newXp = currentXp + xpGained;
+
+  // Check for level up
+  const levelUpResult = checkForLevelUp(attackerStats.level, newXp);
+
   // Create battle record
   const battleId = crypto.randomUUID();
   const now = new Date().toISOString();
 
   const statements = [
-    // Consume stamina
-    db.prepare('UPDATE characters SET current_stamina = current_stamina - 1 WHERE id = ?')
-      .bind(attackerStats.id),
+    // Consume stamina and add XP
+    db.prepare('UPDATE characters SET current_stamina = current_stamina - 1, xp = ? WHERE id = ?')
+      .bind(newXp, attackerStats.id),
 
     // Update defender health
     db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
@@ -517,6 +536,24 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
       result.defender_health_after
     ),
   ];
+
+  // Handle level up if applicable
+  if (levelUpResult) {
+    statements.push(
+      db.prepare('UPDATE characters SET level = ?, unspent_stat_points = unspent_stat_points + ? WHERE id = ?')
+        .bind(levelUpResult.newLevel, levelUpResult.pointsGained, attackerStats.id)
+    );
+
+    // Grant achievements for level milestones
+    for (const achievementLevel of levelUpResult.achievementsEarned) {
+      statements.push(
+        db.prepare(`
+          INSERT OR IGNORE INTO character_achievements (character_id, achievement_id)
+          SELECT ?, id FROM achievements WHERE category = 'level' AND name LIKE '%${achievementLevel}%'
+        `).bind(attackerStats.id)
+      );
+    }
+  }
 
   // Transfer currency if stolen
   if (result.currency_stolen > 0) {
@@ -558,7 +595,19 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
 
   await db.batch(statements);
 
-  return c.json({ data: { battle_id: battleId, result } });
+  return c.json({
+    data: {
+      battle_id: battleId,
+      result,
+      xp_gained: xpGained,
+      xp_multiplier: xpMultiplier,
+      level_up: levelUpResult ? {
+        new_level: levelUpResult.newLevel,
+        stat_points_gained: levelUpResult.pointsGained,
+        achievements_earned: levelUpResult.achievementsEarned,
+      } : null,
+    },
+  });
 });
 
 // ============================================================================
