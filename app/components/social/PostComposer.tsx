@@ -30,7 +30,7 @@ export function PostComposer({ onPostCreated }: Props) {
 
   if (!isAuthenticated) {
     return (
-      <div className="rounded-2xl social-panel p-4 text-sm text-social-navy-500">
+      <div className="rounded-2xl social-panel p-4 text-sm text-social-forest-500">
         Log in to share updates with your network.
       </div>
     );

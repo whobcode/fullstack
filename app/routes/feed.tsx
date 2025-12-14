@@ -35,12 +35,12 @@ export default function FeedPage() {
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         <header className="rounded-3xl social-panel p-6 shadow-xl">
           <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Your Community</p>
-          <h1 className="text-3xl font-bold text-social-navy-700 sm:text-4xl">Feed</h1>
-          <p className="mt-2 max-w-3xl text-social-navy-500">
+          <h1 className="text-3xl font-bold text-social-forest-700 sm:text-4xl">Feed</h1>
+          <p className="mt-2 max-w-3xl text-social-forest-500">
             Stay connected with friends, share updates, and discover what's happening in your network.
           </p>
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            <span className="rounded-full bg-social-cream-300 border border-social-gold-400 px-3 py-1 text-social-navy-600">
+            <span className="rounded-full bg-social-cream-300 border border-social-gold-400 px-3 py-1 text-social-forest-600">
               Welcome, {user?.username ?? "guest"}
             </span>
           </div>
@@ -53,9 +53,9 @@ export default function FeedPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
             {loading ? (
-              <p className="text-sm text-social-navy-500">Loading feed...</p>
+              <p className="text-sm text-social-forest-500">Loading feed...</p>
             ) : posts.length === 0 ? (
-              <p className="text-sm text-social-navy-500">No posts yet. Be the first to share something!</p>
+              <p className="text-sm text-social-forest-500">No posts yet. Be the first to share something!</p>
             ) : (
               posts.map((p) => <PostCard key={p.id} post={p} />)
             )}
@@ -64,15 +64,15 @@ export default function FeedPage() {
           <aside className="space-y-4">
             <div className="rounded-2xl social-panel p-4 shadow">
               <p className="text-xs uppercase tracking-wide text-social-gold-600">Quick Links</p>
-              <h3 className="text-xl font-semibold text-social-navy-700">Explore</h3>
+              <h3 className="text-xl font-semibold text-social-forest-700">Explore</h3>
               <div className="mt-3 space-y-2 text-sm">
-                <Link to="/friends" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-navy-600 hover:bg-social-cream-300 transition-colors">
+                <Link to="/friends" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-forest-600 hover:bg-social-cream-300 transition-colors">
                   Find Friends
                 </Link>
-                <Link to="/groups" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-navy-600 hover:bg-social-cream-300 transition-colors">
+                <Link to="/groups" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-forest-600 hover:bg-social-cream-300 transition-colors">
                   Browse Groups
                 </Link>
-                <Link to="/messages" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-navy-600 hover:bg-social-cream-300 transition-colors">
+                <Link to="/messages" className="block rounded-lg bg-social-cream-200 border border-social-cream-400 px-3 py-2 text-social-forest-600 hover:bg-social-cream-300 transition-colors">
                   Messages
                 </Link>
               </div>

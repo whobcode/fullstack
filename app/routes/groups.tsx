@@ -27,8 +27,8 @@ export default function GroupsPage() {
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         <header className="rounded-3xl social-panel p-6 shadow-xl">
           <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Communities</p>
-          <h1 className="text-3xl font-bold text-social-navy-700">Groups</h1>
-          <p className="mt-2 text-social-navy-500">Join groups to connect with people who share your interests.</p>
+          <h1 className="text-3xl font-bold text-social-forest-700">Groups</h1>
+          <p className="mt-2 text-social-forest-500">Join groups to connect with people who share your interests.</p>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -37,7 +37,7 @@ export default function GroupsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-social-gold-600">Featured</p>
-                  <h2 className="text-xl font-semibold text-social-navy-700">Popular Groups</h2>
+                  <h2 className="text-xl font-semibold text-social-forest-700">Popular Groups</h2>
                 </div>
                 <Link to="/messages" className="text-sm text-social-orange-600 hover:text-social-orange-700 transition-colors">
                   Start a discussion
@@ -46,16 +46,16 @@ export default function GroupsPage() {
               {error && <p className="text-sm text-social-orange-700 mt-2">{error}</p>}
               <div className="mt-4 space-y-3">
                 {groups.length === 0 ? (
-                  <p className="text-sm text-social-navy-400">No groups yet. Create one to get started!</p>
+                  <p className="text-sm text-social-forest-400">No groups yet. Create one to get started!</p>
                 ) : (
                   groups.map((group) => (
                     <div key={group.id} className="flex items-center justify-between rounded-xl bg-social-cream-200 border border-social-cream-400 px-4 py-3">
                       <div>
-                        <p className="font-semibold text-social-navy-700">{group.name}</p>
-                        <p className="text-xs text-social-navy-400">Created by: {group.owner_username}</p>
+                        <p className="font-semibold text-social-forest-700">{group.name}</p>
+                        <p className="text-xs text-social-forest-400">Created by: {group.owner_username}</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-social-navy-500">{group.members} members</span>
+                        <span className="text-xs text-social-forest-500">{group.members} members</span>
                         <button className="rounded-lg social-button px-3 py-1 text-sm font-semibold">
                           Join
                         </button>
@@ -68,9 +68,9 @@ export default function GroupsPage() {
 
             <div className="rounded-2xl social-panel p-5 shadow">
               <p className="text-xs uppercase tracking-wide text-social-gold-600">Create</p>
-              <h2 className="text-xl font-semibold text-social-navy-700">Start a New Group</h2>
-              <p className="mt-1 text-sm text-social-navy-500">Bring people together around shared interests and topics.</p>
-              <ul className="mt-3 space-y-2 text-sm text-social-navy-600">
+              <h2 className="text-xl font-semibold text-social-forest-700">Start a New Group</h2>
+              <p className="mt-1 text-sm text-social-forest-500">Bring people together around shared interests and topics.</p>
+              <ul className="mt-3 space-y-2 text-sm text-social-forest-600">
                 <li>Create discussion threads</li>
                 <li>Share updates with members</li>
                 <li>Build your community</li>

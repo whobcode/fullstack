@@ -50,8 +50,8 @@ export default function LoginPage() {
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <Link to="/" className="text-6xl font-bold text-social-blue-600">me</Link>
-                    <p className="text-social-navy-500 mt-2">Log in to see updates from friends</p>
+                    <Link to="/" className="text-6xl font-bold text-social-green-600">me</Link>
+                    <p className="text-social-forest-500 mt-2">Log in to see updates from friends</p>
                 </div>
 
                 {/* Login Card */}
@@ -62,7 +62,7 @@ export default function LoginPage() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Email address"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
                             required
                         />
                         <input
@@ -70,20 +70,20 @@ export default function LoginPage() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
                             required
                         />
                         {error && <p className="text-red-500 text-sm">{error}</p>}
                         <button
                             type="submit"
-                            className="w-full bg-social-blue-600 hover:bg-social-blue-700 text-white text-xl font-bold py-3 rounded-lg transition-colors"
+                            className="w-full bg-social-green-600 hover:bg-social-green-700 text-white text-xl font-bold py-3 rounded-lg transition-colors"
                         >
                             Log In
                         </button>
                     </form>
 
                     <div className="text-center">
-                        <Link to="/login" className="text-social-blue-600 hover:underline text-sm">
+                        <Link to="/login" className="text-social-green-600 hover:underline text-sm">
                             Forgotten password?
                         </Link>
                     </div>
@@ -114,7 +114,7 @@ export default function LoginPage() {
                 </div>
 
                 {isSocialBusy && (
-                    <div className="text-center mt-4 text-social-navy-500">Signing in with Facebook...</div>
+                    <div className="text-center mt-4 text-social-forest-500">Signing in with Facebook...</div>
                 )}
             </div>
         </div>

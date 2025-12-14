@@ -47,13 +47,13 @@ export default function RegisterPage() {
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <Link to="/" className="text-6xl font-bold text-social-blue-600">me</Link>
-                    <p className="text-social-navy-500 mt-2">It's quick and easy.</p>
+                    <Link to="/" className="text-6xl font-bold text-social-green-600">me</Link>
+                    <p className="text-social-forest-500 mt-2">It's quick and easy.</p>
                 </div>
 
                 {/* Register Card */}
                 <div className="bg-white rounded-lg shadow-xl p-6 space-y-4">
-                    <h2 className="text-2xl font-bold text-social-navy-700 text-center">Create a new account</h2>
+                    <h2 className="text-2xl font-bold text-social-forest-700 text-center">Create a new account</h2>
 
                     <form onSubmit={handleSubmit} className="space-y-3">
                         <input
@@ -61,7 +61,7 @@ export default function RegisterPage() {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="Username"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
                             required
                         />
                         <input
@@ -69,7 +69,7 @@ export default function RegisterPage() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Email address"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
                             required
                         />
                         <input
@@ -77,7 +77,7 @@ export default function RegisterPage() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="New password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-blue-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
                             required
                         />
                         <p className="text-xs text-gray-500">
@@ -108,14 +108,14 @@ export default function RegisterPage() {
                     />
 
                     <div className="text-center pt-4 border-t border-gray-300 mt-4">
-                        <Link to="/login" className="text-social-blue-600 hover:underline font-medium">
+                        <Link to="/login" className="text-social-green-600 hover:underline font-medium">
                             Already have an account?
                         </Link>
                     </div>
                 </div>
 
                 {isSocialBusy && (
-                    <div className="text-center mt-4 text-social-navy-500">Creating account with Facebook...</div>
+                    <div className="text-center mt-4 text-social-forest-500">Creating account with Facebook...</div>
                 )}
             </div>
         </div>

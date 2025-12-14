@@ -62,24 +62,26 @@ export function FacebookAuthCard({
     setIsBusy(true);
     setError(null);
     FB.login(
-      async (response: any) => {
+      (response: any) => {
         if (response?.authResponse?.accessToken) {
-          try {
-            const res = await apiClient.post<{ data: any }>("/auth/facebook", {
-              accessToken: response.authResponse.accessToken,
-            });
-            login(res.data as any);
-            await onAuthenticated?.({
-              accessToken: response.authResponse.accessToken,
-              userID: response.authResponse.userID,
-              needsUsername: res.data?.needs_username_confirmation,
-            });
-          } catch (err) {
-            console.error("Facebook login failed", err);
-            setError((err as Error)?.message ?? "Facebook login failed");
-          } finally {
-            setIsBusy(false);
-          }
+          (async () => {
+            try {
+              const res = await apiClient.post<{ data: any }>("/auth/facebook", {
+                accessToken: response.authResponse.accessToken,
+              });
+              login(res.data as any);
+              await onAuthenticated?.({
+                accessToken: response.authResponse.accessToken,
+                userID: response.authResponse.userID,
+                needsUsername: res.data?.needs_username_confirmation,
+              });
+            } catch (err) {
+              console.error("Facebook login failed", err);
+              setError((err as Error)?.message ?? "Facebook login failed");
+            } finally {
+              setIsBusy(false);
+            }
+          })();
         } else {
           setIsBusy(false);
         }
@@ -90,7 +92,7 @@ export function FacebookAuthCard({
 
   if (!appId) {
     return (
-      <div className="rounded-2xl border border-social-cream-400 bg-social-cream-200 px-4 py-3 text-sm text-social-navy-500">
+      <div className="rounded-2xl border border-social-cream-400 bg-social-cream-200 px-4 py-3 text-sm text-social-forest-500">
         Add `VITE_FACEBOOK_APP_ID` to enable Facebook SSO ({endpointHint}).
       </div>
     );
@@ -104,8 +106,8 @@ export function FacebookAuthCard({
     <div className="space-y-3 rounded-2xl social-panel p-4 shadow">
       <div>
         <p className="text-xs uppercase tracking-wide text-social-gold-600">Social login</p>
-        <h3 className="text-lg font-semibold text-social-navy-700">{title}</h3>
-        <p className="text-xs text-social-navy-400">Quick and easy sign in with your Facebook account</p>
+        <h3 className="text-lg font-semibold text-social-forest-700">{title}</h3>
+        <p className="text-xs text-social-forest-400">Quick and easy sign in with your Facebook account</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -120,7 +122,7 @@ export function FacebookAuthCard({
 
       {error && <p className="text-xs text-social-orange-700">{error}</p>}
 
-      <p className="text-[11px] text-social-navy-400">By continuing, you agree to our terms of service.</p>
+      <p className="text-[11px] text-social-forest-400">By continuing, you agree to our terms of service.</p>
     </div>
   );
 }

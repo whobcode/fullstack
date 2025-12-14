@@ -49,15 +49,15 @@ export function CommentList({ postId, onCommentAdded }: Props) {
   return (
     <div className="mt-3 space-y-3">
       {loading ? (
-        <p className="text-sm text-social-navy-400">Loading comments...</p>
+        <p className="text-sm text-social-forest-400">Loading comments...</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-social-navy-400">No comments yet.</p>
+        <p className="text-sm text-social-forest-400">No comments yet.</p>
       ) : (
         <ul className="space-y-2">
           {comments.map((c) => (
             <li key={c.id} className="rounded-xl bg-social-cream-200 border border-social-cream-400 px-3 py-2">
-              <p className="text-xs text-social-navy-500">{c.author_username}</p>
-              <p className="text-sm text-social-navy-600">{c.body}</p>
+              <p className="text-xs text-social-forest-500">{c.author_username}</p>
+              <p className="text-sm text-social-forest-600">{c.body}</p>
             </li>
           ))}
         </ul>
@@ -80,7 +80,7 @@ export function CommentList({ postId, onCommentAdded }: Props) {
           </div>
         </form>
       ) : (
-        <p className="text-xs text-social-navy-400">Log in to comment.</p>
+        <p className="text-xs text-social-forest-400">Log in to comment.</p>
       )}
     </div>
   );

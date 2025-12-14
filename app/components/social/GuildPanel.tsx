@@ -38,17 +38,17 @@ export function GuildPanel() {
   return (
     <div className="rounded-2xl social-panel p-4 shadow">
       <p className="text-xs uppercase tracking-wide text-social-gold-600">Your Groups</p>
-      <h3 className="text-xl font-semibold text-social-navy-700">Community</h3>
+      <h3 className="text-xl font-semibold text-social-forest-700">Community</h3>
       {error && <p className="text-xs text-social-orange-700 mt-1">{error}</p>}
       <div className="mt-3 space-y-3">
         {groups.length === 0 ? (
-          <p className="text-sm text-social-navy-400">No groups yet.</p>
+          <p className="text-sm text-social-forest-400">No groups yet.</p>
         ) : (
           groups.map((g) => (
             <div key={g.id} className="flex items-center justify-between rounded-xl bg-social-cream-200 border border-social-cream-400 px-3 py-2">
               <div>
-                <p className="font-semibold text-social-navy-700">{g.name}</p>
-                <p className="text-xs text-social-navy-400">Created by: {g.owner_username}</p>
+                <p className="font-semibold text-social-forest-700">{g.name}</p>
+                <p className="text-xs text-social-forest-400">Created by: {g.owner_username}</p>
                 <p className="text-xs text-social-gold-600">{g.members} members</p>
               </div>
               <button

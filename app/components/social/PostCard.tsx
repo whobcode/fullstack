@@ -43,25 +43,25 @@ export function PostCard({ post }: Props) {
     <article className="rounded-2xl social-panel p-5 shadow">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-social-navy-700">{post.author_username}</p>
-          <p className="text-xs text-social-navy-400">{new Date(post.created_at).toLocaleString()}</p>
+          <p className="text-sm font-semibold text-social-forest-700">{post.author_username}</p>
+          <p className="text-xs text-social-forest-400">{new Date(post.created_at).toLocaleString()}</p>
         </div>
       </header>
-      <p className="mt-3 text-social-navy-600 whitespace-pre-wrap">{post.body}</p>
+      <p className="mt-3 text-social-forest-600 whitespace-pre-wrap">{post.body}</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
         {reactionLabels.map(({ kind, label }) => (
           <button
             key={kind}
             onClick={() => react(kind)}
-            className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-navy-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
+            className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-forest-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
           >
             {label} {counts[kind] ?? 0}
           </button>
         ))}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-navy-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
+          className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-forest-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
         >
           Comments {counts.comments}
         </button>

@@ -16,7 +16,7 @@ export function NavBar() {
   };
 
   if (isLoading) {
-    return <header className={`${isShadeRoute ? 'bg-shade-black-600 neon-border text-shade-red-100' : 'bg-social-blue-600'} p-4 h-[60px]`}></header>;
+    return <header className={`${isShadeRoute ? 'bg-shade-black-600 neon-border text-shade-red-100' : 'bg-social-green-600'} p-4 h-[60px]`}></header>;
   }
 
   // Game/Shade Navigation (neon-red theme)
@@ -54,7 +54,7 @@ export function NavBar() {
 
   // Social Navigation (Facebook-like blue header)
   return (
-    <header className="bg-social-blue-600 p-2 shadow-lg sticky top-0 z-50">
+    <header className="bg-social-green-600 p-2 shadow-lg sticky top-0 z-50">
       <nav className="container mx-auto flex justify-between items-center">
         {/* Logo and Search */}
         <div className="flex items-center space-x-4">
@@ -65,7 +65,7 @@ export function NavBar() {
             <input
               type="text"
               placeholder="Search me"
-              className="bg-social-blue-500 text-white placeholder-social-blue-200 rounded-full px-4 py-2 w-64 focus:outline-none focus:bg-white focus:text-social-navy-700 focus:placeholder-social-navy-400 transition-colors"
+              className="bg-social-green-500 text-white placeholder-social-green-200 rounded-full px-4 py-2 w-64 focus:outline-none focus:bg-white focus:text-social-forest-700 focus:placeholder-social-forest-400 transition-colors"
             />
           </div>
         </div>
@@ -74,25 +74,25 @@ export function NavBar() {
         <div className="flex items-center space-x-1">
           <Link
             to="/feed"
-            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/feed' ? 'bg-social-blue-500 text-white' : 'text-social-blue-100 hover:bg-social-blue-500'}`}
+            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/feed' ? 'bg-social-green-500 text-white' : 'text-social-green-100 hover:bg-social-green-500'}`}
           >
             <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           </Link>
           <Link
             to="/friends"
-            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/friends' ? 'bg-social-blue-500 text-white' : 'text-social-blue-100 hover:bg-social-blue-500'}`}
+            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/friends' ? 'bg-social-green-500 text-white' : 'text-social-green-100 hover:bg-social-green-500'}`}
           >
             <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
           </Link>
           <Link
             to="/groups"
-            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/groups' ? 'bg-social-blue-500 text-white' : 'text-social-blue-100 hover:bg-social-blue-500'}`}
+            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/groups' ? 'bg-social-green-500 text-white' : 'text-social-green-100 hover:bg-social-green-500'}`}
           >
             <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </Link>
           <Link
             to="/messages"
-            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/messages' ? 'bg-social-blue-500 text-white' : 'text-social-blue-100 hover:bg-social-blue-500'}`}
+            className={`px-6 py-3 rounded-lg transition-colors duration-200 ${location.pathname === '/messages' ? 'bg-social-green-500 text-white' : 'text-social-green-100 hover:bg-social-green-500'}`}
           >
             <svg className="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           </Link>
@@ -102,11 +102,11 @@ export function NavBar() {
         <div className="flex items-center space-x-3">
           {isAuthenticated ? (
             <>
-              <Link to="/profile/me" className="flex items-center space-x-2 bg-social-blue-500 hover:bg-social-blue-400 px-3 py-1.5 rounded-full transition-colors">
+              <Link to="/profile/me" className="flex items-center space-x-2 bg-social-green-500 hover:bg-social-green-400 px-3 py-1.5 rounded-full transition-colors">
                 {user?.avatar_url ? (
                   <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-social-blue-400 flex items-center justify-center text-white text-sm font-bold">
+                  <div className="w-7 h-7 rounded-full bg-social-green-400 flex items-center justify-center text-white text-sm font-bold">
                     {user?.username?.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -117,7 +117,7 @@ export function NavBar() {
               <div className="relative">
                 <button
                   onClick={() => setSettingsOpen(!settingsOpen)}
-                  className="w-10 h-10 rounded-full bg-social-blue-500 hover:bg-social-blue-400 flex items-center justify-center text-white transition-colors"
+                  className="w-10 h-10 rounded-full bg-social-green-500 hover:bg-social-green-400 flex items-center justify-center text-white transition-colors"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
                 </button>
@@ -125,10 +125,10 @@ export function NavBar() {
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-50 border border-gray-200 overflow-hidden">
                     <Link
                       to="/profile/me"
-                      className="flex items-center space-x-3 px-4 py-3 text-social-navy-700 hover:bg-gray-100"
+                      className="flex items-center space-x-3 px-4 py-3 text-social-forest-700 hover:bg-gray-100"
                       onClick={() => setSettingsOpen(false)}
                     >
-                      <div className="w-10 h-10 rounded-full bg-social-blue-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-social-green-100 flex items-center justify-center">
                         {user?.username?.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -139,7 +139,7 @@ export function NavBar() {
                     <div className="border-t border-gray-200"></div>
                     <Link
                       to="/settings"
-                      className="flex items-center space-x-3 px-4 py-3 text-social-navy-600 hover:bg-gray-100"
+                      className="flex items-center space-x-3 px-4 py-3 text-social-forest-600 hover:bg-gray-100"
                       onClick={() => setSettingsOpen(false)}
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"/></svg>
@@ -147,7 +147,7 @@ export function NavBar() {
                     </Link>
                     <Link
                       to="/shade"
-                      className="flex items-center space-x-3 px-4 py-3 text-social-navy-600 hover:bg-gray-100"
+                      className="flex items-center space-x-3 px-4 py-3 text-social-forest-600 hover:bg-gray-100"
                       onClick={() => setSettingsOpen(false)}
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/></svg>
@@ -156,7 +156,7 @@ export function NavBar() {
                     <div className="border-t border-gray-200"></div>
                     <button
                       onClick={() => { handleLogout(); setSettingsOpen(false); }}
-                      className="flex items-center space-x-3 w-full px-4 py-3 text-social-navy-600 hover:bg-gray-100"
+                      className="flex items-center space-x-3 w-full px-4 py-3 text-social-forest-600 hover:bg-gray-100"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/></svg>
                       <span>Log Out</span>
