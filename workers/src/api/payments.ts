@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
-import { Client, Environment } from 'square';
+import { SquareClient, SquareEnvironment } from 'square';
 
 type App = {
   Bindings: Bindings;
@@ -87,16 +87,16 @@ payments.post('/slot-purchase', zValidator('json', createPaymentSchema), async (
   }
 
   // Initialize Square client
-  const squareClient = new Client({
-    accessToken: c.env.SQUARE_ACCESS_TOKEN,
+  const squareClient = new SquareClient({
+    token: c.env.SQUARE_ACCESS_TOKEN,
     environment: c.env.SQUARE_ENVIRONMENT === 'production'
-      ? Environment.Production
-      : Environment.Sandbox,
+      ? SquareEnvironment.Production
+      : SquareEnvironment.Sandbox,
   });
 
   try {
     // Create the payment with Square
-    const { result } = await squareClient.paymentsApi.createPayment({
+    const response = await squareClient.payments.create({
       sourceId,
       idempotencyKey,
       amountMoney: {
@@ -108,11 +108,11 @@ payments.post('/slot-purchase', zValidator('json', createPaymentSchema), async (
       referenceId: `slot-${slotNumber}-user-${user.id}`,
     });
 
-    if (!result.payment) {
+    if (!response.payment) {
       return c.json({ error: 'Payment failed - no payment returned' }, 500);
     }
 
-    const payment = result.payment;
+    const payment = response.payment;
 
     // Check payment status
     if (payment.status !== 'COMPLETED') {
@@ -194,28 +194,28 @@ payments.post('/verify', zValidator('json', verifyPaymentSchema), async (c) => {
     return c.json({ error: 'Payment verification not configured' }, 503);
   }
 
-  const squareClient = new Client({
-    accessToken: c.env.SQUARE_ACCESS_TOKEN,
+  const squareClient = new SquareClient({
+    token: c.env.SQUARE_ACCESS_TOKEN,
     environment: c.env.SQUARE_ENVIRONMENT === 'production'
-      ? Environment.Production
-      : Environment.Sandbox,
+      ? SquareEnvironment.Production
+      : SquareEnvironment.Sandbox,
   });
 
   try {
-    const { result } = await squareClient.paymentsApi.getPayment(paymentId);
+    const response = await squareClient.payments.get({ paymentId });
 
-    if (!result.payment) {
+    if (!response.payment) {
       return c.json({ error: 'Payment not found' }, 404);
     }
 
     return c.json({
       data: {
-        id: result.payment.id,
-        status: result.payment.status,
-        amount: result.payment.amountMoney?.amount?.toString(),
-        currency: result.payment.amountMoney?.currency,
-        receiptUrl: result.payment.receiptUrl,
-        createdAt: result.payment.createdAt,
+        id: response.payment.id,
+        status: response.payment.status,
+        amount: response.payment.amountMoney?.amount?.toString(),
+        currency: response.payment.amountMoney?.currency,
+        receiptUrl: response.payment.receiptUrl,
+        createdAt: response.payment.createdAt,
       }
     });
 

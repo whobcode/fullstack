@@ -496,12 +496,12 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
   const xpGained = Math.floor(baseXp * xpMultiplier);
 
   // Get attacker's current XP and level for level-up check
-  const attackerChar = await db
+  const attackerXpData = await db
     .prepare('SELECT xp, level FROM characters WHERE id = ?')
     .bind(attackerStats.id)
     .first<{ xp: number; level: number }>();
 
-  const currentXp = attackerChar?.xp || 0;
+  const currentXp = attackerXpData?.xp || 0;
   const newXp = currentXp + xpGained;
 
   // Check for level up
