@@ -1,0 +1,1 @@
+- deploy and build is now handled with github workflow

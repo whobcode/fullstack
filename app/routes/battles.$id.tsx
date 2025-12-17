@@ -10,6 +10,8 @@ export default function BattlePage() {
     const [battle, setBattle] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [attackAgainLoading, setAttackAgainLoading] = useState(false);
+    const [attackAgainError, setAttackAgainError] = useState<string | null>(null);
 
     const fetchBattle = async () => {
         if (!battleId) return;
@@ -46,6 +48,21 @@ export default function BattlePage() {
 
     const myCharacterId = user?.characterId;
     const isMyTurn = battle.state === 'active' && battle.attacker_char_id === myCharacterId;
+    const opponentId = myCharacterId === battle.attacker_char_id ? battle.defender_char_id : battle.attacker_char_id;
+
+    const handleAttackAgain = async () => {
+        if (!opponentId) return;
+        setAttackAgainLoading(true);
+        setAttackAgainError(null);
+        try {
+            const res = await apiClient.post<{ data: { battleId: string }}>('/game/battles', { defenderId: opponentId, mode: battle.mode || 'async' });
+            navigate(`/shade/battles/${res.data.battleId}`);
+        } catch (err: any) {
+            setAttackAgainError(err.message);
+        } finally {
+            setAttackAgainLoading(false);
+        }
+    };
 
     return (
         <div>
@@ -58,7 +75,21 @@ export default function BattlePage() {
                 </button>
             )}
             {battle.state === 'completed' && (
-                <p className="my-4 text-lg font-bold text-shade-red-400">Winner: {battle.winner_char_id}</p>
+                <div className="my-4 space-y-3">
+                    <p className="text-lg font-bold text-shade-red-400">Winner: {battle.winner_char_id}</p>
+                    {opponentId && (
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleAttackAgain}
+                                disabled={attackAgainLoading}
+                                className="bg-shade-black-900 neon-border text-shade-red-100 hover:neon-glow-strong transition-all px-4 py-2 rounded disabled:opacity-60"
+                            >
+                                {attackAgainLoading ? 'Launching...' : 'Attack Again'}
+                            </button>
+                            {attackAgainError && <span className="text-sm text-shade-red-500">{attackAgainError}</span>}
+                        </div>
+                    )}
+                </div>
             )}
 
             <div className="mt-4">
