@@ -3,24 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
-type NetworkUser = {
-    id: string;
-    name: string;
-    pictureUrl?: string;
-    profileUrl?: string;
-};
-
 export default function PlayersPage() {
     const [players, setPlayers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [fbQuery, setFbQuery] = useState('');
-    const [fbResults, setFbResults] = useState<NetworkUser[]>([]);
-    const [fbLoading, setFbLoading] = useState(false);
-    const [fbError, setFbError] = useState<string | null>(null);
     const [attackStatus, setAttackStatus] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // Generate invite link for sharing
+    const inviteLink = typeof window !== 'undefined'
+        ? `${window.location.origin}/register?ref=${user?.id || ''}`
+        : '';
 
     useEffect(() => {
         const fetchPlayers = async () => {
@@ -47,56 +42,32 @@ export default function PlayersPage() {
         }
     };
 
-    const handleFacebookSearch = async () => {
-        if (!fbQuery.trim()) {
-            setFbError('Enter a name to search.');
-            return;
-        }
-        setFbLoading(true);
-        setFbError(null);
-        setAttackStatus(null);
+    const copyInviteLink = async () => {
         try {
-            const res = await apiClient.get<{ data: NetworkUser[] }>(`/game/network/search?network=facebook&q=${encodeURIComponent(fbQuery)}`);
-            setFbResults(res.data);
-            if (!res.data.length) {
-                setFbError('No Facebook users found.');
-            }
-        } catch (err: any) {
-            setFbError(err.message ?? 'Facebook search failed.');
-        } finally {
-            setFbLoading(false);
+            await navigator.clipboard.writeText(inviteLink);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Fallback for older browsers
+            const input = document.createElement('input');
+            input.value = inviteLink;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
         }
     };
 
-    const handleFacebookAttack = async (target: NetworkUser) => {
-        setAttackStatus(null);
-        setFbError(null);
-        try {
-            const res = await apiClient.post<{ data: any }>('/game/network/attack', {
-                network: 'facebook',
-                targetId: target.id,
-                targetName: target.name,
-                targetProfileUrl: target.profileUrl,
-            });
-            const payload = res.data;
+    const shareToFacebook = () => {
+        const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${encodeURIComponent('Join me in .shade and prepare to be attacked!')}`;
+        window.open(shareUrl, '_blank', 'width=600,height=400');
+    };
 
-            if (payload?.type === 'registered' && payload.battleId) {
-                navigate(`/shade/battles/${payload.battleId}`);
-                return;
-            }
-
-            if (payload?.type === 'invite') {
-                let statusCopy = 'Attack processed.';
-                if (payload.messageStatus === 'sent') {
-                    statusCopy = 'Attack landed. Invite sent via Messenger.';
-                } else if (payload.messageStatus === 'failed') {
-                    statusCopy = 'Attack landed, but the Messenger invite was blocked.';
-                }
-                setAttackStatus(`${statusCopy} Join link: ${payload.joinLink}`);
-            }
-        } catch (err: any) {
-            setFbError(err.message ?? 'Failed to attack via Facebook.');
-        }
+    const shareToTwitter = () => {
+        const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me in .shade and prepare to be attacked!')}&url=${encodeURIComponent(inviteLink)}`;
+        window.open(shareUrl, '_blank', 'width=600,height=400');
     };
 
     if (loading) return <div className="neon-text">Loading players...</div>;
@@ -133,60 +104,54 @@ export default function PlayersPage() {
                     ))}
                 </div>
 
-                {/* Facebook search */}
-                <div className="p-4 beveled-panel space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="font-semibold neon-text">Find on Facebook</p>
-                            <p className="text-xs text-shade-black-400">Attack anyone on Facebook; we auto-send a Messenger invite if they are not here yet.</p>
+                {/* Invite Friends */}
+                <div className="p-4 beveled-panel space-y-4">
+                    <div>
+                        <p className="font-semibold neon-text">Invite Friends to Attack</p>
+                        <p className="text-xs text-shade-black-400">Share your invite link to bring friends into .shade. Once they join, you can attack them!</p>
+                    </div>
+
+                    {/* Invite Link */}
+                    <div className="space-y-2">
+                        <label className="text-xs text-shade-black-400">Your Invite Link</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={inviteLink}
+                                readOnly
+                                className="flex-1 bg-shade-black-800 text-shade-red-100 px-3 py-2 rounded neon-border focus:outline-none text-sm"
+                            />
+                            <button
+                                onClick={copyInviteLink}
+                                className="bg-shade-black-900 neon-border text-shade-red-100 px-4 py-2 rounded hover:neon-glow-strong"
+                            >
+                                {copied ? 'Copied!' : 'Copy'}
+                            </button>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={fbQuery}
-                            onChange={(e) => setFbQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleFacebookSearch()}
-                            placeholder="Search Facebook users to attack"
-                            className="flex-1 bg-shade-black-800 text-shade-red-100 px-3 py-2 rounded neon-border focus:outline-none"
-                        />
-                        <button
-                            onClick={handleFacebookSearch}
-                            disabled={fbLoading}
-                            className="bg-shade-black-900 neon-border text-shade-red-100 px-4 py-2 rounded hover:neon-glow-strong disabled:opacity-60"
-                        >
-                            {fbLoading ? 'Searching...' : 'Search'}
-                        </button>
-                    </div>
-                    {fbError && <p className="text-sm text-shade-red-500">{fbError}</p>}
+
+                    {/* Share Buttons */}
                     <div className="space-y-2">
-                        {fbResults.map((person) => (
-                            <div key={person.id} className="p-3 rounded bg-shade-black-800 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    {person.pictureUrl ? (
-                                        <img src={person.pictureUrl} alt={person.name} className="w-10 h-10 rounded-full" />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-full bg-shade-black-700 flex items-center justify-center text-sm text-shade-red-100">
-                                            {person.name?.charAt(0)}
-                                        </div>
-                                    )}
-                                    <div>
-                                        <p className="text-shade-red-100 font-semibold">{person.name}</p>
-                                        {person.profileUrl && (
-                                            <a href={person.profileUrl} target="_blank" rel="noreferrer" className="text-xs text-shade-red-500 hover:text-shade-red-300">
-                                                View profile
-                                            </a>
-                                        )}
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => handleFacebookAttack(person)}
-                                    className="bg-shade-black-900 neon-border text-shade-red-100 px-3 py-2 rounded hover:neon-glow-strong"
-                                >
-                                    Attack
-                                </button>
-                            </div>
-                        ))}
+                        <label className="text-xs text-shade-black-400">Share on Social</label>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={shareToFacebook}
+                                className="flex-1 bg-[#1877F2] text-white px-4 py-2 rounded hover:opacity-90 transition-opacity text-sm font-medium"
+                            >
+                                Share on Facebook
+                            </button>
+                            <button
+                                onClick={shareToTwitter}
+                                className="flex-1 bg-[#1DA1F2] text-white px-4 py-2 rounded hover:opacity-90 transition-opacity text-sm font-medium"
+                            >
+                                Share on X
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="text-xs text-shade-black-500 border-t border-shade-black-700 pt-3">
+                        <p>When friends join using your link, they will appear in the In-Game Players list above.</p>
                     </div>
                 </div>
             </div>

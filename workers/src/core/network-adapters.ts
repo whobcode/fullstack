@@ -35,33 +35,19 @@ function buildFacebookProfileUrl(id: string) {
 
 const facebookAdapter: SocialNetworkAdapter = {
   network: 'facebook',
-  async searchUsers(query: string, env: Bindings): Promise<NetworkUserResult[]> {
-    const token = env.FACEBOOK_GRAPH_TOKEN || env.FACEBOOK_MESSENGER_PAGE_TOKEN || (env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET ? `${env.FACEBOOK_APP_ID}|${env.FACEBOOK_APP_SECRET}` : '');
-    if (!token) {
-      throw new Error('Missing Facebook Graph API credentials');
-    }
-
-    const url = new URL('https://graph.facebook.com/v20.0/search');
-    url.searchParams.set('type', 'user');
-    url.searchParams.set('q', query);
-    url.searchParams.set('fields', 'id,name,picture');
-    url.searchParams.set('access_token', token);
-
-    const res = await fetch(url.toString());
-    const json = await res.json<any>();
-    if (!res.ok || json.error) {
-      const msg = json?.error?.message || 'Facebook search failed';
-      throw new Error(msg);
-    }
-
-    const data = Array.isArray(json.data) ? json.data : [];
-    return data.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      pictureUrl: row.picture?.data?.url,
-      profileUrl: buildFacebookProfileUrl(row.id),
-      network: 'facebook' as NetworkName,
-    }));
+  async searchUsers(_query: string, _env: Bindings): Promise<NetworkUserResult[]> {
+    // Facebook deprecated the /search?type=user endpoint in 2019
+    // User search is no longer available to third-party apps
+    // The only option is to use user_friends permission which only shows
+    // friends who have ALSO authorized the same app
+    //
+    // For now, return empty results with an explanation
+    // Future: implement friend-of-friend discovery via oauth_accounts + user_friends
+    throw new Error(
+      'Facebook user search is no longer available. ' +
+      'Facebook deprecated this feature in 2019. ' +
+      'You can only attack players already on the platform or share your invite link directly.'
+    );
   },
 
   async sendAttackInvite(targetId: string, context: InviteContext, env: Bindings): Promise<InviteResult> {
