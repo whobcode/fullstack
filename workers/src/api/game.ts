@@ -4,8 +4,9 @@ import { z } from 'zod';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
-import { firstAccessSchema } from '../shared/schemas/game';
-import { MAX_LEVEL, getTotalStatPointsForLevel, getAllLevelAchievementsUpTo } from '../core/leveling';
+import { firstAccessSchema, networkAttackSchema } from '../shared/schemas/game';
+import { MAX_LEVEL, getTotalStatPointsForLevel, getAllLevelAchievementsUpTo, getXpForLevel } from '../core/leveling';
+import { getNetworkAdapter, listSupportedNetworks } from '../core/network-adapters';
 
 type App = {
   Bindings: Bindings;
@@ -609,6 +610,257 @@ game.post('/battles/:id/turn', zValidator('json', submitTurnSchema), async (c) =
     }
 
     return c.json({ error: 'This endpoint is deprecated. Battles resolve instantly when created.' }, 400);
+});
+
+// ============================================================================
+// NETWORK ATTACK (Facebook, etc.)
+// ============================================================================
+
+function buildInviteLink(token: string, reqUrl: string, publicAppUrl?: string) {
+    const origin = new URL(reqUrl).origin;
+    const base = (publicAppUrl || origin).replace(/\/$/, '');
+    return `${base}/register?attackInvite=${token}`;
+}
+
+async function createInstantBattleRecord(
+    db: D1Database,
+    env: Bindings,
+    attackerChar: CharacterRow,
+    defenderChar: CharacterRow,
+    mode: string
+) {
+    const battleId = crypto.randomUUID();
+    const seed = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    const classMods: ClassMods = JSON.parse(env.CLASS_MODS);
+    const mitigationFactor = parseFloat(env.MITIGATION_FACTOR);
+    const turnResult = resolveTurn(attackerChar, defenderChar, classMods, seed, mitigationFactor);
+
+    const defenderHpAfter = defenderChar.hp - turnResult.damage;
+    const turnId = crypto.randomUUID();
+
+    const statements = [
+        db.prepare('INSERT INTO battles (id, attacker_char_id, defender_char_id, mode, state, seed, started_at, ended_at, winner_char_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .bind(battleId, attackerChar.id, defenderChar.id, mode, 'completed', seed, now, now, turnResult.attackerWins ? attackerChar.id : defenderChar.id),
+        db.prepare('INSERT INTO battle_turns (id, battle_id, turn_index, actor_char_id, action_type, damage, hp_after_target) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .bind(turnId, battleId, 1, attackerChar.id, 'attack', turnResult.damage, defenderHpAfter),
+        db.prepare('UPDATE characters SET hp = ? WHERE id = ?').bind(defenderHpAfter, defenderChar.id),
+        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
+            .bind(turnResult.attackerWins ? 1 : 0, turnResult.attackerWins ? 0 : 1, attackerChar.id),
+        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
+            .bind(turnResult.defenderWins ? 1 : 0, turnResult.defenderWins ? 0 : 1, defenderChar.id),
+    ];
+
+    if (turnResult.killed) {
+        const winXp = parseInt(env.WIN_XP_AWARD, 10);
+        statements.push(
+            db.prepare('UPDATE trophies SET kills = kills + 1 WHERE character_id = ?').bind(attackerChar.id),
+            db.prepare('UPDATE trophies SET deaths = deaths + 1 WHERE character_id = ?').bind(defenderChar.id),
+            db.prepare('UPDATE characters SET xp = xp + ? WHERE id = ?').bind(winXp, attackerChar.id),
+        );
+
+        const newTotalXp = attackerChar.xp + winXp;
+        const levelUpResult = checkForLevelUp(attackerChar.level, newTotalXp);
+        if (levelUpResult) {
+            statements.push(
+                db.prepare('UPDATE characters SET level = ?, unspent_stat_points = unspent_stat_points + ? WHERE id = ?')
+                    .bind(levelUpResult.newLevel, levelUpResult.pointsGained, attackerChar.id)
+            );
+        }
+    }
+
+    await db.batch(statements);
+
+    return { battleId, turnResult, defenderHpAfter };
+}
+
+async function applyInviteRewards(db: D1Database, character: CharacterRow, xpReward: number, currencyReward: number) {
+    const statements = [
+        db.prepare('UPDATE characters SET xp = xp + ?, unbanked_currency = COALESCE(unbanked_currency, 0) + ? WHERE id = ?')
+            .bind(xpReward, currencyReward, character.id),
+    ];
+
+    const newTotalXp = character.xp + xpReward;
+    const levelUpResult = checkForLevelUp(character.level, newTotalXp);
+    if (levelUpResult) {
+        statements.push(
+            db.prepare('UPDATE characters SET level = ?, unspent_stat_points = unspent_stat_points + ? WHERE id = ?')
+                .bind(levelUpResult.newLevel, levelUpResult.pointsGained, character.id)
+        );
+    }
+
+    await db.batch(statements);
+
+    return { levelUp: levelUpResult };
+}
+
+// Search off-platform players (Facebook-first, pluggable adapters)
+game.get('/network/search', async (c) => {
+    const network = (c.req.query('network') || 'facebook').toLowerCase();
+    const query = c.req.query('q');
+    if (!query) {
+        return c.json({ error: 'Search query is required.' }, 400);
+    }
+
+    const adapter = getNetworkAdapter(network);
+    if (!adapter) {
+        return c.json({ error: `Unsupported network. Supported: ${listSupportedNetworks().join(', ')}` }, 400);
+    }
+
+    try {
+        const results = await adapter.searchUsers(query, c.env);
+        return c.json({ data: results });
+    } catch (err: any) {
+        console.error('Network search failed', err);
+        return c.json({ error: err?.message || 'Network search failed' }, 502);
+    }
+});
+
+// Attack an off-platform target (auto-invite if not registered)
+game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) => {
+    const user = c.get('user');
+    const { network, targetId, targetName, targetProfileUrl } = c.req.valid('json');
+    const adapter = getNetworkAdapter(network);
+    if (!adapter) {
+        return c.json({ error: `Unsupported network. Supported: ${listSupportedNetworks().join(', ')}` }, 400);
+    }
+
+    const db = c.env.DB;
+    const attackerChar = await db.prepare('SELECT id, hp, atk, def, class, xp, level, unbanked_currency FROM characters WHERE user_id = ?').bind(user.id).first<CharacterRow & { unbanked_currency?: number }>();
+    if (!attackerChar) {
+        return c.json({ error: 'Attacker character not found.' }, 404);
+    }
+
+    // If the target already exists on our platform, pivot to a normal battle
+    const linkedUser = await db.prepare('SELECT user_id FROM oauth_accounts WHERE provider = ? AND provider_account_id = ?')
+        .bind(network, targetId)
+        .first<{ user_id: string }>();
+
+    if (linkedUser) {
+        if (linkedUser.user_id === user.id) {
+            return c.json({ error: "You can't attack yourself." }, 400);
+        }
+
+        const targetChar = await db.prepare('SELECT id, hp, atk, def, class, xp, level FROM characters WHERE user_id = ? AND first_game_access_completed = TRUE')
+            .bind(linkedUser.user_id)
+            .first<CharacterRow>();
+
+        if (!targetChar) {
+            return c.json({ error: 'Target is registered but has not finished character setup yet.' }, 409);
+        }
+
+        const battleResult = await createInstantBattleRecord(db, c.env, attackerChar, targetChar, 'async');
+        return c.json({
+            data: {
+                type: 'registered',
+                battleId: battleResult.battleId,
+                result: battleResult.turnResult,
+                defenderHpAfter: battleResult.defenderHpAfter,
+            }
+        });
+    }
+
+    // Enforce rolling 24h cap for off-platform invites
+    const nowIso = new Date().toISOString();
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const recentInvites = await db.prepare('SELECT COUNT(*) as cnt FROM network_attack_invites WHERE attacker_char_id = ? AND created_at >= ?')
+        .bind(attackerChar.id, windowStart)
+        .first<{ cnt: number }>();
+
+    if ((recentInvites?.cnt || 0) >= 100) {
+        return c.json({ error: '24h cap reached: 100 off-platform attacks already sent. Try again later.' }, 429);
+    }
+
+    // Idempotency: reuse the latest invite to this target if it exists
+    const existingInvite = await db.prepare('SELECT * FROM network_attack_invites WHERE attacker_char_id = ? AND target_network = ? AND target_external_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 1')
+        .bind(attackerChar.id, network, targetId, windowStart)
+        .first<any>();
+
+    if (existingInvite) {
+        const inviteLink = buildInviteLink(existingInvite.invite_token, c.req.url, c.env.PUBLIC_APP_URL);
+        return c.json({
+            data: {
+                type: 'invite',
+                inviteToken: existingInvite.invite_token,
+                joinLink: inviteLink,
+                messageStatus: existingInvite.message_status,
+                targetRegistered: !!existingInvite.target_registered_user_id,
+                reward: {
+                    xp: existingInvite.reward_xp_awarded,
+                    currency: existingInvite.reward_currency_awarded,
+                }
+            }
+        });
+    }
+
+    const inviteToken = crypto.randomUUID();
+    const inviteLink = buildInviteLink(inviteToken, c.req.url, c.env.PUBLIC_APP_URL);
+    const messengerText = `You were attacked in .shade by ${user.username} (Lvl ${attackerChar.level}). Join to strike back: ${inviteLink}`;
+    let messageStatus: 'sent' | 'failed' | 'skipped' | 'pending' = 'pending';
+    let messageError: string | undefined;
+
+    try {
+        const sendResult = await adapter.sendAttackInvite(targetId, {
+            attackerName: user.username,
+            attackerLevel: attackerChar.level,
+            inviteLink,
+            inviteToken,
+            messageText: messengerText,
+        }, c.env);
+        messageStatus = sendResult.status;
+        messageError = sendResult.errorMessage;
+    } catch (err: any) {
+        console.error('Invite send failed', err);
+        messageStatus = 'failed';
+        messageError = err?.message || 'Failed to send invite';
+    }
+
+    const xpReward = parseInt(c.env.INVITE_ATTACK_XP || '25', 10);
+    const currencyReward = parseInt(c.env.INVITE_ATTACK_CURRENCY || '100', 10);
+
+    await db.batch([
+        db.prepare(`
+            INSERT INTO network_attack_invites (
+                id, attacker_user_id, attacker_char_id, target_network, target_external_id, target_display_name, target_profile_url,
+                invite_token, attacker_level_snapshot, attacker_xp_snapshot, reward_xp_awarded, reward_currency_awarded,
+                reward_issued, message_status, message_error, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+            crypto.randomUUID(),
+            user.id,
+            attackerChar.id,
+            network,
+            targetId,
+            targetName || null,
+            targetProfileUrl || null,
+            inviteToken,
+            attackerChar.level,
+            attackerChar.xp,
+            xpReward,
+            currencyReward,
+            1,
+            messageStatus,
+            messageError || null,
+            nowIso,
+            nowIso
+        )
+    ]);
+
+    // Apply rewards after recording to keep state consistent
+    await applyInviteRewards(db, attackerChar, xpReward, currencyReward);
+
+    return c.json({
+        data: {
+            type: 'invite',
+            inviteToken,
+            joinLink: inviteLink,
+            messageStatus,
+            messageError,
+            reward: { xp: xpReward, currency: currencyReward },
+            levelSnapshot: attackerChar.level,
+        }
+    });
 });
 
 // ============================================================================
