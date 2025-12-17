@@ -36,3 +36,12 @@ export const submitTurnSchema = z.object({
 
 export type CreateBattleInput = z.infer<typeof createBattleSchema>;
 export type SubmitTurnInput = z.infer<typeof submitTurnSchema>;
+
+export const networkAttackSchema = z.object({
+    network: z.enum(['facebook']),
+    targetId: z.string().min(1),
+    targetName: z.string().optional(),
+    targetProfileUrl: z.string().url().optional(),
+});
+
+export type NetworkAttackInput = z.infer<typeof networkAttackSchema>;
