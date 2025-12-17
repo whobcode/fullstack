@@ -622,10 +622,11 @@ function buildInviteLink(token: string, reqUrl: string, publicAppUrl?: string) {
     return `${base}/register?attackInvite=${token}`;
 }
 
-async function createInstantBattleRecord(
+// Network battle - only XP gain and stamina cost, NO trophy/stat updates
+async function createNetworkBattleRecord(
     db: D1Database,
     env: Bindings,
-    attackerChar: CharacterRow,
+    attackerChar: CharacterRow & { current_stamina?: number },
     defenderChar: CharacterRow,
     mode: string
 ) {
@@ -639,46 +640,41 @@ async function createInstantBattleRecord(
 
     const defenderHpAfter = defenderChar.hp - turnResult.damage;
     const turnId = crypto.randomUUID();
+    const xpReward = parseInt(env.INVITE_ATTACK_XP || '25', 10);
+    const staminaCost = 1;
 
     const statements = [
+        // Create battle record
         db.prepare('INSERT INTO battles (id, attacker_char_id, defender_char_id, mode, state, seed, started_at, ended_at, winner_char_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
             .bind(battleId, attackerChar.id, defenderChar.id, mode, 'completed', seed, now, now, turnResult.attackerWins ? attackerChar.id : defenderChar.id),
+        // Log the turn
         db.prepare('INSERT INTO battle_turns (id, battle_id, turn_index, actor_char_id, action_type, damage, hp_after_target) VALUES (?, ?, ?, ?, ?, ?, ?)')
             .bind(turnId, battleId, 1, attackerChar.id, 'attack', turnResult.damage, defenderHpAfter),
-        db.prepare('UPDATE characters SET hp = ? WHERE id = ?').bind(defenderHpAfter, defenderChar.id),
-        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
-            .bind(turnResult.attackerWins ? 1 : 0, turnResult.attackerWins ? 0 : 1, attackerChar.id),
-        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
-            .bind(turnResult.defenderWins ? 1 : 0, turnResult.defenderWins ? 0 : 1, defenderChar.id),
+        // Award XP to attacker (network battles always give XP)
+        db.prepare('UPDATE characters SET xp = xp + ?, current_stamina = COALESCE(current_stamina, 0) - ? WHERE id = ?')
+            .bind(xpReward, staminaCost, attackerChar.id),
     ];
 
-    if (turnResult.killed) {
-        const winXp = parseInt(env.WIN_XP_AWARD, 10);
+    // Check for level up
+    const newTotalXp = attackerChar.xp + xpReward;
+    const levelUpResult = checkForLevelUp(attackerChar.level, newTotalXp);
+    if (levelUpResult) {
         statements.push(
-            db.prepare('UPDATE trophies SET kills = kills + 1 WHERE character_id = ?').bind(attackerChar.id),
-            db.prepare('UPDATE trophies SET deaths = deaths + 1 WHERE character_id = ?').bind(defenderChar.id),
-            db.prepare('UPDATE characters SET xp = xp + ? WHERE id = ?').bind(winXp, attackerChar.id),
+            db.prepare('UPDATE characters SET level = ?, unspent_stat_points = unspent_stat_points + ? WHERE id = ?')
+                .bind(levelUpResult.newLevel, levelUpResult.pointsGained, attackerChar.id)
         );
-
-        const newTotalXp = attackerChar.xp + winXp;
-        const levelUpResult = checkForLevelUp(attackerChar.level, newTotalXp);
-        if (levelUpResult) {
-            statements.push(
-                db.prepare('UPDATE characters SET level = ?, unspent_stat_points = unspent_stat_points + ? WHERE id = ?')
-                    .bind(levelUpResult.newLevel, levelUpResult.pointsGained, attackerChar.id)
-            );
-        }
     }
 
     await db.batch(statements);
 
-    return { battleId, turnResult, defenderHpAfter };
+    return { battleId, turnResult, defenderHpAfter, xpAwarded: xpReward, staminaUsed: staminaCost, levelUp: levelUpResult };
 }
 
-async function applyInviteRewards(db: D1Database, character: CharacterRow, xpReward: number, currencyReward: number) {
+// Apply rewards for invite attacks (unregistered targets) - XP only + stamina cost
+async function applyInviteRewards(db: D1Database, character: CharacterRow, xpReward: number, staminaCost: number = 1) {
     const statements = [
-        db.prepare('UPDATE characters SET xp = xp + ?, unbanked_currency = COALESCE(unbanked_currency, 0) + ? WHERE id = ?')
-            .bind(xpReward, currencyReward, character.id),
+        db.prepare('UPDATE characters SET xp = xp + ?, current_stamina = COALESCE(current_stamina, 0) - ? WHERE id = ?')
+            .bind(xpReward, staminaCost, character.id),
     ];
 
     const newTotalXp = character.xp + xpReward;
@@ -692,7 +688,7 @@ async function applyInviteRewards(db: D1Database, character: CharacterRow, xpRew
 
     await db.batch(statements);
 
-    return { levelUp: levelUpResult };
+    return { levelUp: levelUpResult, staminaUsed: staminaCost };
 }
 
 // Search off-platform players (Facebook-first, pluggable adapters)
@@ -727,12 +723,18 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
     }
 
     const db = c.env.DB;
-    const attackerChar = await db.prepare('SELECT id, hp, atk, def, class, xp, level, unbanked_currency FROM characters WHERE user_id = ?').bind(user.id).first<CharacterRow & { unbanked_currency?: number }>();
+    const attackerChar = await db.prepare('SELECT id, hp, atk, def, class, xp, level, unbanked_currency, current_stamina FROM characters WHERE user_id = ?').bind(user.id).first<CharacterRow & { unbanked_currency?: number; current_stamina?: number }>();
     if (!attackerChar) {
         return c.json({ error: 'Attacker character not found.' }, 404);
     }
 
-    // If the target already exists on our platform, pivot to a normal battle
+    // Check stamina for network attacks
+    const staminaCost = 1;
+    if ((attackerChar.current_stamina || 0) < staminaCost) {
+        return c.json({ error: 'Not enough stamina for this attack.' }, 400);
+    }
+
+    // If the target already exists on our platform, create network battle (XP only, no stat changes)
     const linkedUser = await db.prepare('SELECT user_id FROM oauth_accounts WHERE provider = ? AND provider_account_id = ?')
         .bind(network, targetId)
         .first<{ user_id: string }>();
@@ -750,13 +752,16 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
             return c.json({ error: 'Target is registered but has not finished character setup yet.' }, 409);
         }
 
-        const battleResult = await createInstantBattleRecord(db, c.env, attackerChar, targetChar, 'async');
+        // Network battles only award XP and use stamina - no trophy/stat updates
+        const battleResult = await createNetworkBattleRecord(db, c.env, attackerChar, targetChar, 'async');
         return c.json({
             data: {
                 type: 'registered',
                 battleId: battleResult.battleId,
                 result: battleResult.turnResult,
                 defenderHpAfter: battleResult.defenderHpAfter,
+                xpAwarded: battleResult.xpAwarded,
+                staminaUsed: battleResult.staminaUsed,
             }
         });
     }
@@ -817,7 +822,6 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
     }
 
     const xpReward = parseInt(c.env.INVITE_ATTACK_XP || '25', 10);
-    const currencyReward = parseInt(c.env.INVITE_ATTACK_CURRENCY || '100', 10);
 
     await db.batch([
         db.prepare(`
@@ -838,7 +842,7 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
             attackerChar.level,
             attackerChar.xp,
             xpReward,
-            currencyReward,
+            0, // No currency for network attacks
             1,
             messageStatus,
             messageError || null,
@@ -847,8 +851,8 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
         )
     ]);
 
-    // Apply rewards after recording to keep state consistent
-    await applyInviteRewards(db, attackerChar, xpReward, currencyReward);
+    // Apply rewards after recording - XP + stamina cost only
+    const rewardResult = await applyInviteRewards(db, attackerChar, xpReward, staminaCost);
 
     return c.json({
         data: {
@@ -857,7 +861,7 @@ game.post('/network/attack', zValidator('json', networkAttackSchema), async (c) 
             joinLink: inviteLink,
             messageStatus,
             messageError,
-            reward: { xp: xpReward, currency: currencyReward },
+            reward: { xp: xpReward, staminaUsed: rewardResult.staminaUsed },
             levelSnapshot: attackerChar.level,
         }
     });
