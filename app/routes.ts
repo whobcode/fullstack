@@ -20,7 +20,8 @@ export default [
   route("shade/battles/:id", "routes/battles.$id.tsx"),
   route("shade/leaderboard", "routes/game.leaderboard.tsx"),
 
-  // Facebook callbacks
+  // Auth callbacks
+  route("auth/magic-link", "routes/auth.magic-link.tsx"),
   route("facebook-deauthorize", "routes/facebook-deauthorize.tsx"),
 
   // Legal pages

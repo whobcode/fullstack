@@ -34,4 +34,8 @@ export type Bindings = {
   SQUARE_APPLICATION_ID?: string;
   SQUARE_LOCATION_ID?: string;
   SQUARE_ENVIRONMENT?: 'sandbox' | 'production';
+
+  // Email (Resend)
+  RESEND_API_KEY?: string;
+  APP_URL?: string;
 };

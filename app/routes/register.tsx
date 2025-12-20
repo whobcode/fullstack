@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { FacebookAuthCard } from '../components/FacebookAuthCard';
+import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function RegisterPage() {
     const navigate = useNavigate();
@@ -103,6 +104,11 @@ export default function RegisterPage() {
                             <span className="px-2 bg-white text-gray-500">or</span>
                         </div>
                     </div>
+
+                    <MagicLinkAuthCard
+                        title="Sign up with Email"
+                        description="Quick and easy - no password needed"
+                    />
 
                     <FacebookAuthCard
                         onAuthenticated={handleFacebookAuth}

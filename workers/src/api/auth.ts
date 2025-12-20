@@ -4,6 +4,7 @@ import { setCookie } from 'hono/cookie';
 import type { Bindings } from '../bindings';
 import { loginSchema, registerSchema } from '../shared/schemas/auth';
 import { facebookAuthSchema } from '../shared/schemas/facebook';
+import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
 
@@ -201,7 +202,7 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
         raw_profile_json = ?,
         scope = ?
       WHERE provider = 'facebook' AND provider_account_id = ?
-    `).bind(rawProfileJson, 'public_profile,email,user_photos,user_friends', profile.id).run();
+    `).bind(rawProfileJson, 'public_profile,email', profile.id).run();
 
     return {
       ...existing,
@@ -224,7 +225,7 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
       .bind(userId, email, username, !!profile.email, avatarUrl, coverPhotoUrl, fbAbout, fbLocation),
     db.prepare(`INSERT INTO oauth_accounts (id, user_id, provider, provider_account_id, scope, raw_profile_json)
                 VALUES (?, ?, ?, ?, ?, ?)`)
-      .bind(crypto.randomUUID(), userId, 'facebook', profile.id, 'public_profile,email,user_photos,user_friends', rawProfileJson),
+      .bind(crypto.randomUUID(), userId, 'facebook', profile.id, 'public_profile,email', rawProfileJson),
     db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
       .bind(characterId, userId, false),
     db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
@@ -409,5 +410,166 @@ auth.get('/facebook/deletion', async (c) => {
   });
 });
 
+// Magic Link - Request
+auth.post('/magic-link/request', zValidator('json', magicLinkRequestSchema), async (c) => {
+  const { email } = c.req.valid('json');
+  const db = c.env.DB;
+  const resendApiKey = c.env.RESEND_API_KEY;
+  const appUrl = c.env.APP_URL || 'https://hwmnbn.me';
+
+  if (!resendApiKey) {
+    console.error('RESEND_API_KEY not configured');
+    return c.json({ error: 'Email service not configured' }, 500);
+  }
+
+  try {
+    // Generate a secure token
+    const token = crypto.randomUUID() + '-' + crypto.randomUUID();
+    const tokenHash = await hashToken(token);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+
+    // Clean up old tokens for this email
+    await db.prepare('DELETE FROM magic_link_tokens WHERE email = ? OR expires_at < CURRENT_TIMESTAMP')
+      .bind(email)
+      .run();
+
+    // Store the token
+    await db.prepare(
+      'INSERT INTO magic_link_tokens (id, email, token_hash, expires_at) VALUES (?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), email, tokenHash, expiresAt).run();
+
+    // Send the email via Resend
+    const magicLink = `${appUrl}/auth/magic-link?token=${encodeURIComponent(token)}`;
+
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Me <noreply@hwmnbn.me>',
+        to: [email],
+        subject: 'Your login link',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+            <h1 style="color: #2d5a27; font-size: 48px; margin: 0 0 24px;">me</h1>
+            <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px;">
+              Click the button below to sign in to your account. This link expires in 15 minutes.
+            </p>
+            <a href="${magicLink}" style="display: inline-block; background-color: #2d5a27; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Sign In
+            </a>
+            <p style="color: #6b7280; font-size: 14px; margin: 24px 0 0;">
+              If you didn't request this email, you can safely ignore it.
+            </p>
+          </div>
+        `,
+      }),
+    });
+
+    if (!emailResponse.ok) {
+      const errorData = await emailResponse.json();
+      console.error('Resend API error:', errorData);
+      return c.json({ error: 'Failed to send email' }, 500);
+    }
+
+    return c.json({ message: 'Magic link sent! Check your email.' });
+  } catch (error) {
+    console.error('Magic link request error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Magic Link - Verify
+auth.post('/magic-link/verify', zValidator('json', magicLinkVerifySchema), async (c) => {
+  const { token } = c.req.valid('json');
+  const db = c.env.DB;
+
+  try {
+    const tokenHash = await hashToken(token);
+
+    // Find the token
+    const tokenRecord = await db.prepare(`
+      SELECT id, email, expires_at, used_at
+      FROM magic_link_tokens
+      WHERE token_hash = ?
+    `).bind(tokenHash).first<{ id: string; email: string; expires_at: string; used_at: string | null }>();
+
+    if (!tokenRecord) {
+      return c.json({ error: 'Invalid or expired link' }, 401);
+    }
+
+    if (tokenRecord.used_at) {
+      return c.json({ error: 'This link has already been used' }, 401);
+    }
+
+    if (new Date(tokenRecord.expires_at) < new Date()) {
+      return c.json({ error: 'This link has expired' }, 401);
+    }
+
+    // Mark token as used
+    await db.prepare('UPDATE magic_link_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(tokenRecord.id)
+      .run();
+
+    // Find or create user
+    let user = await db.prepare(`
+      SELECT u.id, u.email, u.username, c.id as characterId
+      FROM users u
+      LEFT JOIN characters c ON u.id = c.user_id
+      WHERE u.email = ?
+    `).bind(tokenRecord.email).first<{ id: string; email: string; username: string; characterId: string | null }>();
+
+    let needsUsername = false;
+
+    if (!user) {
+      // Create new user
+      const userId = crypto.randomUUID();
+      const characterId = crypto.randomUUID();
+      const baseUsername = tokenRecord.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'user';
+      const username = await generateUniqueUsername(db, baseUsername);
+
+      const batch = [
+        db.prepare('INSERT INTO users (id, email, username, email_verified) VALUES (?, ?, ?, ?)')
+          .bind(userId, tokenRecord.email, username, true),
+        db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
+          .bind(characterId, userId, false),
+        db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
+          .bind(characterId),
+      ];
+      await db.batch(batch);
+
+      user = { id: userId, email: tokenRecord.email, username, characterId };
+      needsUsername = true;
+    }
+
+    // Check and grant special account status if applicable
+    await checkAndGrantSpecialAccount(db, user.id, user.username);
+
+    // Create session
+    const sessionToken = await createSession(db, user.id);
+    setCookie(c, 'session_token', sessionToken, {
+      httpOnly: true,
+      secure: c.req.url.startsWith('https://'),
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return c.json({
+      data: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        characterId: user.characterId,
+        needs_username_confirmation: needsUsername || user.username.startsWith('user'),
+      }
+    });
+  } catch (error) {
+    console.error('Magic link verify error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
 
 export default auth;

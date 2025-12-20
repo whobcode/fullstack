@@ -86,7 +86,7 @@ export function FacebookAuthCard({
           setIsBusy(false);
         }
       },
-      { scope: "public_profile,email,user_photos,user_friends" }
+      { scope: "public_profile,email" }
     );
   };
 

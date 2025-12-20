@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { FacebookAuthCard } from '../components/FacebookAuthCard';
+import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -98,6 +99,11 @@ export default function LoginPage() {
                             <span className="px-2 bg-white text-gray-500">or</span>
                         </div>
                     </div>
+
+                    <MagicLinkAuthCard
+                        title="Sign in with Email"
+                        description="No password needed - we'll email you a link"
+                    />
 
                     <FacebookAuthCard
                         onAuthenticated={handleFacebookAuth}
