@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
-import { FacebookAuthCard } from '../components/FacebookAuthCard';
+import { FacebookLoginButton } from '../components/FacebookLoginButton';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function LoginPage() {
@@ -11,7 +11,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [isSocialBusy, setIsSocialBusy] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,27 +21,6 @@ export default function LoginPage() {
             navigate('/feed');
         } catch (err: any) {
             setError(err.message);
-        }
-    };
-
-    const handleFacebookAuth = async ({ accessToken, userID, needsUsername }: { accessToken: string; userID?: string; needsUsername?: boolean }) => {
-        setError(null);
-        setIsSocialBusy(true);
-        try {
-            const response = await apiClient.post<{ data: any }>(
-                import.meta.env.VITE_FACEBOOK_AUTH_ENDPOINT || '/auth/facebook',
-                { accessToken, userID }
-            );
-            login(response.data);
-            if (needsUsername || response.data?.needs_username_confirmation) {
-                navigate('/profile/me');
-            } else {
-                navigate('/feed');
-            }
-        } catch (err: any) {
-            setError(err.message ?? 'Facebook login failed');
-        } finally {
-            setIsSocialBusy(false);
         }
     };
 
@@ -105,11 +83,18 @@ export default function LoginPage() {
                         description="No password needed - we'll email you a link"
                     />
 
-                    <FacebookAuthCard
-                        onAuthenticated={handleFacebookAuth}
-                        title="Continue with Facebook"
-                        endpointHint={import.meta.env.VITE_FACEBOOK_AUTH_ENDPOINT || "/auth/facebook"}
-                    />
+                    <div className="flex justify-center">
+                        <FacebookLoginButton
+                            onSuccess={({ needsUsername }) => {
+                                if (needsUsername) {
+                                    navigate('/profile/me');
+                                } else {
+                                    navigate('/feed');
+                                }
+                            }}
+                            onError={(err) => setError(err)}
+                        />
+                    </div>
 
                     <div className="border-t border-gray-300 pt-4 mt-4">
                         <Link
@@ -120,10 +105,6 @@ export default function LoginPage() {
                         </Link>
                     </div>
                 </div>
-
-                {isSocialBusy && (
-                    <div className="text-center mt-4 text-social-forest-500">Signing in with Facebook...</div>
-                )}
             </div>
         </div>
     );
