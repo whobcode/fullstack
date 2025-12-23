@@ -26,8 +26,7 @@ export type Bindings = {
   CLASS_MODS: string;
 
   // Secrets
-  FACEBOOK_APP_ID?: string;
-  FACEBOOK_APP_SECRET?: string;
+  GOOGLE_CLIENT_ID?: string;
 
   // Square Payment Integration
   SQUARE_ACCESS_TOKEN?: string;
@@ -38,4 +37,7 @@ export type Bindings = {
   // Email (Resend)
   RESEND_API_KEY?: string;
   APP_URL?: string;
+
+  // Wit.ai Voice Integration
+  WIT_AI_TOKEN?: string;
 };
