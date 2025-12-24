@@ -112,8 +112,9 @@ crons = ["*/15 * * * *"] # Every 15 minutes for offline XP accrual
 # Environment Variables & Secrets
 # https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 [vars]
-# Google OAuth - Client ID is public, set via env or secret for the actual value
-# GOOGLE_CLIENT_ID should be set as a secret via: wrangler secret put GOOGLE_CLIENT_ID
+# Google OAuth
+GOOGLE_CLIENT_ID = "290138074368-14j6m3qbb6h2nv6rp317jo0qasag5u3u.apps.googleusercontent.com"
+VITE_GOOGLE_CLIENT_ID = "290138074368-14j6m3qbb6h2nv6rp317jo0qasag5u3u.apps.googleusercontent.com"
 APP_URL = "https://hwmnbn.me"
 # Game Configuration
 XP_RATE_PER_HOUR = 10
