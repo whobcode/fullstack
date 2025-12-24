@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { setCookie } from 'hono/cookie';
 import type { Bindings } from '../bindings';
 import { loginSchema, registerSchema } from '../shared/schemas/auth';
-import { facebookAuthSchema } from '../shared/schemas/facebook';
+import { googleAuthSchema } from '../shared/schemas/google';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
@@ -116,116 +116,101 @@ import { authMiddleware } from './middleware/auth';
 import { deleteCookie, getCookie } from 'hono/cookie';
 import { hashToken } from '../lib/session';
 
-type FBProfile = {
-  id: string;
-  name?: string;
+// Google ID Token payload (decoded JWT)
+type GoogleTokenPayload = {
+  iss: string;
+  azp: string;
+  aud: string;
+  sub: string;
   email?: string;
-  picture?: { data?: { url?: string } };
-  cover?: { source?: string };
-  about?: string;
-  location?: { name?: string };
+  email_verified?: boolean;
+  name?: string;
+  picture?: string;
+  given_name?: string;
+  family_name?: string;
+  iat: number;
+  exp: number;
 };
 
-type FBTokenDebugData = {
-  data?: {
-    is_valid?: boolean;
-    scopes?: string[];
-  };
-};
-
-async function fetchFacebookProfile(accessToken: string, appId?: string, appSecret?: string): Promise<FBProfile> {
-  // If app credentials are present, validate the token
-  if (appId && appSecret) {
-    const appToken = `${appId}|${appSecret}`;
-    const debugUrl = `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`;
-    const dbg = await fetch(debugUrl);
-    const dbgJson = await dbg.json<FBTokenDebugData & { error?: { message?: string } }>();
-    if (!dbg.ok || !dbgJson?.data?.is_valid) {
-      console.error('Facebook token validation failed:', JSON.stringify(dbgJson));
-      throw new Error(dbgJson?.error?.message || 'Invalid Facebook token');
-    }
+// Decode and verify Google ID token
+async function verifyGoogleToken(credential: string, clientId?: string): Promise<GoogleTokenPayload> {
+  const parts = credential.split('.');
+  if (parts.length !== 3) {
+    throw new Error('Invalid token format');
   }
 
-  // Fetch extended profile data including cover photo, picture, about, and location
-  const profileUrl = `https://graph.facebook.com/me?fields=id,name,email,picture.type(large),cover,about,location&access_token=${accessToken}`;
-  const res = await fetch(profileUrl);
-  const json = await res.json<FBProfile & { error?: { message?: string; code?: number; type?: string } }>();
-  if (!res.ok || json.error) {
-    console.error('Facebook profile fetch failed:', JSON.stringify(json.error));
-    throw new Error(json.error?.message || 'Failed to fetch Facebook profile');
+  const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as GoogleTokenPayload;
+
+  if (payload.iss !== 'accounts.google.com' && payload.iss !== 'https://accounts.google.com') {
+    throw new Error('Invalid token issuer');
   }
-  return json;
+
+  if (clientId && payload.aud !== clientId) {
+    throw new Error('Token audience mismatch');
+  }
+
+  if (payload.exp * 1000 < Date.now()) {
+    throw new Error('Token expired');
+  }
+
+  return payload;
 }
 
-type FBUserResult = {
+type GoogleUserResult = {
   id: string;
   email: string;
   username: string;
   characterId: string | null;
   needs_username_confirmation: boolean;
   avatar_url?: string;
-  cover_photo_url?: string;
 };
 
-async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promise<FBUserResult> {
-  // D1 doesn't accept undefined, so convert to null
-  const avatarUrl = profile.picture?.data?.url ?? null;
-  const coverPhotoUrl = profile.cover?.source ?? null;
-  const fbAbout = profile.about ?? null;
-  const fbLocation = profile.location?.name ?? null;
+async function ensureUserFromGoogle(db: D1Database, profile: GoogleTokenPayload): Promise<GoogleUserResult> {
+  const avatarUrl = profile.picture ?? null;
   const rawProfileJson = JSON.stringify(profile);
 
   const existing = await db
-    .prepare(`SELECT u.id, u.email, u.username, u.avatar_url, u.cover_photo_url, c.id as characterId
+    .prepare(`SELECT u.id, u.email, u.username, u.avatar_url, c.id as characterId
               FROM oauth_accounts oa
               JOIN users u ON oa.user_id = u.id
               LEFT JOIN characters c ON c.user_id = u.id
-              WHERE oa.provider = 'facebook' AND oa.provider_account_id = ?`)
-    .bind(profile.id)
-    .first<{ id: string; email: string; username: string; avatar_url: string | null; cover_photo_url: string | null; characterId: string | null }>();
+              WHERE oa.provider = 'google' AND oa.provider_account_id = ?`)
+    .bind(profile.sub)
+    .first<{ id: string; email: string; username: string; avatar_url: string | null; characterId: string | null }>();
 
   if (existing) {
-    // Update profile data on each login to keep it fresh
     await db.prepare(`
       UPDATE users SET
-        avatar_url = COALESCE(?, avatar_url),
-        cover_photo_url = COALESCE(?, cover_photo_url),
-        fb_about = COALESCE(?, fb_about),
-        fb_location = COALESCE(?, fb_location),
-        fb_data_synced_at = CURRENT_TIMESTAMP
+        avatar_url = COALESCE(?, avatar_url)
       WHERE id = ?
-    `).bind(avatarUrl, coverPhotoUrl, fbAbout, fbLocation, existing.id).run();
+    `).bind(avatarUrl, existing.id).run();
 
-    // Update oauth_accounts with latest token scope and profile data
     await db.prepare(`
       UPDATE oauth_accounts SET
-        raw_profile_json = ?,
-        scope = ?
-      WHERE provider = 'facebook' AND provider_account_id = ?
-    `).bind(rawProfileJson, 'public_profile,email', profile.id).run();
+        raw_profile_json = ?
+      WHERE provider = 'google' AND provider_account_id = ?
+    `).bind(rawProfileJson, profile.sub).run();
 
     return {
       ...existing,
       avatar_url: avatarUrl || existing.avatar_url || undefined,
-      cover_photo_url: coverPhotoUrl || existing.cover_photo_url || undefined,
-      needs_username_confirmation: existing.username.startsWith('fb_') || existing.username.startsWith('fbuser')
+      needs_username_confirmation: existing.username.startsWith('g_') || existing.username.startsWith('guser')
     };
   }
 
-  // New user - create account with Facebook profile data
   const userId = crypto.randomUUID();
   const characterId = crypto.randomUUID();
-  const email = profile.email ?? `fb_${profile.id}@facebook.local`;
-  const baseUsername = (profile.name || 'fb_user').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'fbuser';
+  const email = profile.email ?? `g_${profile.sub}@google.local`;
+  const baseUsername = (profile.name || profile.given_name || 'g_user').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'guser';
   const username = await generateUniqueUsername(db, baseUsername);
 
   const batch = [
-    db.prepare(`INSERT INTO users (id, email, username, email_verified, avatar_url, cover_photo_url, fb_about, fb_location, fb_data_synced_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
-      .bind(userId, email, username, !!profile.email, avatarUrl, coverPhotoUrl, fbAbout, fbLocation),
+    db.prepare(`INSERT INTO users (id, email, username, email_verified, avatar_url)
+                VALUES (?, ?, ?, ?, ?)`)
+      .bind(userId, email, username, !!profile.email_verified, avatarUrl),
     db.prepare(`INSERT INTO oauth_accounts (id, user_id, provider, provider_account_id, scope, raw_profile_json)
                 VALUES (?, ?, ?, ?, ?, ?)`)
-      .bind(crypto.randomUUID(), userId, 'facebook', profile.id, 'public_profile,email', rawProfileJson),
+      .bind(crypto.randomUUID(), userId, 'google', profile.sub, 'openid email profile', rawProfileJson),
     db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
       .bind(characterId, userId, false),
     db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
@@ -238,8 +223,7 @@ async function ensureUserFromFacebook(db: D1Database, profile: FBProfile): Promi
     username,
     characterId,
     needs_username_confirmation: true,
-    avatar_url: avatarUrl || undefined,
-    cover_photo_url: coverPhotoUrl || undefined
+    avatar_url: avatarUrl || undefined
   };
 }
 
@@ -299,13 +283,13 @@ auth.post('/logout', authMiddleware, async (c) => {
     return c.json({ message: 'Logged out successfully' });
 });
 
-// Facebook SSO token exchange
-auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
-  const { accessToken } = c.req.valid('json');
+// Google Sign-In token exchange
+auth.post('/google', zValidator('json', googleAuthSchema), async (c) => {
+  const { credential } = c.req.valid('json');
   const db = c.env.DB;
   try {
-    const profile = await fetchFacebookProfile(accessToken, c.env.FACEBOOK_APP_ID, c.env.FACEBOOK_APP_SECRET);
-    const user = await ensureUserFromFacebook(db, profile);
+    const profile = await verifyGoogleToken(credential, c.env.GOOGLE_CLIENT_ID);
+    const user = await ensureUserFromGoogle(db, profile);
 
     // Check and grant special account status if applicable
     await checkAndGrantSpecialAccount(db, user.id, user.username);
@@ -327,87 +311,12 @@ auth.post('/facebook', zValidator('json', facebookAuthSchema), async (c) => {
         characterId: user.characterId,
         needs_username_confirmation: user.needs_username_confirmation,
         avatar_url: user.avatar_url,
-        cover_photo_url: user.cover_photo_url
       }
     });
   } catch (err: any) {
-    console.error('Facebook auth failed:', err?.message || err);
-    return c.json({ error: err?.message || 'Facebook authentication failed' }, 401);
+    console.error('Google auth failed:', err?.message || err);
+    return c.json({ error: err?.message || 'Google authentication failed' }, 401);
   }
-});
-
-// Facebook Data Deletion / Deauthorize Callback
-// Required by Facebook for GDPR compliance
-auth.post('/facebook/deauthorize', async (c) => {
-  const db = c.env.DB;
-  try {
-    const body = await c.req.parseBody();
-    const signedRequest = body.signed_request as string;
-
-    if (!signedRequest) {
-      return c.json({ error: 'Missing signed_request' }, 400);
-    }
-
-    // Parse the signed request from Facebook
-    // Format: base64_signature.base64_payload
-    const [encodedSig, encodedPayload] = signedRequest.split('.');
-    const payload = JSON.parse(atob(encodedPayload));
-    const facebookUserId = payload.user_id;
-
-    if (!facebookUserId) {
-      return c.json({ error: 'Invalid signed_request' }, 400);
-    }
-
-    // Find the user by Facebook ID
-    const user = await db
-      .prepare(`SELECT user_id FROM oauth_accounts WHERE provider = 'facebook' AND provider_account_id = ?`)
-      .bind(facebookUserId)
-      .first<{ user_id: string }>();
-
-    if (user) {
-      // Delete all user sessions
-      await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.user_id).run();
-
-      // Delete OAuth account linkage
-      await db.prepare('DELETE FROM oauth_accounts WHERE provider = ? AND provider_account_id = ?')
-        .bind('facebook', facebookUserId)
-        .run();
-
-      // Optional: Mark user for deletion or delete completely
-      // For now, we'll just remove the Facebook connection
-      // If you want full deletion, uncomment below:
-      // await db.prepare('DELETE FROM users WHERE id = ?').bind(user.user_id).run();
-    }
-
-    // Generate a confirmation code for Facebook
-    const confirmationCode = crypto.randomUUID();
-
-    // Return the required response format
-    return c.json({
-      url: `https://hwmnbn.me/facebook-deauthorize?code=${confirmationCode}`,
-      confirmation_code: confirmationCode
-    });
-  } catch (err: any) {
-    console.error('Facebook deauthorize failed:', err);
-    return c.json({ error: 'Deauthorization failed' }, 500);
-  }
-});
-
-// Data deletion status check endpoint
-auth.get('/facebook/deletion', async (c) => {
-  const confirmationCode = c.req.query('code');
-
-  if (!confirmationCode) {
-    return c.json({ error: 'Missing confirmation code' }, 400);
-  }
-
-  // In a production app, you'd store deletion requests and their status
-  // For now, we'll just return a success message
-  return c.json({
-    message: 'Data deletion request processed',
-    confirmation_code: confirmationCode,
-    status: 'completed'
-  });
 });
 
 // Magic Link - Request

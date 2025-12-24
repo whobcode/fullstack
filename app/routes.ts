@@ -22,7 +22,6 @@ export default [
 
   // Auth callbacks
   route("auth/magic-link", "routes/auth.magic-link.tsx"),
-  route("facebook-deauthorize", "routes/facebook-deauthorize.tsx"),
 
   // Legal pages
   route("privacy", "routes/privacy.tsx"),
