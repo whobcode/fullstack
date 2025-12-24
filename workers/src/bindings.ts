@@ -3,7 +3,7 @@ export type Bindings = {
   DB: D1Database;
 
   // R2 Buckets
-  // MEDIA: R2Bucket;
+  MEDIA: R2Bucket;
 
   // KV Namespaces
   APP_CONFIG: KVNamespace;

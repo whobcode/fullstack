@@ -19,6 +19,7 @@ import storm8Routes from './storm8-battles';
 import aiRoutes from './ai';
 import paymentRoutes from './payments';
 import voiceRoutes from './voice';
+import uploadRoutes from './upload';
 
 api.route('/auth', authRoutes);
 api.route('/users', userRoutes);
@@ -29,5 +30,6 @@ api.route('/storm8', storm8Routes);
 api.route('/ai', aiRoutes);
 api.route('/payments', paymentRoutes);
 api.route('/voice', voiceRoutes);
+api.route('/upload', uploadRoutes);
 
 export default api;
