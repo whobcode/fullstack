@@ -5,6 +5,7 @@ import type { Bindings } from '../bindings';
 import { loginSchema, registerSchema } from '../shared/schemas/auth';
 import { googleAuthSchema } from '../shared/schemas/google';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
+import { passwordResetRequestSchema, passwordResetSchema } from '../shared/schemas/password-reset';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
 
@@ -477,6 +478,144 @@ auth.post('/magic-link/verify', zValidator('json', magicLinkVerifySchema), async
     });
   } catch (error) {
     console.error('Magic link verify error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Password Reset - Request
+auth.post('/password-reset/request', zValidator('json', passwordResetRequestSchema), async (c) => {
+  const { email } = c.req.valid('json');
+  const db = c.env.DB;
+  const resendApiKey = c.env.RESEND_API_KEY;
+  const appUrl = c.env.APP_URL || 'https://hwmnbn.me';
+
+  if (!resendApiKey) {
+    console.error('RESEND_API_KEY not configured');
+    return c.json({ error: 'Email service not configured' }, 500);
+  }
+
+  try {
+    // Check if user exists
+    const user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return c.json({ message: 'If an account exists with that email, you will receive a password reset link.' });
+    }
+
+    // Generate a secure token
+    const token = crypto.randomUUID() + '-' + crypto.randomUUID();
+    const tokenHash = await hashToken(token);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+    // Clean up old tokens for this email
+    await db.prepare('DELETE FROM magic_link_tokens WHERE email = ?')
+      .bind(email)
+      .run();
+
+    // Store the token (reusing magic_link_tokens table)
+    await db.prepare(
+      'INSERT INTO magic_link_tokens (id, email, token_hash, expires_at) VALUES (?, ?, ?, ?)'
+    ).bind(crypto.randomUUID(), email, tokenHash, expiresAt).run();
+
+    // Send the email via Resend
+    const resetLink = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Me <noreply@hwmnbn.me>',
+        to: [email],
+        subject: 'Reset your password',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+            <h1 style="color: #2d5a27; font-size: 48px; margin: 0 0 24px;">me</h1>
+            <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px;">
+              You requested to reset your password. Click the button below to set a new password. This link expires in 1 hour.
+            </p>
+            <a href="${resetLink}" style="display: inline-block; background-color: #2d5a27; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Reset Password
+            </a>
+            <p style="color: #6b7280; font-size: 14px; margin: 24px 0 0;">
+              If you didn't request this, you can safely ignore this email. Your password will remain unchanged.
+            </p>
+          </div>
+        `,
+      }),
+    });
+
+    if (!emailResponse.ok) {
+      const errorData = await emailResponse.json();
+      console.error('Resend API error:', errorData);
+      return c.json({ error: 'Failed to send email' }, 500);
+    }
+
+    return c.json({ message: 'If an account exists with that email, you will receive a password reset link.' });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Password Reset - Complete
+auth.post('/password-reset/reset', zValidator('json', passwordResetSchema), async (c) => {
+  const { token, password } = c.req.valid('json');
+  const db = c.env.DB;
+
+  try {
+    const tokenHash = await hashToken(token);
+
+    // Find the token
+    const tokenRecord = await db.prepare(`
+      SELECT id, email, expires_at, used_at
+      FROM magic_link_tokens
+      WHERE token_hash = ?
+    `).bind(tokenHash).first<{ id: string; email: string; expires_at: string; used_at: string | null }>();
+
+    if (!tokenRecord) {
+      return c.json({ error: 'Invalid or expired reset link' }, 401);
+    }
+
+    if (tokenRecord.used_at) {
+      return c.json({ error: 'This reset link has already been used' }, 401);
+    }
+
+    if (new Date(tokenRecord.expires_at) < new Date()) {
+      return c.json({ error: 'This reset link has expired' }, 401);
+    }
+
+    // Mark token as used
+    await db.prepare('UPDATE magic_link_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .bind(tokenRecord.id)
+      .run();
+
+    // Find user and update password
+    const user = await db.prepare('SELECT id FROM users WHERE email = ?')
+      .bind(tokenRecord.email)
+      .first<{ id: string }>();
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Hash and update password
+    const passwordHash = await hashPassword(password);
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .bind(passwordHash, user.id)
+      .run();
+
+    // Invalidate all existing sessions for security
+    await db.prepare('DELETE FROM sessions WHERE user_id = ?')
+      .bind(user.id)
+      .run();
+
+    return c.json({ message: 'Password reset successfully. Please log in with your new password.' });
+  } catch (error) {
+    console.error('Password reset error:', error);
     return c.json({ error: 'An internal error occurred' }, 500);
   }
 });
