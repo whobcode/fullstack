@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
-import { createCommentSchema, createPostSchema, reactSchema } from '../shared/schemas/social';
+import { createCommentSchema, createGroupSchema, createPostSchema, reactSchema } from '../shared/schemas/social';
 
 type App = {
   Bindings: Bindings;
@@ -131,6 +131,72 @@ social.post('/groups/:id/join', async (c) => {
     .run();
 
   return c.json({ message: 'Joined group' }, 201);
+});
+
+// Create a new group
+social.post('/groups', zValidator('json', createGroupSchema), async (c) => {
+  const user = c.get('user');
+  const { name, description } = c.req.valid('json');
+  const db = c.env.DB;
+
+  const id = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+  await db
+    .prepare('INSERT INTO groups (id, name, description, owner_id) VALUES (?, ?, ?, ?)')
+    .bind(id, name, description || null, user.id)
+    .run();
+
+  // Auto-join the creator
+  await db
+    .prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)')
+    .bind(id, user.id)
+    .run();
+
+  return c.json({ data: { id, name, description } }, 201);
+});
+
+// Leave a group
+social.delete('/groups/:id/leave', async (c) => {
+  const user = c.get('user');
+  const { id } = c.req.param();
+  const db = c.env.DB;
+
+  // Check if user is owner - owners can't leave
+  const group = await db
+    .prepare('SELECT owner_id FROM groups WHERE id = ?')
+    .bind(id)
+    .first<{ owner_id: string }>();
+
+  if (group?.owner_id === user.id) {
+    return c.json({ error: 'Group owners cannot leave. Transfer ownership or delete the group.' }, 400);
+  }
+
+  await db
+    .prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?')
+    .bind(id, user.id)
+    .run();
+
+  return c.json({ message: 'Left group' });
+});
+
+// Get groups user has joined
+social.get('/groups/my', async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const { results } = await db
+    .prepare(
+      `SELECT g.id, g.name, g.description, g.created_at, g.owner_id, u.username as owner_username,
+              (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id) as members
+       FROM groups g
+       JOIN users u ON u.id = g.owner_id
+       JOIN group_members gm ON gm.group_id = g.id
+       WHERE gm.user_id = ?
+       ORDER BY g.created_at DESC`
+    )
+    .bind(user.id)
+    .all();
+
+  return c.json({ data: results });
 });
 
 export default social;

@@ -44,5 +44,15 @@ export const apiClient = {
     return data;
   },
 
-  // Add put, delete methods as needed
+  async delete<T>(path: string): Promise<T> {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json() as T;
+    if (!response.ok) {
+      const message = (data as any)?.error || 'An error occurred';
+      throw new Error(message);
+    }
+    return data;
+  },
 };

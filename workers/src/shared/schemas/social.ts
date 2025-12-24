@@ -11,3 +11,8 @@ export const createCommentSchema = z.object({
 export const reactSchema = z.object({
   type: z.enum(['like', 'hype', 'gg']),
 });
+
+export const createGroupSchema = z.object({
+  name: z.string().min(2).max(100),
+  description: z.string().max(500).optional(),
+});

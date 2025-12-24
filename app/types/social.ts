@@ -24,6 +24,8 @@ export type Group = {
   id: string;
   name: string;
   description?: string | null;
+  owner_id?: string;
   owner_username: string;
   members: number;
+  is_member?: boolean;
 };

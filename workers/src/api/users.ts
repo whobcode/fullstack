@@ -65,6 +65,57 @@ users.put(
   }
 );
 
+// GET /api/users/search - Search for users (for friend recommendations)
+users.get('/search', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+  const query = c.req.query('q') || '';
+
+  // Get users that match the query and aren't already friends/pending
+  const results = await db.prepare(`
+    SELECT u.id, u.username, u.avatar_url
+    FROM users u
+    WHERE u.id != ?
+      AND u.username LIKE ?
+      AND u.id NOT IN (
+        SELECT CASE
+          WHEN f.requester_id = ? THEN f.addressee_id
+          ELSE f.requester_id
+        END
+        FROM friends f
+        WHERE f.requester_id = ? OR f.addressee_id = ?
+      )
+    LIMIT 10
+  `).bind(user.id, `%${query}%`, user.id, user.id, user.id).all();
+
+  return c.json({ data: results.results });
+});
+
+// GET /api/users/recommendations - Get friend recommendations
+users.get('/recommendations', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  // Get users that aren't already friends/pending (random selection)
+  const results = await db.prepare(`
+    SELECT u.id, u.username, u.avatar_url
+    FROM users u
+    WHERE u.id != ?
+      AND u.id NOT IN (
+        SELECT CASE
+          WHEN f.requester_id = ? THEN f.addressee_id
+          ELSE f.requester_id
+        END
+        FROM friends f
+        WHERE f.requester_id = ? OR f.addressee_id = ?
+      )
+    ORDER BY RANDOM()
+    LIMIT 6
+  `).bind(user.id, user.id, user.id, user.id).all();
+
+  return c.json({ data: results.results });
+});
+
 // GET /api/users/:id/profile - Get a public user profile
 users.get('/:id/profile', async (c) => {
   const { id } = c.req.param();
