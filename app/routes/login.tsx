@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
-import { FacebookLoginButton } from '../components/FacebookLoginButton';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function LoginPage() {
@@ -42,7 +42,7 @@ export default function LoginPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Email address"
                             autoComplete="email"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
                             required
                         />
                         <input
@@ -51,7 +51,7 @@ export default function LoginPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Password"
                             autoComplete="current-password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
                             required
                         />
                         {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -84,7 +84,7 @@ export default function LoginPage() {
                     />
 
                     <div className="flex justify-center">
-                        <FacebookLoginButton
+                        <GoogleLoginButton
                             onSuccess={({ needsUsername }) => {
                                 if (needsUsername) {
                                     navigate('/profile/me');

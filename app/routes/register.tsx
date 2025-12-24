@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
-import { FacebookLoginButton } from '../components/FacebookLoginButton';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function RegisterPage() {
@@ -42,7 +42,7 @@ export default function RegisterPage() {
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="Username"
                             autoComplete="username"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
                             required
                         />
                         <input
@@ -51,7 +51,7 @@ export default function RegisterPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="Email address"
                             autoComplete="email"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
                             required
                         />
                         <input
@@ -60,7 +60,7 @@ export default function RegisterPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="New password"
                             autoComplete="new-password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
                             required
                         />
                         <p className="text-xs text-gray-500">
@@ -90,7 +90,7 @@ export default function RegisterPage() {
                     />
 
                     <div className="flex justify-center">
-                        <FacebookLoginButton
+                        <GoogleLoginButton
                             onSuccess={({ needsUsername }) => {
                                 if (needsUsername) {
                                     navigate('/profile/me');
