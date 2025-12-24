@@ -367,7 +367,7 @@ export default function MyProfilePage() {
                 <div>
                   <label className="block text-sm font-medium text-social-forest-600 mb-1">Username</label>
                   <input
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -377,7 +377,7 @@ export default function MyProfilePage() {
                 <div>
                   <label className="block text-sm font-medium text-social-forest-600 mb-1">Bio</label>
                   <textarea
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
                     rows={3}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}

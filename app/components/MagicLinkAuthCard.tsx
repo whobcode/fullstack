@@ -72,7 +72,7 @@ export function MagicLinkAuthCard({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter your email"
-          className="w-full px-4 py-2 border border-social-cream-400 rounded-full text-sm focus:outline-none focus:border-social-green-500"
+          className="w-full px-4 py-2 border border-social-cream-400 rounded-full text-sm focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
           required
         />
         <button

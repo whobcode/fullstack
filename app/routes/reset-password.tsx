@@ -113,7 +113,7 @@ export default function ResetPasswordPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="New password"
                                     autoComplete="new-password"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-social-forest-700 placeholder-gray-400"
                                     required
                                     minLength={8}
                                 />
@@ -123,7 +123,7 @@ export default function ResetPasswordPage() {
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     placeholder="Confirm new password"
                                     autoComplete="new-password"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-gray-900 placeholder-gray-400"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-social-forest-700 placeholder-gray-400"
                                     required
                                     minLength={8}
                                 />
