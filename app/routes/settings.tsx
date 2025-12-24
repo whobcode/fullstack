@@ -75,7 +75,7 @@ export default function SettingsPage() {
         <h2 className="text-xl font-semibold text-social-forest-700 mb-4">Privacy</h2>
         <div className="space-y-3 text-sm text-social-forest-500">
           <p>Your data is handled according to our privacy policy.</p>
-          <p>Connected via Facebook? You can manage app permissions in your Facebook settings.</p>
+          <Link to="/privacy" className="text-social-green-600 hover:underline">View Privacy Policy</Link>
         </div>
       </section>
       </div>

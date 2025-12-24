@@ -7,9 +7,6 @@ type ProfileData = {
   avatar_url?: string;
   bio?: string;
   cover_photo_url?: string;
-  fb_about?: string;
-  fb_location?: string;
-  fb_data_synced_at?: string;
 };
 
 export default function MyProfilePage() {
@@ -18,9 +15,6 @@ export default function MyProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
-  const [fbAbout, setFbAbout] = useState("");
-  const [fbLocation, setFbLocation] = useState("");
-  const [fbSyncedAt, setFbSyncedAt] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -43,9 +37,6 @@ export default function MyProfilePage() {
         setAvatarUrl(res.data.avatar_url ?? "");
         setBio(res.data.bio ?? "");
         setCoverPhotoUrl(res.data.cover_photo_url ?? "");
-        setFbAbout(res.data.fb_about ?? "");
-        setFbLocation(res.data.fb_location ?? "");
-        setFbSyncedAt(res.data.fb_data_synced_at ?? null);
       } catch (err: any) {
         setError(err.message);
       }
@@ -169,7 +160,7 @@ export default function MyProfilePage() {
     }
   };
 
-  const needsUsername = username.startsWith("fb_");
+  const needsUsername = username.startsWith("g_") || username.startsWith("guser");
 
   return (
     <div className="min-h-screen bg-social-cream-100">
@@ -273,19 +264,6 @@ export default function MyProfilePage() {
             {/* Name and Actions */}
             <div className="flex-1 text-center md:text-left pb-4">
               <h1 className="text-3xl font-bold text-social-forest-700">{username}</h1>
-              {fbLocation && (
-                <p className="text-social-forest-500 flex items-center justify-center md:justify-start gap-1 mt-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
-                  </svg>
-                  {fbLocation}
-                </p>
-              )}
-              {fbSyncedAt && (
-                <p className="text-xs text-social-forest-400 mt-1">
-                  Synced from Facebook
-                </p>
-              )}
             </div>
 
             {/* Edit Button */}
@@ -326,26 +304,12 @@ export default function MyProfilePage() {
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="text-xl font-bold text-social-forest-700 mb-3">Intro</h2>
 
-              {(fbAbout || bio) && (
-                <p className="text-social-forest-600 text-center mb-3">{bio || fbAbout}</p>
+              {bio && (
+                <p className="text-social-forest-600 text-center mb-3">{bio}</p>
               )}
 
-              {fbLocation && (
-                <div className="flex items-center gap-2 text-social-forest-600 py-2">
-                  <svg className="w-5 h-5 text-social-forest-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
-                  </svg>
-                  <span>Lives in <strong>{fbLocation}</strong></span>
-                </div>
-              )}
-
-              {fbSyncedAt && (
-                <div className="flex items-center gap-2 text-social-forest-600 py-2">
-                  <svg className="w-5 h-5 text-social-forest-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-                  </svg>
-                  <span>Connected with Facebook</span>
-                </div>
+              {!bio && (
+                <p className="text-social-forest-400 text-center text-sm">Add a bio to tell people about yourself</p>
               )}
             </div>
           </div>
@@ -355,7 +319,7 @@ export default function MyProfilePage() {
             {needsUsername && (
               <div className="bg-social-gold-50 border border-social-gold-200 rounded-lg p-4 mb-4">
                 <p className="text-social-gold-800 font-medium">
-                  Choose a custom username to replace the temporary Facebook one.
+                  Choose a custom username to personalize your profile.
                 </p>
               </div>
             )}

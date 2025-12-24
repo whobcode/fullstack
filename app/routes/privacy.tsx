@@ -35,14 +35,12 @@ export default function PrivacyPolicyPage() {
 
                         <h3 className="text-lg font-medium text-social-forest-600 mb-2 mt-4">2.2 Information from Third-Party Services</h3>
                         <p>
-                            When you connect via Facebook Login, we may receive:
+                            When you connect via Google Sign-In, we may receive:
                         </p>
                         <ul className="list-disc pl-6 space-y-2">
-                            <li>Your Facebook user ID and basic profile information</li>
-                            <li>Email address (if permitted)</li>
-                            <li>Profile picture and cover photo</li>
-                            <li>Friends list who also use our service (with permission)</li>
-                            <li>Photos (with permission)</li>
+                            <li>Your Google account ID</li>
+                            <li>Email address</li>
+                            <li>Profile name and picture</li>
                         </ul>
 
                         <h3 className="text-lg font-medium text-social-forest-600 mb-2 mt-4">2.3 Automatically Collected Information</h3>
@@ -92,16 +90,12 @@ export default function PrivacyPolicyPage() {
                     </section>
 
                     <section>
-                        <h2 className="text-xl font-semibold text-social-forest-700 mb-3">6. Facebook Data</h2>
+                        <h2 className="text-xl font-semibold text-social-forest-700 mb-3">6. Third-Party Authentication</h2>
                         <p>
-                            If you connect your Facebook account, you can disconnect it at any time through your Facebook
-                            settings or by contacting us. Upon disconnection or account deletion:
+                            If you sign in using Google, you can revoke access at any time through your Google account
+                            settings or by contacting us. Upon disconnection or account deletion, we will remove any
+                            stored authentication tokens.
                         </p>
-                        <ul className="list-disc pl-6 space-y-2">
-                            <li>We will delete your Facebook access tokens</li>
-                            <li>Mirrored Facebook data will be removed within 30 days</li>
-                            <li>You may also request immediate deletion through our data deletion endpoint</li>
-                        </ul>
                     </section>
 
                     <section>

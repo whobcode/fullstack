@@ -11,8 +11,4 @@ export default defineConfig({
     reactRouter(),
     tsconfigPaths(),
   ],
-  define: {
-    'import.meta.env.VITE_FACEBOOK_APP_ID': JSON.stringify('1165354375707892'),
-    'import.meta.env.VITE_FACEBOOK_AUTH_ENDPOINT': JSON.stringify('/auth/facebook'),
-  },
 });

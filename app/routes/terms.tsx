@@ -33,7 +33,7 @@ export default function TermsOfServicePage() {
                     <section>
                         <h2 className="text-xl font-semibold text-social-forest-700 mb-3">3. Account Registration</h2>
                         <ul className="list-disc pl-6 space-y-2">
-                            <li>You may register using email/password or through Facebook Login</li>
+                            <li>You may register using email/password, magic link, or Google Sign-In</li>
                             <li>You are responsible for maintaining the confidentiality of your account credentials</li>
                             <li>You agree to provide accurate and complete information</li>
                             <li>You are responsible for all activities that occur under your account</li>
@@ -85,7 +85,7 @@ export default function TermsOfServicePage() {
                     <section>
                         <h2 className="text-xl font-semibold text-social-forest-700 mb-3">7. Third-Party Services</h2>
                         <p>
-                            The Service may integrate with third-party services such as Facebook. Your use of these
+                            The Service may integrate with third-party services such as Google. Your use of these
                             services is governed by their respective terms and privacy policies. We are not responsible
                             for the practices of third-party services.
                         </p>

@@ -35,7 +35,6 @@
     "@types/node": "24.0.4",
     "@types/react": "19.0.10",
     "@types/react-dom": "19.0.4",
-    "react-facebook": "^10.0.1",
     "tailwindcss": "4.1.1",
     "typescript": "5.8.3",
     "vite": "^6.0.0",
