@@ -12,3 +12,6 @@
 .dev.vars*
 
 worker-configuration.d.ts
+
+# OAuth Secrets (never commit these!)
+client_secret*.json
