@@ -18,11 +18,9 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_COVER_SIZE = 10 * 1024 * 1024; // 10MB
 
-// R2 public URL base (will use custom domain or public bucket URL)
-const getPublicUrl = (key: string, env: Bindings) => {
-  // Using the R2 public bucket URL pattern
-  // You can also configure a custom domain in Cloudflare Dashboard
-  return `https://pub-93e0a6dda0f48d77b387cae708297820.r2.dev/${key}`;
+// R2 public URL base (custom domain)
+const getPublicUrl = (key: string) => {
+  return `https://shade-image.hwmnbn.me/${key}`;
 };
 
 // Get file extension from MIME type
@@ -73,7 +71,7 @@ upload.post('/avatar', authMiddleware, async (c) => {
     });
 
     // Get public URL
-    const url = getPublicUrl(key, c.env);
+    const url = getPublicUrl(key);
 
     // Update user record in database
     await c.env.DB
@@ -129,7 +127,7 @@ upload.post('/cover', authMiddleware, async (c) => {
     });
 
     // Get public URL
-    const url = getPublicUrl(key, c.env);
+    const url = getPublicUrl(key);
 
     // Update user record in database
     await c.env.DB
