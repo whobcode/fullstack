@@ -11,4 +11,7 @@ export default defineConfig({
     reactRouter(),
     tsconfigPaths(),
   ],
+  define: {
+    'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify('290138074368-14j6m3qbb6h2nv6rp317jo0qasag5u3u.apps.googleusercontent.com'),
+  },
 });
