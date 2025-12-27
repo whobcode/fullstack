@@ -18,6 +18,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # Cache Vite build cache
+      - name: Cache Vite
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.vite
+            .react-router
+          key: vite-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('app/**', 'workers/**') }}
+          restore-keys: |
+            vite-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
+            vite-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
