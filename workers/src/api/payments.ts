@@ -4,13 +4,18 @@ import { z } from 'zod';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
-import { SquareClient, SquareEnvironment } from 'square';
 
 type App = {
   Bindings: Bindings;
   Variables: {
     user: AuthenticatedUser;
   };
+};
+
+// Square API base URLs
+const SQUARE_API_URL = {
+  sandbox: 'https://connect.squareupsandbox.com/v2',
+  production: 'https://connect.squareup.com/v2',
 };
 
 // Slot pricing in cents (matches game.ts)
@@ -20,6 +25,53 @@ const SLOT_PRICES: Record<number, number> = {
   6: 1500,  // $15
   7: 2000,  // $20
 };
+
+// Square API helper - direct REST calls instead of heavy SDK
+async function squareRequest<T>(
+  env: Bindings,
+  method: 'GET' | 'POST',
+  endpoint: string,
+  body?: Record<string, unknown>
+): Promise<{ data?: T; errors?: Array<{ code: string; detail: string; field?: string }> }> {
+  const baseUrl = env.SQUARE_ENVIRONMENT === 'production'
+    ? SQUARE_API_URL.production
+    : SQUARE_API_URL.sandbox;
+
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-01-18',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const result = await response.json() as Record<string, unknown>;
+
+  if (!response.ok) {
+    return { errors: result.errors as Array<{ code: string; detail: string; field?: string }> };
+  }
+
+  return { data: result as T };
+}
+
+// Square API response types
+interface SquarePayment {
+  id: string;
+  status: string;
+  amount_money?: { amount: number; currency: string };
+  receipt_url?: string;
+  created_at?: string;
+}
+
+interface CreatePaymentResponse {
+  payment?: SquarePayment;
+}
+
+interface GetPaymentResponse {
+  payment?: SquarePayment;
+}
 
 const payments = new Hono<App>();
 
@@ -86,33 +138,31 @@ payments.post('/slot-purchase', zValidator('json', createPaymentSchema), async (
     }
   }
 
-  // Initialize Square client
-  const squareClient = new SquareClient({
-    token: c.env.SQUARE_ACCESS_TOKEN,
-    environment: c.env.SQUARE_ENVIRONMENT === 'production'
-      ? SquareEnvironment.Production
-      : SquareEnvironment.Sandbox,
-  });
-
   try {
-    // Create the payment with Square
-    const response = await squareClient.payments.create({
-      sourceId,
-      idempotencyKey,
-      amountMoney: {
-        amount: BigInt(amountCents),
+    // Create the payment with Square REST API
+    const result = await squareRequest<CreatePaymentResponse>(c.env, 'POST', '/payments', {
+      source_id: sourceId,
+      idempotency_key: idempotencyKey,
+      amount_money: {
+        amount: amountCents,
         currency: 'USD',
       },
-      locationId: c.env.SQUARE_LOCATION_ID,
+      location_id: c.env.SQUARE_LOCATION_ID,
       note: `Character Slot ${slotNumber} - User: ${user.id}`,
-      referenceId: `slot-${slotNumber}-user-${user.id}`,
+      reference_id: `slot-${slotNumber}-user-${user.id}`,
     });
 
-    if (!response.payment) {
-      return c.json({ error: 'Payment failed - no payment returned' }, 500);
+    if (result.errors) {
+      return c.json({
+        error: 'Payment processing failed',
+        details: result.errors,
+      }, 400);
     }
 
-    const payment = response.payment;
+    const payment = result.data?.payment;
+    if (!payment) {
+      return c.json({ error: 'Payment failed - no payment returned' }, 500);
+    }
 
     // Check payment status
     if (payment.status !== 'COMPLETED') {
@@ -142,27 +192,12 @@ payments.post('/slot-purchase', zValidator('json', createPaymentSchema), async (
         slotNumber,
         amountPaid: amountCents,
         paymentId: payment.id,
-        receiptUrl: payment.receiptUrl,
+        receiptUrl: payment.receipt_url,
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Square payment error:', error);
-
-    // Handle Square API errors
-    if (error.errors) {
-      const squareErrors = error.errors.map((e: any) => ({
-        code: e.code,
-        detail: e.detail,
-        field: e.field,
-      }));
-
-      return c.json({
-        error: 'Payment processing failed',
-        details: squareErrors,
-      }, 400);
-    }
-
     return c.json({ error: 'Payment processing error' }, 500);
   }
 });
@@ -194,32 +229,30 @@ payments.post('/verify', zValidator('json', verifyPaymentSchema), async (c) => {
     return c.json({ error: 'Payment verification not configured' }, 503);
   }
 
-  const squareClient = new SquareClient({
-    token: c.env.SQUARE_ACCESS_TOKEN,
-    environment: c.env.SQUARE_ENVIRONMENT === 'production'
-      ? SquareEnvironment.Production
-      : SquareEnvironment.Sandbox,
-  });
-
   try {
-    const response = await squareClient.payments.get({ paymentId });
+    const result = await squareRequest<GetPaymentResponse>(c.env, 'GET', `/payments/${paymentId}`);
 
-    if (!response.payment) {
+    if (result.errors) {
+      return c.json({ error: 'Payment not found' }, 404);
+    }
+
+    const payment = result.data?.payment;
+    if (!payment) {
       return c.json({ error: 'Payment not found' }, 404);
     }
 
     return c.json({
       data: {
-        id: response.payment.id,
-        status: response.payment.status,
-        amount: response.payment.amountMoney?.amount?.toString(),
-        currency: response.payment.amountMoney?.currency,
-        receiptUrl: response.payment.receiptUrl,
-        createdAt: response.payment.createdAt,
+        id: payment.id,
+        status: payment.status,
+        amount: payment.amount_money?.amount?.toString(),
+        currency: payment.amount_money?.currency,
+        receiptUrl: payment.receipt_url,
+        createdAt: payment.created_at,
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Payment verification error:', error);
     return c.json({ error: 'Failed to verify payment' }, 500);
   }
