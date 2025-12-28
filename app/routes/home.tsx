@@ -8,9 +8,8 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export function loader({ context }: Route.LoaderArgs) {
-  const env = (context as { cloudflare: { env: { VALUE_FROM_CLOUDFLARE: string } } }).cloudflare.env;
-  return { message: env.VALUE_FROM_CLOUDFLARE };
+export function loader() {
+  return { message: '' };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {

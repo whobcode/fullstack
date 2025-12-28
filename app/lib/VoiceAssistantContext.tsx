@@ -128,12 +128,17 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to process voice');
+      const text = await response.text();
+      let data: ConversationResponse;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Invalid response from server');
       }
 
-      const data = await response.json() as ConversationResponse;
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Failed to process voice');
+      }
 
       // Update transcript
       setCurrentTranscript(data.userText);
@@ -241,12 +246,17 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to get response');
+      const chatText = await response.text();
+      let data: ChatResponse;
+      try {
+        data = JSON.parse(chatText);
+      } catch {
+        throw new Error('Invalid response from server');
       }
 
-      const data = await response.json() as ChatResponse;
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Failed to get response');
+      }
 
       // Add assistant message
       const assistantMessage: ChatMessage = {
@@ -263,7 +273,13 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
       });
 
       if (ttsResponse.ok) {
-        const ttsData = await ttsResponse.json() as SynthesizeResponse;
+        const ttsText = await ttsResponse.text();
+        let ttsData: SynthesizeResponse;
+        try {
+          ttsData = JSON.parse(ttsText);
+        } catch {
+          ttsData = { audio: '', contentType: '' };
+        }
         if (ttsData.audio) {
           setAudioUrl(ttsData.audio);
 
