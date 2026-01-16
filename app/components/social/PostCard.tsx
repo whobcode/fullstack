@@ -40,34 +40,43 @@ export function PostCard({ post }: Props) {
   };
 
   return (
-    <article className="rounded-2xl social-panel p-5 shadow">
+    <article className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-100/50 hover:border-social-green-200 hover:shadow-lg hover:shadow-social-green-500/5 transition-all duration-300">
       <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-social-forest-700">{post.author_username}</p>
-          <p className="text-xs text-social-forest-400">{new Date(post.created_at).toLocaleString()}</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-social-green-400 to-social-green-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-social-green-500/20">
+            {post.author_username?.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{post.author_username}</p>
+            <p className="text-xs text-gray-400">{new Date(post.created_at).toLocaleString()}</p>
+          </div>
         </div>
       </header>
-      <p className="mt-3 text-social-forest-600 whitespace-pre-wrap">{post.body}</p>
+      <p className="mt-4 text-gray-700 whitespace-pre-wrap">{post.body}</p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {reactionLabels.map(({ kind, label }) => (
           <button
             key={kind}
             onClick={() => react(kind)}
-            className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-forest-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
+            className="rounded-xl bg-gray-50/80 border border-gray-100 px-4 py-2 text-sm text-gray-600 hover:bg-social-green-50 hover:border-social-green-200 hover:text-social-green-600 transition-all duration-200"
           >
             {label} {counts[kind] ?? 0}
           </button>
         ))}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="rounded-full bg-social-cream-200 border border-social-cream-400 px-3 py-1 text-social-forest-600 hover:bg-social-cream-300 hover:border-social-gold-400 transition-colors"
+          className={`rounded-xl px-4 py-2 text-sm transition-all duration-200 ${
+            expanded
+              ? "bg-social-green-50 border border-social-green-200 text-social-green-600"
+              : "bg-gray-50/80 border border-gray-100 text-gray-600 hover:bg-social-green-50 hover:border-social-green-200 hover:text-social-green-600"
+          }`}
         >
           Comments {counts.comments}
         </button>
       </div>
 
-      {error && <p className="mt-2 text-xs text-social-orange-700">{error}</p>}
+      {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
 
       {expanded && (
         <CommentList
