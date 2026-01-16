@@ -157,20 +157,34 @@ export default function MessagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-social-green-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50 flex items-center justify-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-social-green-200 rounded-full animate-spin border-t-social-green-600"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-6">
-      <div className="max-w-6xl mx-auto px-4 space-y-5">
-        <header className="rounded-3xl social-panel p-6 shadow-xl">
-          <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Inbox</p>
-          <h1 className="text-3xl font-bold text-social-forest-700">Messages</h1>
-          <p className="mt-2 text-social-forest-500">Stay in touch with friends.</p>
-          <div className="mt-2 text-sm text-social-forest-400">Logged in as {user?.username ?? "guest"}</div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <header className="relative overflow-hidden rounded-3xl social-panel p-8 lg:p-10">
+          <div className="absolute inset-0 bg-gradient-to-br from-social-green-500/5 to-transparent"></div>
+          <div className="relative">
+            <span className="inline-block px-3 py-1 text-xs font-semibold tracking-wider text-social-green-600 bg-social-green-100/80 rounded-full uppercase mb-4">
+              Inbox
+            </span>
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 tracking-tight">Messages</h1>
+            <p className="mt-3 text-lg text-gray-500 max-w-2xl">
+              Stay in touch with friends.
+            </p>
+            <div className="mt-4 flex items-center gap-3 text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-social-green-500 animate-pulse"></div>
+                <span>Signed in as <span className="text-gray-600 font-medium">{user?.username ?? "guest"}</span></span>
+              </div>
+            </div>
+          </div>
         </header>
 
         {error && (
@@ -182,49 +196,60 @@ export default function MessagesPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3" style={{ minHeight: "500px" }}>
+        <div className="grid gap-8 lg:grid-cols-3" style={{ minHeight: "500px" }}>
           {/* Conversations List */}
-          <section className="space-y-4">
-            <div className="rounded-2xl social-panel p-5 shadow">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-social-forest-700">Conversations</h2>
+          <section className="space-y-6">
+            <div className="social-panel rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <span className="text-xs font-semibold tracking-wider text-social-gold-600 uppercase">Your Chats</span>
+                  <h2 className="text-xl font-bold text-gray-900 mt-1">Conversations</h2>
+                </div>
                 <button
                   onClick={startNewConversation}
-                  className="text-sm text-social-green-600 hover:text-social-green-700"
+                  className="social-button rounded-xl px-4 py-2 text-sm"
                 >
                   + New
                 </button>
               </div>
               <div className="space-y-2">
                 {conversations.length === 0 ? (
-                  <p className="text-sm text-social-forest-400">No conversations yet. Start one!</p>
+                  <div className="text-center py-8">
+                    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 text-sm">No conversations yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Start one!</p>
+                  </div>
                 ) : (
                   conversations.map((conv) => (
                     <div
                       key={conv.id}
                       onClick={() => selectConversation(conv.id)}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2 cursor-pointer transition-colors ${
+                      className={`flex items-center gap-4 rounded-2xl p-4 cursor-pointer transition-all duration-300 ${
                         selectedUserId === conv.id
-                          ? "bg-social-green-100 border border-social-green-300"
-                          : "bg-social-cream-200 border border-social-cream-400 hover:bg-social-cream-300"
+                          ? "bg-social-green-50 border border-social-green-200 shadow-md shadow-social-green-500/10"
+                          : "bg-white/60 backdrop-blur-sm border border-gray-100/50 hover:border-social-green-200 hover:shadow-lg hover:shadow-social-green-500/5"
                       }`}
                     >
                       {conv.avatar_url ? (
-                        <img src={conv.avatar_url} alt="" className="w-10 h-10 rounded-full" />
+                        <img src={conv.avatar_url} alt="" className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-100" />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-social-green-400 flex items-center justify-center text-white font-bold">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-social-green-400 to-social-green-600 flex items-center justify-center text-white font-bold shadow-lg shadow-social-green-500/20">
                           {conv.username?.charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="font-semibold text-social-forest-700 truncate">{conv.username}</p>
-                          <span className="text-xs text-social-forest-400">{formatTime(conv.last_message_at)}</span>
+                          <p className="font-semibold text-gray-900 truncate">{conv.username}</p>
+                          <span className="text-xs text-gray-400">{formatTime(conv.last_message_at)}</span>
                         </div>
-                        <p className="text-xs text-social-forest-500 truncate">{conv.last_message}</p>
+                        <p className="text-sm text-gray-500 truncate">{conv.last_message}</p>
                       </div>
                       {conv.unread_count > 0 && (
-                        <span className="rounded-full bg-social-orange-500 text-white px-2 py-0.5 text-xs font-semibold">
+                        <span className="px-2.5 py-1 text-xs font-bold text-white bg-gradient-to-r from-social-green-500 to-social-green-600 rounded-full shadow-lg shadow-social-green-500/20">
                           {conv.unread_count}
                         </span>
                       )}
@@ -237,35 +262,43 @@ export default function MessagesPage() {
 
           {/* Message Thread */}
           <section className="lg:col-span-2">
-            <div className="rounded-2xl social-panel p-5 shadow h-full flex flex-col">
+            <div className="social-panel rounded-2xl p-6 h-full flex flex-col">
               {showNewConversation ? (
                 <>
-                  <h2 className="text-lg font-semibold text-social-forest-700 mb-4">Start a New Conversation</h2>
+                  <div className="mb-6">
+                    <span className="text-xs font-semibold tracking-wider text-social-gold-600 uppercase">New Chat</span>
+                    <h2 className="text-xl font-bold text-gray-900 mt-1">Start a Conversation</h2>
+                  </div>
                   {friendsLoading ? (
                     <div className="flex-1 flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-social-green-600"></div>
+                      <div className="w-10 h-10 border-4 border-social-green-200 rounded-full animate-spin border-t-social-green-600"></div>
                     </div>
                   ) : friends.length === 0 ? (
-                    <p className="text-sm text-social-forest-400">
-                      You need to add friends before you can message them.
-                    </p>
+                    <div className="text-center py-8">
+                      <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500">You need to add friends before you can message them.</p>
+                    </div>
                   ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm text-social-forest-500 mb-3">Select a friend to message:</p>
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-500 mb-4">Select a friend to message:</p>
                       {friends.map((friend) => (
                         <div
                           key={friend.id}
                           onClick={() => selectFriendToMessage(friend)}
-                          className="flex items-center gap-3 rounded-xl bg-social-cream-200 border border-social-cream-400 px-3 py-2 cursor-pointer hover:bg-social-cream-300 transition-colors"
+                          className="flex items-center gap-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-gray-100/50 p-4 cursor-pointer hover:border-social-green-200 hover:shadow-lg hover:shadow-social-green-500/5 transition-all duration-300"
                         >
                           {friend.avatar_url ? (
-                            <img src={friend.avatar_url} alt="" className="w-10 h-10 rounded-full" />
+                            <img src={friend.avatar_url} alt="" className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-100" />
                           ) : (
-                            <div className="w-10 h-10 rounded-full bg-social-green-400 flex items-center justify-center text-white font-bold">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-social-green-400 to-social-green-600 flex items-center justify-center text-white font-bold shadow-lg shadow-social-green-500/20">
                               {friend.username?.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <p className="font-semibold text-social-forest-700">{friend.username}</p>
+                          <p className="font-semibold text-gray-900">{friend.username}</p>
                         </div>
                       ))}
                     </div>
@@ -274,16 +307,17 @@ export default function MessagesPage() {
               ) : selectedUser ? (
                 <>
                   {/* Header */}
-                  <div className="flex items-center gap-3 pb-4 border-b border-social-cream-300">
+                  <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
                     {selectedUser.avatar_url ? (
-                      <img src={selectedUser.avatar_url} alt="" className="w-10 h-10 rounded-full" />
+                      <img src={selectedUser.avatar_url} alt="" className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-100" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-social-green-400 flex items-center justify-center text-white font-bold">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-social-green-400 to-social-green-600 flex items-center justify-center text-white font-bold shadow-lg shadow-social-green-500/20">
                         {selectedUser.username?.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <p className="font-semibold text-social-forest-700">{selectedUser.username}</p>
+                      <p className="font-semibold text-gray-900">{selectedUser.username}</p>
+                      <p className="text-sm text-gray-400">Active now</p>
                     </div>
                   </div>
 
@@ -291,26 +325,26 @@ export default function MessagesPage() {
                   <div className="flex-1 overflow-y-auto py-4 space-y-3" style={{ maxHeight: "350px" }}>
                     {messageLoading ? (
                       <div className="flex items-center justify-center h-full">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-social-green-600"></div>
+                        <div className="w-10 h-10 border-4 border-social-green-200 rounded-full animate-spin border-t-social-green-600"></div>
                       </div>
                     ) : messages.length === 0 ? (
-                      <p className="text-sm text-social-forest-400 text-center">
-                        No messages yet. Send one to start the conversation!
-                      </p>
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No messages yet. Send one to start the conversation!</p>
+                      </div>
                     ) : (
                       messages.map((msg) => {
                         const isMe = msg.sender_id === user?.id;
                         return (
                           <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                             <div
-                              className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                              className={`max-w-[70%] rounded-2xl px-4 py-3 ${
                                 isMe
-                                  ? "bg-social-green-600 text-white"
-                                  : "bg-social-cream-200 border border-social-cream-400 text-social-forest-700"
+                                  ? "bg-gradient-to-r from-social-green-500 to-social-green-600 text-white shadow-lg shadow-social-green-500/20"
+                                  : "bg-white/80 backdrop-blur-sm border border-gray-100 text-gray-900"
                               }`}
                             >
                               <p className="text-sm">{msg.body}</p>
-                              <p className={`text-xs mt-1 ${isMe ? "text-social-green-100" : "text-social-forest-400"}`}>
+                              <p className={`text-xs mt-1 ${isMe ? "text-social-green-100" : "text-gray-400"}`}>
                                 {formatTime(msg.created_at)}
                               </p>
                             </div>
@@ -322,20 +356,20 @@ export default function MessagesPage() {
                   </div>
 
                   {/* Input */}
-                  <form onSubmit={sendMessage} className="pt-4 border-t border-social-cream-300">
-                    <div className="flex gap-2">
+                  <form onSubmit={sendMessage} className="pt-4 border-t border-gray-100">
+                    <div className="flex gap-3">
                       <input
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         placeholder="Type a message..."
-                        className="flex-1 px-4 py-2 border border-social-cream-400 rounded-full text-sm focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
+                        className="flex-1 px-5 py-3 bg-gray-50/80 border-0 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-social-green-500/30 focus:bg-white transition-all duration-300"
                         disabled={sending}
                       />
                       <button
                         type="submit"
                         disabled={sending || !newMessage.trim()}
-                        className="social-button px-4 py-2 rounded-full font-semibold disabled:opacity-50"
+                        className="social-button rounded-2xl px-6 py-3 font-semibold disabled:opacity-50"
                       >
                         {sending ? "..." : "Send"}
                       </button>
@@ -343,8 +377,13 @@ export default function MessagesPage() {
                   </form>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-social-forest-400">
-                  <p>Select a conversation or start a new one</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500">Select a conversation or start a new one</p>
                 </div>
               )}
             </div>

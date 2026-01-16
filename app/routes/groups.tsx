@@ -101,19 +101,28 @@ export default function GroupsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-social-green-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50 flex items-center justify-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-social-green-200 rounded-full animate-spin border-t-social-green-600"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-6">
-      <div className="max-w-6xl mx-auto px-4 space-y-6">
-        <header className="rounded-3xl social-panel p-6 shadow-xl">
-          <p className="text-xs uppercase tracking-[0.25rem] text-social-gold-600">Communities</p>
-          <h1 className="text-3xl font-bold text-social-forest-700">Groups</h1>
-          <p className="mt-2 text-social-forest-500">Join groups to connect with people who share your interests.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <header className="relative overflow-hidden rounded-3xl social-panel p-8 lg:p-10">
+          <div className="absolute inset-0 bg-gradient-to-br from-social-green-500/5 to-transparent"></div>
+          <div className="relative">
+            <span className="inline-block px-3 py-1 text-xs font-semibold tracking-wider text-social-green-600 bg-social-green-100/80 rounded-full uppercase mb-4">
+              Communities
+            </span>
+            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 tracking-tight">Groups</h1>
+            <p className="mt-3 text-lg text-gray-500 max-w-2xl">
+              Join groups to connect with people who share your interests.
+            </p>
+          </div>
         </header>
 
         {error && (
@@ -125,52 +134,63 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 space-y-4">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <section className="lg:col-span-2 space-y-6">
             {/* All Groups */}
-            <div className="rounded-2xl social-panel p-5 shadow">
-              <div className="flex items-center justify-between">
+            <div className="social-panel rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-social-gold-600">Discover</p>
-                  <h2 className="text-xl font-semibold text-social-forest-700">All Groups</h2>
+                  <span className="text-xs font-semibold tracking-wider text-social-gold-600 uppercase">Discover</span>
+                  <h2 className="text-xl font-bold text-gray-900 mt-1">All Groups</h2>
                 </div>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="space-y-3">
                 {allGroups.length === 0 ? (
-                  <p className="text-sm text-social-forest-400">No groups yet. Create one to get started!</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500">No groups yet. Create one to get started!</p>
+                  </div>
                 ) : (
                   allGroups.map((group) => (
-                    <div key={group.id} className="flex items-center justify-between rounded-xl bg-social-cream-200 border border-social-cream-400 px-4 py-3">
-                      <div className="flex-1">
-                        <p className="font-semibold text-social-forest-700">{group.name}</p>
-                        {group.description && (
-                          <p className="text-xs text-social-forest-500 mt-1">{group.description}</p>
-                        )}
-                        <p className="text-xs text-social-forest-400">Created by: {group.owner_username}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-social-forest-500">{group.members} members</span>
-                        {isMember(group.id) ? (
-                          isOwner(group) ? (
-                            <span className="text-xs text-social-gold-600 bg-social-cream-300 px-3 py-1 rounded-lg">Owner</span>
+                    <div key={group.id} className="group relative bg-white/60 backdrop-blur-sm rounded-2xl p-5 border border-gray-100/50 hover:border-social-green-200 hover:shadow-lg hover:shadow-social-green-500/5 transition-all duration-300">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900">{group.name}</p>
+                          {group.description && (
+                            <p className="text-sm text-gray-500 mt-1">{group.description}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">Created by: {group.owner_username}</p>
+                        </div>
+                        <div className="flex items-center gap-3 ml-4">
+                          <span className="px-3 py-1 text-xs font-medium text-social-green-600 bg-social-green-100/80 rounded-full">
+                            {group.members} members
+                          </span>
+                          {isMember(group.id) ? (
+                            isOwner(group) ? (
+                              <span className="px-3 py-1 text-xs font-bold text-social-gold-600 bg-social-gold-100 rounded-full">Owner</span>
+                            ) : (
+                              <button
+                                onClick={() => leaveGroup(group.id)}
+                                disabled={actionLoading === group.id}
+                                className="social-button-outline rounded-xl px-4 py-2 text-sm disabled:opacity-50"
+                              >
+                                {actionLoading === group.id ? "..." : "Leave"}
+                              </button>
+                            )
                           ) : (
                             <button
-                              onClick={() => leaveGroup(group.id)}
+                              onClick={() => joinGroup(group.id)}
                               disabled={actionLoading === group.id}
-                              className="rounded-lg social-button-outline px-3 py-1 text-sm disabled:opacity-50"
+                              className="social-button rounded-xl px-4 py-2 text-sm disabled:opacity-50"
                             >
-                              {actionLoading === group.id ? "..." : "Leave"}
+                              {actionLoading === group.id ? "..." : "Join"}
                             </button>
-                          )
-                        ) : (
-                          <button
-                            onClick={() => joinGroup(group.id)}
-                            disabled={actionLoading === group.id}
-                            className="rounded-lg social-button px-3 py-1 text-sm font-semibold disabled:opacity-50"
-                          >
-                            {actionLoading === group.id ? "..." : "Join"}
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -180,18 +200,20 @@ export default function GroupsPage() {
 
             {/* Create Group */}
             {isAuthenticated && (
-              <div className="rounded-2xl social-panel p-5 shadow">
-                <p className="text-xs uppercase tracking-wide text-social-gold-600">Create</p>
-                <h2 className="text-xl font-semibold text-social-forest-700">Start a New Group</h2>
+              <div className="social-panel rounded-2xl p-6">
+                <div className="mb-6">
+                  <span className="text-xs font-semibold tracking-wider text-social-gold-600 uppercase">Create</span>
+                  <h2 className="text-xl font-bold text-gray-900 mt-1">Start a New Group</h2>
+                </div>
 
                 {showCreateForm ? (
-                  <form onSubmit={createGroup} className="mt-4 space-y-3">
+                  <form onSubmit={createGroup} className="space-y-4">
                     <input
                       type="text"
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
                       placeholder="Group name"
-                      className="w-full px-4 py-2 border border-social-cream-400 rounded-lg text-sm focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
+                      className="w-full px-5 py-4 bg-gray-50/80 border-0 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-social-green-500/30 focus:bg-white transition-all duration-300"
                       required
                       minLength={2}
                       maxLength={100}
@@ -200,15 +222,15 @@ export default function GroupsPage() {
                       value={newGroupDescription}
                       onChange={(e) => setNewGroupDescription(e.target.value)}
                       placeholder="Description (optional)"
-                      className="w-full px-4 py-2 border border-social-cream-400 rounded-lg text-sm focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400 resize-none"
+                      className="w-full px-5 py-4 bg-gray-50/80 border-0 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-social-green-500/30 focus:bg-white transition-all duration-300 resize-none"
                       rows={3}
                       maxLength={500}
                     />
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
                         type="submit"
                         disabled={creating || !newGroupName.trim()}
-                        className="social-button px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+                        className="social-button rounded-xl px-6 py-3 font-semibold disabled:opacity-50"
                       >
                         {creating ? "Creating..." : "Create Group"}
                       </button>
@@ -219,7 +241,7 @@ export default function GroupsPage() {
                           setNewGroupName("");
                           setNewGroupDescription("");
                         }}
-                        className="social-button-outline px-4 py-2 rounded-lg"
+                        className="social-button-outline rounded-xl px-6 py-3"
                       >
                         Cancel
                       </button>
@@ -227,10 +249,10 @@ export default function GroupsPage() {
                   </form>
                 ) : (
                   <>
-                    <p className="mt-1 text-sm text-social-forest-500">Bring people together around shared interests and topics.</p>
+                    <p className="text-gray-500">Bring people together around shared interests and topics.</p>
                     <button
                       onClick={() => setShowCreateForm(true)}
-                      className="mt-4 social-button px-4 py-2 rounded-lg font-semibold"
+                      className="mt-4 social-button rounded-xl px-6 py-3 font-semibold"
                     >
                       Create Group
                     </button>
@@ -240,31 +262,50 @@ export default function GroupsPage() {
             )}
           </section>
 
-          <aside className="space-y-4">
+          <aside className="space-y-6">
             {/* My Groups */}
-            <div className="rounded-2xl social-panel p-4 shadow">
-              <p className="text-xs uppercase tracking-wide text-social-gold-600">Your Groups</p>
-              <h3 className="text-xl font-semibold text-social-forest-700">My Communities</h3>
-              <div className="mt-3 space-y-3">
+            <div className="social-panel rounded-2xl p-6 sticky top-24">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <span className="text-xs font-semibold tracking-wider text-social-gold-600 uppercase">Your Groups</span>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">My Communities</h3>
+                </div>
+                {myGroups.length > 0 && (
+                  <span className="px-3 py-1 text-sm font-bold text-social-green-600 bg-social-green-100/80 rounded-full">
+                    {myGroups.length}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-2">
                 {!isAuthenticated ? (
-                  <p className="text-sm text-social-forest-400">
-                    <Link to="/login" className="text-social-green-600 hover:underline">Log in</Link> to see your groups
-                  </p>
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">
+                      <Link to="/login" className="text-social-green-600 hover:text-social-green-700 font-medium">Log in</Link> to see your groups
+                    </p>
+                  </div>
                 ) : myGroups.length === 0 ? (
-                  <p className="text-sm text-social-forest-400">You haven't joined any groups yet.</p>
+                  <div className="text-center py-8">
+                    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 text-sm">No groups yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Join one to get started!</p>
+                  </div>
                 ) : (
                   myGroups.map((g) => (
-                    <div key={g.id} className="flex items-center justify-between rounded-xl bg-social-cream-200 border border-social-cream-400 px-3 py-2">
-                      <div>
-                        <p className="font-semibold text-social-forest-700">{g.name}</p>
-                        <p className="text-xs text-social-forest-400">
+                    <div key={g.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-50/80 transition-all duration-200">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-700 text-sm">{g.name}</p>
+                        <p className="text-xs text-gray-400">
                           {g.owner_id === user?.id ? "You own this" : `by ${g.owner_username}`}
                         </p>
-                        <p className="text-xs text-social-gold-600">{g.members} members</p>
+                        <p className="text-xs text-social-green-600 font-medium">{g.members} members</p>
                       </div>
                       {g.owner_id !== user?.id && (
                         <button
-                          className="text-xs text-social-orange-600 hover:text-social-orange-700"
+                          className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 hover:text-red-500 transition-all duration-200"
                           onClick={() => leaveGroup(g.id)}
                           disabled={actionLoading === g.id}
                         >

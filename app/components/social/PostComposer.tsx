@@ -30,27 +30,27 @@ export function PostComposer({ onPostCreated }: Props) {
 
   if (!isAuthenticated) {
     return (
-      <div className="rounded-2xl social-panel p-4 text-sm text-social-forest-500">
-        Log in to share updates with your network.
+      <div className="social-panel rounded-2xl p-6 text-center">
+        <p className="text-gray-500">Log in to share updates with your network.</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl social-panel p-4">
+    <form onSubmit={handleSubmit} className="social-panel rounded-2xl p-6">
       <textarea
-        className="w-full rounded-xl social-input px-3 py-2 text-sm"
+        className="w-full px-5 py-4 bg-gray-50/80 border-0 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-social-green-500/30 focus:bg-white transition-all duration-300 resize-none"
         rows={3}
         placeholder="What's on your mind?"
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      {error && <p className="text-xs text-social-orange-700">{error}</p>}
-      <div className="flex justify-end">
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      <div className="flex justify-end mt-4">
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg social-button px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          className="social-button rounded-xl px-6 py-3 font-semibold disabled:opacity-50"
         >
           {submitting ? "Posting..." : "Post"}
         </button>
