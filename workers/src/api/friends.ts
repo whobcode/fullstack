@@ -41,7 +41,10 @@ friends.post('/request', zValidator('json', friendRequestSchema), async (c) => {
       .bind(user.id, addresseeId, 'pending')
       .run();
 
-    // TODO: Create a notification for the addressee
+    // Notify the addressee about the incoming friend request
+    await db.prepare('INSERT INTO notifications (user_id, type, payload_json) VALUES (?, ?, ?)')
+      .bind(addresseeId, 'friend_request', JSON.stringify({ requesterId: user.id, requesterUsername: user.username }))
+      .run();
 
     return c.json({ message: 'Friend request sent' }, 201);
   } catch (e) {
@@ -66,7 +69,10 @@ friends.post('/respond', zValidator('json', respondToRequestSchema), async (c) =
             .run();
     }
 
-    // TODO: Create a notification for the requester about the response
+    // Notify the requester about how their request was handled
+    await db.prepare('INSERT INTO notifications (user_id, type, payload_json) VALUES (?, ?, ?)')
+        .bind(requesterId, 'friend_response', JSON.stringify({ responderId: user.id, responderUsername: user.username, status }))
+        .run();
 
     return c.json({ message: 'Friend request responded to' });
 });
