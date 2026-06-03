@@ -10,11 +10,21 @@ api.get('/', (c) => {
   });
 });
 
-// Helper to create a request with the stripped path for lazy-loaded routes
-function createStrippedRequest(c: { req: { raw: Request; path: string } }): Request {
-  const url = new URL(c.req.raw.url);
-  url.pathname = c.req.path;
-  return new Request(url.toString(), c.req.raw);
+// Build a lazy-loaded mount for a sub-router. The sub-routers define their
+// paths relative to their own root (e.g. `/feed`, `/characters`), so before we
+// hand the request to them we must strip the `/api/<section>` prefix that this
+// router was mounted under — otherwise nothing matches and Hono returns a
+// plain-text 404 (which the frontend surfaces as "Invalid response from server").
+function lazyRoute(
+  basePath: string,
+  importer: () => Promise<{ default: Hono<{ Bindings: Bindings }> }>,
+) {
+  return new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
+    const { default: routes } = await importer();
+    const url = new URL(c.req.raw.url);
+    url.pathname = url.pathname.slice(basePath.length) || '/';
+    return routes.fetch(new Request(url.toString(), c.req.raw), c.env, c.executionCtx);
+  });
 }
 
 // Core auth routes - always needed, load eagerly
@@ -24,59 +34,25 @@ api.route('/auth', authRoutes);
 api.route('/users', userRoutes);
 
 // Social routes - lazy loaded
-api.route('/social', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./social');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
-
-api.route('/friends', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./friends');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
-
-api.route('/messages', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./messages');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/social', lazyRoute('/api/social', () => import('./social')));
+api.route('/friends', lazyRoute('/api/friends', () => import('./friends')));
+api.route('/messages', lazyRoute('/api/messages', () => import('./messages')));
 
 // Game routes - lazy loaded
-api.route('/game', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./game');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
-
-api.route('/storm8', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./storm8-battles');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/game', lazyRoute('/api/game', () => import('./game')));
+api.route('/storm8', lazyRoute('/api/storm8', () => import('./storm8-battles')));
 
 // AI/Voice routes - lazy loaded (heavy dependencies)
-api.route('/ai', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./ai');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
-
-api.route('/voice', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./voice');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/ai', lazyRoute('/api/ai', () => import('./ai')));
+api.route('/voice', lazyRoute('/api/voice', () => import('./voice')));
 
 // Media/Upload routes - lazy loaded
-api.route('/upload', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./upload');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/upload', lazyRoute('/api/upload', () => import('./upload')));
 
 // Payment routes - lazy loaded
-api.route('/payments', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./payments');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/payments', lazyRoute('/api/payments', () => import('./payments')));
 
 // Cross-platform sync routes - lazy loaded
-api.route('/sync', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
-  const { default: routes } = await import('./sync');
-  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
-}));
+api.route('/sync', lazyRoute('/api/sync', () => import('./sync')));
 
 export default api;
