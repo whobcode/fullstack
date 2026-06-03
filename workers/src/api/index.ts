@@ -73,4 +73,10 @@ api.route('/payments', new Hono<{ Bindings: Bindings }>().all('*', async (c) => 
   return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
 }));
 
+// Cross-platform sync routes - lazy loaded
+api.route('/sync', new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
+  const { default: routes } = await import('./sync');
+  return routes.fetch(createStrippedRequest(c), c.env, c.executionCtx);
+}));
+
 export default api;
