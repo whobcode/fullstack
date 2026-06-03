@@ -4,6 +4,7 @@ import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
 import { createCommentSchema, createGroupSchema, createPostSchema, reactSchema } from '../shared/schemas/social';
+import { awardProgress, REWARDS } from '../core/progression';
 
 type App = {
   Bindings: Bindings;
@@ -65,7 +66,8 @@ social.post('/posts', zValidator('json', createPostSchema), async (c) => {
     .bind(id, user.id, body)
     .run();
 
-  return c.json({ data: { id, body } }, 201);
+  const reward = await awardProgress(db, user.id, REWARDS.post);
+  return c.json({ data: { id, body }, reward }, 201);
 });
 
 social.post('/posts/:id/comments', zValidator('json', createCommentSchema), async (c) => {
@@ -80,7 +82,8 @@ social.post('/posts/:id/comments', zValidator('json', createCommentSchema), asyn
     .bind(commentId, id, user.id, body)
     .run();
 
-  return c.json({ data: { id: commentId } }, 201);
+  const reward = await awardProgress(db, user.id, REWARDS.comment);
+  return c.json({ data: { id: commentId }, reward }, 201);
 });
 
 social.post('/posts/:id/react', zValidator('json', reactSchema), async (c) => {
@@ -100,6 +103,12 @@ social.post('/posts/:id/react', zValidator('json', reactSchema), async (c) => {
     .prepare('INSERT INTO reactions (id, post_id, user_id, type) VALUES (?, ?, ?, ?)')
     .bind(reactionId, id, user.id, type)
     .run();
+
+  // Reward the post author for the engagement (not the reactor), if it isn't a self-reaction.
+  const post = await db.prepare('SELECT author_id FROM posts WHERE id = ?').bind(id).first<{ author_id: string }>();
+  if (post && post.author_id !== user.id) {
+    c.executionCtx.waitUntil(awardProgress(db, post.author_id, REWARDS.reactionReceived).then(() => {}));
+  }
 
   return c.json({ message: 'Reacted' }, 201);
 });
