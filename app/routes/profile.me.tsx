@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
+import CharacterCard from "../components/CharacterCard";
 
 type ProfileData = {
   username: string;
@@ -224,6 +225,9 @@ export default function MyProfilePage() {
 
         {/* Profile Info Overlay */}
         <div className="max-w-4xl mx-auto px-4">
+          <div className="pt-6">
+            <CharacterCard userId={user?.id} />
+          </div>
           <div className="relative -mt-20 flex flex-col md:flex-row items-center md:items-end gap-4">
             {/* Profile Picture with Upload */}
             <div className="relative group">
