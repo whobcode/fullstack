@@ -4,8 +4,9 @@ import { z } from 'zod';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
-import { firstAccessSchema } from '../shared/schemas/game';
+import { firstAccessSchema, customizeCharacterSchema } from '../shared/schemas/game';
 import { MAX_LEVEL, getTotalStatPointsForLevel, getAllLevelAchievementsUpTo, getXpForLevel } from '../core/leveling';
+import { BASE_STATS, CHARACTER_CLASSES } from '../core/classes';
 
 type App = {
   Bindings: Bindings;
@@ -56,13 +57,6 @@ const game = new Hono<App>();
 // All routes in this file are protected
 game.use('*', authMiddleware);
 
-const BASE_STATS = {
-    phoenix:      { hp: 10000, atk: 1000, def: 500, mp: 175, spd: 100 },
-    dphoenix:     { hp: 10000, atk: 1750, def: 375, mp: 150, spd: 150 },
-    dragon:       { hp: 10000, atk: 750,  def: 1100, mp: 100, spd: 175 },
-    ddragon:      { hp: 10000, atk: 1000, def: 1000, mp: 200, spd: 75  },
-    kies:         { hp: 15000, atk: 750,  def: 750,  mp: 225, spd: 150 },
-};
 
 // Helper to check if user is a special account
 async function getSpecialAccount(db: D1Database, userId: string): Promise<SpecialAccount | null> {
@@ -329,6 +323,47 @@ game.post('/first-access', zValidator('json', firstAccessSchema), async (c) => {
   } catch (e) {
     console.error("Game first-access error:", e);
     return c.json({ error: 'Failed to set up character.' }, 500);
+  }
+});
+
+
+// Customize a starter character (gamertag/class) while it is still fresh (level 1, no XP).
+// Lets players personalize the auto-created character without first-access being a hard gate.
+game.post('/character/customize', zValidator('json', customizeCharacterSchema), async (c) => {
+  const user = c.get('user');
+  const { gamertag, class: chosenClass } = c.req.valid('json');
+  const db = c.env.DB;
+  try {
+    const ch = await db
+      .prepare('SELECT id, level, xp, class FROM characters WHERE user_id = ? ORDER BY slot_number LIMIT 1')
+      .bind(user.id)
+      .first<{ id: string; level: number; xp: number; class: string }>();
+    if (!ch) return c.json({ error: 'Character not found.' }, 404);
+    if (ch.level !== 1 || ch.xp > 0) {
+      return c.json({ error: 'Character has already progressed and can no longer be re-rolled. Create a new character in another slot instead.' }, 409);
+    }
+
+    if (gamertag) {
+      const taken = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ? AND id != ?').bind(gamertag, ch.id).first();
+      if (taken) return c.json({ error: 'Gamertag is already taken.' }, 409);
+    }
+
+    const newClass = chosenClass ?? (ch.class as keyof typeof BASE_STATS);
+    const stats = BASE_STATS[newClass];
+
+    await db
+      .prepare(`UPDATE characters SET
+                  gamertag = COALESCE(?, gamertag),
+                  class = ?, hp = ?, atk = ?, def = ?, mp = ?, spd = ?,
+                  updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?`)
+      .bind(gamertag ?? null, newClass, stats.hp, stats.atk, stats.def, stats.mp, stats.spd, ch.id)
+      .run();
+
+    return c.json({ message: 'Character updated.', data: { class: newClass } });
+  } catch (e) {
+    console.error('Customize error:', e);
+    return c.json({ error: 'Failed to customize character.' }, 500);
   }
 });
 
