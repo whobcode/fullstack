@@ -22,6 +22,10 @@ export default [
   route("shade/battles/:id", "routes/battles.$id.tsx"),
   route("shade/leaderboard", "routes/game.leaderboard.tsx"),
 
+  // Legacy game URLs -> redirect to /shade/* (the game section was renamed)
+  route("game", "routes/game-redirect.tsx", { id: "game-redirect-root" }),
+  route("game/*", "routes/game-redirect.tsx", { id: "game-redirect-splat" }),
+
   // Auth callbacks
   route("auth/magic-link", "routes/auth.magic-link.tsx"),
 
