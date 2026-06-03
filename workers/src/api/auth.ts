@@ -8,8 +8,32 @@ import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas
 import { passwordResetRequestSchema, passwordResetSchema } from '../shared/schemas/password-reset';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
+import { rollInitialCharacter, sanitizeGamertag } from '../core/classes';
 
 const auth = new Hono<{ Bindings: Bindings }>();
+
+// Build the INSERT for a brand-new, immediately-playable character (gamertag + class + base stats).
+async function buildInitialCharacter(db: D1Database, characterId: string, userId: string, seedUsername: string, founder: boolean) {
+  const gamertag = await generateUniqueGamertag(db, sanitizeGamertag(seedUsername));
+  const c = rollInitialCharacter({ seed: userId, autoMax: founder });
+  return db.prepare(
+    `INSERT INTO characters (id, user_id, slot_number, gamertag, class, level, xp, hp, atk, def, mp, spd, unspent_stat_points, first_game_access_completed)
+     VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)`
+  ).bind(characterId, userId, gamertag, c.cls, c.level, c.xp, c.hp, c.atk, c.def, c.mp, c.spd, c.unspentStatPoints);
+}
+
+async function generateUniqueGamertag(db: D1Database, base: string): Promise<string> {
+  let candidate = base || 'player';
+  let suffix = 0;
+  while (suffix < 10000) {
+    const exists = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ?').bind(candidate).first();
+    if (!exists) return candidate.slice(0, 20);
+    suffix += 1;
+    candidate = `${base}${suffix}`.slice(0, 20);
+  }
+  return `${base.slice(0, 8)}_${Date.now()}`.slice(0, 20);
+}
+
 
 auth.post('/register', zValidator('json', registerSchema), async (c) => {
   const { email, username, password } = c.req.valid('json');
@@ -32,13 +56,12 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
     const characterId = crypto.randomUUID();
 
     // Use a transaction to ensure all or nothing
+    const characterStmt = await buildInitialCharacter(db, characterId, userId, username, SPECIAL_USERNAMES.includes(username.toLowerCase()));
     const batch = [
       db.prepare(
         'INSERT INTO users (id, email, username, password_hash) VALUES (?, ?, ?, ?)'
       ).bind(userId, email, username, passwordHash),
-      db.prepare(
-        'INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)'
-      ).bind(characterId, userId, false),
+      characterStmt,
       db.prepare(
         'INSERT INTO trophies (character_id) VALUES (?)'
       ).bind(characterId),
@@ -205,6 +228,7 @@ async function ensureUserFromGoogle(db: D1Database, profile: GoogleTokenPayload)
   const baseUsername = (profile.name || profile.given_name || 'g_user').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'guser';
   const username = await generateUniqueUsername(db, baseUsername);
 
+  const characterStmt = await buildInitialCharacter(db, characterId, userId, username, SPECIAL_USERNAMES.includes(username.toLowerCase()));
   const batch = [
     db.prepare(`INSERT INTO users (id, email, username, email_verified, avatar_url)
                 VALUES (?, ?, ?, ?, ?)`)
@@ -212,8 +236,7 @@ async function ensureUserFromGoogle(db: D1Database, profile: GoogleTokenPayload)
     db.prepare(`INSERT INTO oauth_accounts (id, user_id, provider, provider_account_id, scope, raw_profile_json)
                 VALUES (?, ?, ?, ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, 'google', profile.sub, 'openid email profile', rawProfileJson),
-    db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
-      .bind(characterId, userId, false),
+    characterStmt,
     db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
       .bind(characterId),
   ];
@@ -440,11 +463,11 @@ auth.post('/magic-link/verify', zValidator('json', magicLinkVerifySchema), async
       const baseUsername = tokenRecord.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'user';
       const username = await generateUniqueUsername(db, baseUsername);
 
-      const batch = [
+      const characterStmt = await buildInitialCharacter(db, characterId, userId, username, SPECIAL_USERNAMES.includes(username.toLowerCase()));
+    const batch = [
         db.prepare('INSERT INTO users (id, email, username, email_verified) VALUES (?, ?, ?, ?)')
           .bind(userId, tokenRecord.email, username, true),
-        db.prepare('INSERT INTO characters (id, user_id, first_game_access_completed) VALUES (?, ?, ?)')
-          .bind(characterId, userId, false),
+        characterStmt,
         db.prepare('INSERT INTO trophies (character_id) VALUES (?)')
           .bind(characterId),
       ];

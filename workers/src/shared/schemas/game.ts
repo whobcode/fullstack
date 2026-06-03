@@ -23,6 +23,21 @@ export const allocatePointsSchema = z.object({
 
 
 export type FirstAccessInput = z.infer<typeof firstAccessSchema>;
+
+export const customizeCharacterSchema = z
+  .object({
+    gamertag: z
+      .string()
+      .min(3, { message: 'Gamertag must be at least 3 characters long' })
+      .max(20, { message: 'Gamertag must be no more than 20 characters long' })
+      .regex(/^[a-zA-Z0-9_.-]+$/, { message: 'Gamertag can only contain letters, numbers, underscores, dots, and hyphens' })
+      .optional(),
+    class: z.enum(['phoenix', 'dphoenix', 'dragon', 'ddragon', 'kies']).optional(),
+  })
+  .refine((d) => d.gamertag || d.class, { message: 'Provide a gamertag and/or a class to change' });
+
+export type CustomizeCharacterInput = z.infer<typeof customizeCharacterSchema>;
+
 export type AllocatePointsInput = z.infer<typeof allocatePointsSchema>;
 
 export const createBattleSchema = z.object({
