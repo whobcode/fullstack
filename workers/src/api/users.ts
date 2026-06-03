@@ -16,6 +16,25 @@ type App = {
 
 const users = new Hono<App>();
 
+// Fetch a user's showcase character card (highest-level set-up character).
+async function getCharacterCard(db: D1Database, userId: string) {
+  return db
+    .prepare(
+      `SELECT c.gamertag, c.class, c.level, c.xp, c.slot_number,
+              c.hp, c.atk, c.def, c.mp, c.spd,
+              COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
+              COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
+       FROM characters c
+       LEFT JOIN trophies t ON t.character_id = c.id
+       WHERE c.user_id = ? AND c.first_game_access_completed = TRUE
+       ORDER BY c.level DESC, c.slot_number ASC
+       LIMIT 1`
+    )
+    .bind(userId)
+    .first();
+}
+
+
 // GET /api/users/me - Get the current authenticated user's profile and main character id
 users.get('/me', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -132,10 +151,17 @@ users.get('/:id/profile', async (c) => {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  // We can also fetch and join social stats like post count, friend count etc. here
-  // For now, just the basic profile is fine.
+  const character = await getCharacterCard(db, id);
+  return c.json({ data: { ...profile, character } });
+});
 
-  return c.json({ data: profile });
+// GET /api/users/:id/character-card - Public RPG character card for a user
+users.get('/:id/character-card', async (c) => {
+  const { id } = c.req.param();
+  const db = c.env.DB;
+  const character = await getCharacterCard(db, id);
+  if (!character) return c.json({ error: 'No character found' }, 404);
+  return c.json({ data: character });
 });
 
 export default users;
