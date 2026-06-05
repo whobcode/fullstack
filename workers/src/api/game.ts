@@ -391,6 +391,28 @@ game.get('/my-characters', async (c) => {
     return c.json({ data: characters.results || [] });
 });
 
+// Aggregate gamer profile: the player's game identity plus all their characters
+// (with trophies). Backs the dedicated gamer profile page.
+game.get('/profile', async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+
+    const profile = await db
+        .prepare('SELECT id, username, avatar_url, shade_avatar_url, created_at FROM users WHERE id = ?')
+        .bind(user.id)
+        .first();
+
+    const characters = await db.prepare(`
+        SELECT c.*, t.wins, t.losses, t.kills, t.deaths
+        FROM characters c
+        LEFT JOIN trophies t ON c.id = t.character_id
+        WHERE c.user_id = ?
+        ORDER BY c.slot_number
+    `).bind(user.id).all();
+
+    return c.json({ data: { profile, characters: characters.results || [] } });
+});
+
 // Get character details (optionally by slot number)
 game.get('/character', async (c) => {
     const user = c.get('user');
@@ -464,15 +486,20 @@ import { allocatePointsSchema } from '../shared/schemas/game';
 // Allocate stat points
 game.post('/character/allocate-points', zValidator('json', allocatePointsSchema), async (c) => {
     const user = c.get('user');
-    const pointsToAllocate = c.req.valid('json');
+    const { characterId, ...pointsToAllocate } = c.req.valid('json');
     const db = c.env.DB;
 
     const totalPointsToSpend = Object.values(pointsToAllocate).reduce((sum, val) => sum + val, 0);
 
-    const character = await db.prepare('SELECT id, unspent_stat_points FROM characters WHERE user_id = ?').bind(user.id).first<{id: string, unspent_stat_points: number}>();
+    // Target the specific character the user is editing (and verify ownership),
+    // rather than whichever character happens to come back first.
+    const character = await db
+        .prepare('SELECT id, unspent_stat_points FROM characters WHERE id = ? AND user_id = ?')
+        .bind(characterId, user.id)
+        .first<{id: string, unspent_stat_points: number}>();
 
     if (!character) {
-        return c.json({ error: 'Character not found.' }, 404);
+        return c.json({ error: 'Character not found or does not belong to you.' }, 404);
     }
 
     if (totalPointsToSpend <= 0 || totalPointsToSpend > character.unspent_stat_points) {

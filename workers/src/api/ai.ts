@@ -13,8 +13,11 @@ const shadePrompts = [
   'phantom silhouette portrait, blood red neon outline, dark aesthetic, pure black background, ghostly figure, high contrast avatar',
 ];
 
-// Helper to convert stream to base64
-async function streamToBase64(stream: ReadableStream): Promise<string> {
+// R2 public URL base (custom domain, same as the upload routes).
+const SHADE_IMAGE_BASE = 'https://shade-image.hwmnbn.me';
+
+// Collect a ReadableStream into a single Uint8Array.
+async function streamToBytes(stream: ReadableStream): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
 
@@ -31,13 +34,44 @@ async function streamToBase64(stream: ReadableStream): Promise<string> {
     combined.set(chunk, offset);
     offset += chunk.length;
   }
-
-  return btoa(String.fromCharCode(...combined));
+  return combined;
 }
 
-// Generate a shade-themed avatar (text-to-image)
+// Base64-encode bytes in chunks (avoids blowing the call stack on large images).
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+// Persist a generated avatar to R2 and save its URL on the user. Returns the
+// public URL, or undefined if persistence failed (generation still succeeds).
+async function persistShadeAvatar(
+  env: Bindings,
+  userId: string,
+  bytes: Uint8Array,
+): Promise<string | undefined> {
+  try {
+    const key = `shade-avatars/${userId}/${Date.now()}.png`;
+    await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: 'image/png' } });
+    const url = `${SHADE_IMAGE_BASE}/${key}`;
+    await env.DB.prepare('UPDATE users SET shade_avatar_url = ? WHERE id = ?').bind(url, userId).run();
+    return url;
+  } catch (err: any) {
+    console.warn('Failed to persist shade avatar:', err?.message || err);
+    return undefined;
+  }
+}
+
+// Generate a shade-themed avatar (text-to-image), persist it, and return both
+// an inline data URL (instant preview) and the saved public URL.
 ai.post('/shade-avatar', authMiddleware, async (c) => {
   try {
+    const userId = (c.get('user') as { id: string } | undefined)?.id;
+
     // Pick a random shade prompt variation
     const randomPrompt = shadePrompts[Math.floor(Math.random() * shadePrompts.length)];
 
@@ -50,9 +84,11 @@ ai.post('/shade-avatar', authMiddleware, async (c) => {
     );
 
     if (result instanceof ReadableStream) {
-      const base64 = await streamToBase64(result);
+      const bytes = await streamToBytes(result);
+      const url = userId ? await persistShadeAvatar(c.env, userId, bytes) : undefined;
       return c.json({
-        image: `data:image/png;base64,${base64}`,
+        image: `data:image/png;base64,${bytesToBase64(bytes)}`,
+        url,
         success: true
       });
     }
@@ -67,6 +103,7 @@ ai.post('/shade-avatar', authMiddleware, async (c) => {
 // Generate shade avatar with optional custom prompt additions
 ai.post('/generate-shade-avatar', authMiddleware, async (c) => {
   try {
+    const userId = (c.get('user') as { id: string } | undefined)?.id;
     const body: { prompt?: string; style?: string } = await c.req.json().catch(() => ({}));
     const customAddition = body.prompt || '';
     const style = body.style || 'random';
@@ -90,9 +127,11 @@ ai.post('/generate-shade-avatar', authMiddleware, async (c) => {
     );
 
     if (result instanceof ReadableStream) {
-      const base64 = await streamToBase64(result);
+      const bytes = await streamToBytes(result);
+      const url = userId ? await persistShadeAvatar(c.env, userId, bytes) : undefined;
       return c.json({
-        image: `data:image/png;base64,${base64}`,
+        image: `data:image/png;base64,${bytesToBase64(bytes)}`,
+        url,
         success: true
       });
     }
