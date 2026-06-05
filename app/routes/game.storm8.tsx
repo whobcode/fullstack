@@ -385,19 +385,23 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
   const [attacking, setAttacking] = useState(false);
   const [battle, setBattle] = useState<any>(null);
   const [defHp, setDefHp] = useState(0);
+  const [atkHp, setAtkHp] = useState(0);
   const rafRef = useRef<number | null>(null);
 
-  // Animate the defender's HP from before -> after when a battle resolves.
-  const animateDamage = (before: number, after: number) => {
+  // Animate both combatants' HP from before -> after when a battle resolves.
+  const animateExchange = (d: any) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    setDefHp(d.defender.health_before);
+    setAtkHp(d.attacker.health_before);
     const start = performance.now();
     const duration = 700;
+    const lerp = (a: number, b: number, k: number) => Math.round(a + (b - a) * k);
     const tick = (now: number) => {
       const k = Math.min(1, (now - start) / duration);
-      setDefHp(Math.round(before + (after - before) * k));
+      setDefHp(lerp(d.defender.health_before, d.defender.health_after, k));
+      setAtkHp(lerp(d.attacker.health_before, d.attacker.health_after, k));
       if (k < 1) rafRef.current = requestAnimationFrame(tick);
     };
-    setDefHp(before);
     rafRef.current = requestAnimationFrame(tick);
   };
 
@@ -414,7 +418,7 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
       const res = await apiClient.post<{ data: any }>('/storm8/attack', { defender_character_id: targetId.trim() });
       const d = res.data;
       setBattle(d);
-      animateDamage(d.defender.health_before, d.defender.health_after);
+      animateExchange(d);
       onUpdate();
     } catch (err: any) {
       setError(err.message || 'Attack failed');
@@ -446,22 +450,29 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
       {/* Battle arena */}
       {battle && (
         <div className="bg-shade-black-700 neon-border rounded-lg p-4 mb-4">
+          <p className="text-center text-[11px] uppercase tracking-widest text-shade-red-400 mb-2">
+            {battle.first_striker === 'defender'
+              ? `${battle.defender.gamertag} was faster — struck first!`
+              : `${battle.attacker.gamertag} was faster — struck first!`}
+          </p>
           <div className="flex items-stretch gap-3">
             <Combatant
-              role="Attacker"
+              role={`Attacker${battle.first_striker === 'attacker' ? ' ⚡' : ''}`}
               name={battle.attacker.gamertag}
               avatar={user?.shade_avatar_url}
-              hp={battle.attacker.health}
+              hp={atkHp}
               maxHp={battle.attacker.max_health}
+              defeated={battle.attacker.killed && atkHp <= 0}
             />
             <div className="flex flex-col items-center justify-center px-2">
               <span className="text-2xl neon-text-strong">⚔️</span>
-              <span className={`font-bold text-lg ${battle.result?.critical ? 'text-yellow-400' : 'text-shade-red-500'}`}>-{battle.damage_dealt}</span>
-              {battle.result?.critical && <span className="text-[10px] font-bold text-yellow-400">CRIT! ×1.5</span>}
-              {battle.result?.dodged && <span className="text-[10px] font-bold text-blue-400">GLANCING ×0.5</span>}
+              <span className="font-bold text-shade-red-500">-{battle.damage_dealt}</span>
+              {battle.damage_to_attacker > 0 && (
+                <span className="text-[10px] text-blue-300 mt-1">counter -{battle.damage_to_attacker}</span>
+              )}
             </div>
             <Combatant
-              role="Defender"
+              role={`Defender${battle.first_striker === 'defender' ? ' ⚡' : ''}`}
               name={battle.defender.gamertag}
               hp={defHp}
               maxHp={battle.defender.max_health}
@@ -471,9 +482,11 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
           <div className="text-center mt-3 text-sm">
             {battle.defender.killed
               ? <p className="text-shade-red-600 font-bold animate-pulse">💀 {battle.defender.gamertag} was DEFEATED!</p>
-              : battle.result?.attacker_won
-                ? <p className="text-green-500">Hit for {battle.damage_dealt} damage.</p>
-                : <p className="text-shade-red-300">Attack deflected — no damage.</p>}
+              : battle.attacker.killed
+                ? <p className="text-shade-red-600 font-bold animate-pulse">💀 You were DEFEATED by {battle.defender.gamertag}'s counterattack!</p>
+                : battle.result?.attacker_won
+                  ? <p className="text-green-500">You won the exchange — {battle.damage_dealt} dealt vs {battle.damage_to_attacker} taken.</p>
+                  : <p className="text-shade-red-300">You lost the exchange — {battle.damage_dealt} dealt vs {battle.damage_to_attacker} taken.</p>}
             <p className="text-shade-red-400 mt-1">
               {battle.currency_stolen > 0 && <span>💰 Stole {battle.currency_stolen} • </span>}
               +{battle.xp_gained} XP

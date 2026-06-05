@@ -14,6 +14,7 @@
 export type CharacterBattleStats = {
   id: string;
   level: number;
+  char_class: string; // phoenix | dphoenix | dragon | ddragon | kies
 
   // Core character stats (from the character sheet: atk / def / spd).
   attack: number;
@@ -44,12 +45,14 @@ export type CharacterBattleStats = {
 
 export type BattleResult = {
   attacker_won: boolean;
-  damage_dealt: number;
+  damage_dealt: number;          // Damage the attacker dealt to the defender
+  damage_to_attacker: number;    // Counterattack damage the defender dealt back
   currency_stolen: number;
   defender_health_after: number;
+  attacker_health_after: number;
   defender_killed: boolean;
-  critical: boolean; // Attacker's speed landed a critical hit (1.5x)
-  dodged: boolean;   // Defender's speed glanced the blow (0.5x)
+  attacker_killed: boolean;      // The attacker can die to the counterattack
+  first_striker: 'attacker' | 'defender'; // Decided by speed (initiative)
   variance_applied: number; // For debugging/display
   attacker_effective_power: number;
   defender_effective_power: number;
@@ -71,11 +74,21 @@ const DEFAULT_CONFIG: BattleConfig = {
  * Calculate total attack power using Storm8 formula:
  * Total Attack = (equipment_attack × usable_clan_members) + (attack_skill_points × level)
  */
+// Dragon classes are bruisers: they convert their defensive/mobility stats into
+// offense, so their damage scales off DEF + SPD on top of raw ATK.
+function classAttackBonus(stats: CharacterBattleStats): number {
+  if (stats.char_class === 'dragon' || stats.char_class === 'ddragon') {
+    return (stats.defense || 0) + (stats.speed || 0);
+  }
+  return 0;
+}
+
 export function calculateAttackPower(stats: CharacterBattleStats): number {
   const equipmentPower = stats.equipment_attack * stats.usable_clan_members;
   const skillPower = stats.attack_skill_points * stats.level;
-  // The character's ATK stat contributes directly to attack power.
-  return equipmentPower + skillPower + (stats.attack || 0);
+  // The character's ATK stat contributes directly to attack power, plus any
+  // class-specific bonus (dragons gain from DEF + SPD).
+  return equipmentPower + skillPower + (stats.attack || 0) + classAttackBonus(stats);
 }
 
 /**
@@ -206,13 +219,19 @@ function calculateCurrencyStolen(
 }
 
 /**
- * Main battle resolution function
+ * Main battle resolution function.
+ *
+ * Speed decides initiative: the faster combatant strikes first. If the first
+ * strike is lethal, the slower one dies before they can hit back. Otherwise the
+ * other side lands a counterattack — so a faster, harder-hitting opponent can
+ * kill you when you attack them.
  *
  * @param attacker - Attacker's battle stats
  * @param defender - Defender's battle stats
  * @param seed - Random seed for deterministic results
  * @param config - Battle configuration (optional)
  * @param isHitlistBattle - If true, ignores health protection threshold
+ * @param allowCounter - If false, the defender does not strike back (ambush/hitlist)
  * @returns Battle result
  */
 export function resolveBattle(
@@ -220,88 +239,91 @@ export function resolveBattle(
   defender: CharacterBattleStats,
   seed: string,
   config: Partial<BattleConfig> = {},
-  isHitlistBattle: boolean = false
+  isHitlistBattle: boolean = false,
+  allowCounter: boolean = true
 ): BattleResult {
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const random = seededRandom(seed);
 
-  // Calculate base powers
-  const attackerBasePower = calculateAttackPower(attacker);
-  const defenderBasePower = calculateDefensePower(defender);
+  // Each side's effective powers (with variance).
+  const attackerAtk = applyVariance(calculateAttackPower(attacker), finalConfig.variance_percentage, random);
+  const defenderDef = applyVariance(calculateDefensePower(defender), finalConfig.variance_percentage, random);
+  const defenderAtk = applyVariance(calculateAttackPower(defender), finalConfig.variance_percentage, random);
+  const attackerDef = applyVariance(calculateDefensePower(attacker), finalConfig.variance_percentage, random);
 
-  // Apply variance (Storm8's "luck factor")
-  const attackerWithVariance = applyVariance(attackerBasePower, finalConfig.variance_percentage, random);
-  const defenderWithVariance = applyVariance(defenderBasePower, finalConfig.variance_percentage, random);
+  // Potential damage each would deal to the other.
+  const attackerHit = Math.max(0, Math.floor(attackerAtk.value - defenderDef.value));
+  const counterHit = allowCounter ? Math.max(0, Math.floor(defenderAtk.value - attackerDef.value)) : 0;
 
-  // Determine outcome (probabilistic comparison)
-  const powerDifferential = attackerWithVariance.value - defenderWithVariance.value;
-  let damageDealt = Math.max(0, Math.floor(powerDifferential));
+  const baseResult = {
+    variance_applied: attackerAtk.variance,
+    attacker_effective_power: attackerAtk.value,
+    defender_effective_power: defenderDef.value,
+  };
 
-  // Check if defender is protected (only for normal battles)
+  // Defender protection (normal battles only): low-health defenders escape.
   const defenderProtected = !isHitlistBattle &&
                            defender.current_health <= finalConfig.health_protection_threshold &&
                            defender.current_health > 0;
 
   if (defenderProtected) {
-    // Defender escaped to safety
     return {
       attacker_won: false,
       damage_dealt: 0,
+      damage_to_attacker: 0,
       currency_stolen: 0,
       defender_health_after: defender.current_health,
+      attacker_health_after: attacker.current_health,
       defender_killed: false,
-      critical: false,
-      dodged: false,
-      variance_applied: attackerWithVariance.variance,
-      attacker_effective_power: attackerWithVariance.value,
-      defender_effective_power: defenderWithVariance.value,
+      attacker_killed: false,
+      first_striker: 'attacker',
+      ...baseResult,
     };
   }
 
-  // Speed decides initiative: a faster attacker can land a critical hit (1.5x),
-  // a faster defender can partly dodge (0.5x). Bigger speed gaps = better odds.
-  let critical = false;
-  let dodged = false;
-  if (damageDealt > 0) {
-    const atkSpd = attacker.speed || 0;
-    const defSpd = defender.speed || 0;
-    const denom = atkSpd + defSpd + 1;
-    if (atkSpd > defSpd) {
-      const critChance = Math.min(0.5, (atkSpd - defSpd) / denom);
-      if (random() < critChance) {
-        damageDealt = Math.floor(damageDealt * 1.5);
-        critical = true;
-      }
-    } else if (defSpd > atkSpd) {
-      const dodgeChance = Math.min(0.5, (defSpd - atkSpd) / denom);
-      if (random() < dodgeChance) {
-        damageDealt = Math.floor(damageDealt * 0.5);
-        dodged = true;
-      }
+  // Initiative by speed; the attacker wins ties since they initiated.
+  const attackerFirst = (attacker.speed || 0) >= (defender.speed || 0);
+
+  let attackerHealthAfter = attacker.current_health;
+  let defenderHealthAfter = defender.current_health;
+  let attackerKilled = false;
+  let defenderKilled = false;
+
+  if (attackerFirst) {
+    defenderHealthAfter = Math.max(0, defender.current_health - attackerHit);
+    defenderKilled = defenderHealthAfter === 0;
+    if (!defenderKilled) {
+      attackerHealthAfter = Math.max(0, attacker.current_health - counterHit);
+      attackerKilled = attackerHealthAfter === 0;
+    }
+  } else {
+    // Faster defender lands a pre-emptive counter first.
+    attackerHealthAfter = Math.max(0, attacker.current_health - counterHit);
+    attackerKilled = attackerHealthAfter === 0;
+    if (!attackerKilled) {
+      defenderHealthAfter = Math.max(0, defender.current_health - attackerHit);
+      defenderKilled = defenderHealthAfter === 0;
     }
   }
 
-  // Apply damage
-  const defenderHealthAfter = Math.max(0, defender.current_health - damageDealt);
-  const defenderKilled = defenderHealthAfter === 0;
-  const attackerWon = damageDealt > 0;
+  // The attacker wins if they kill the defender, or (both survive) out-damage them.
+  const attackerWon = defenderKilled || (!attackerKilled && attackerHit > counterHit);
 
-  // Calculate currency stolen (only if attacker won)
-  const currencyStolen = attackerWon
-    ? calculateCurrencyStolen(damageDealt, defender.unbanked_currency, finalConfig.currency_steal_percentage)
+  const currencyStolen = (defenderKilled || (attackerWon && attackerHit > 0))
+    ? calculateCurrencyStolen(attackerHit, defender.unbanked_currency, finalConfig.currency_steal_percentage)
     : 0;
 
   return {
     attacker_won: attackerWon,
-    damage_dealt: damageDealt,
+    damage_dealt: attackerHit,
+    damage_to_attacker: counterHit,
     currency_stolen: currencyStolen,
     defender_health_after: defenderHealthAfter,
+    attacker_health_after: attackerHealthAfter,
     defender_killed: defenderKilled,
-    critical,
-    dodged,
-    variance_applied: attackerWithVariance.variance,
-    attacker_effective_power: attackerWithVariance.value,
-    defender_effective_power: defenderWithVariance.value,
+    attacker_killed: attackerKilled,
+    first_striker: attackerFirst ? 'attacker' : 'defender',
+    ...baseResult,
   };
 }
 
