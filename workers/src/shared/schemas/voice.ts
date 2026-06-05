@@ -32,3 +32,10 @@ export const conversationRequestSchema = z.object({
 });
 
 export type ConversationRequest = z.infer<typeof conversationRequestSchema>;
+
+// Persisted voice conversation (per user, stored in KV).
+export const voiceHistorySchema = z.object({
+  messages: z.array(chatMessageSchema).max(200),
+});
+
+export type VoiceHistory = z.infer<typeof voiceHistorySchema>;

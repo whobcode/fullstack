@@ -1,5 +1,6 @@
-import { createContext, useState, useContext, useRef, useCallback } from 'react';
+import { createContext, useState, useContext, useRef, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -56,6 +57,8 @@ interface VoiceAssistantContextType {
 const VoiceAssistantContext = createContext<VoiceAssistantContextType | undefined>(undefined);
 
 export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+
   // UI State
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -76,6 +79,43 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Persist the conversation to the user's KV-backed history (best effort).
+  const persistHistory = useCallback(async (msgs: ChatMessage[]) => {
+    try {
+      await fetch('/api/voice/history', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: msgs }),
+      });
+    } catch {
+      // Non-fatal: the conversation still works in-session.
+    }
+  }, []);
+
+  // Restore the saved conversation when the user is authenticated.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/voice/history');
+        if (!res.ok) return;
+        const data = (await res.json()) as { messages?: ChatMessage[] };
+        if (!cancelled && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+        }
+      } catch {
+        // Ignore — start with an empty conversation.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => !prev);
     setError(null);
@@ -90,6 +130,8 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
     setCurrentTranscript('');
     setAudioUrl(null);
     setError(null);
+    // Also clear the saved copy in KV.
+    fetch('/api/voice/history', { method: 'DELETE' }).catch(() => {});
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -145,7 +187,11 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
 
       // Add messages to conversation
       if (data.messages) {
-        setMessages((prev) => [...prev, ...data.messages]);
+        setMessages((prev) => {
+          const updated = [...prev, ...data.messages];
+          persistHistory(updated);
+          return updated;
+        });
       }
 
       // Set audio for playback
@@ -167,7 +213,7 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsProcessing(false);
     }
-  }, [messages]);
+  }, [messages, persistHistory]);
 
   const startListening = useCallback(async () => {
     setError(null);
@@ -263,7 +309,11 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
         role: 'assistant',
         content: data.response,
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, assistantMessage];
+        persistHistory(updated);
+        return updated;
+      });
 
       // Synthesize response to speech
       const ttsResponse = await fetch('/api/voice/synthesize', {
@@ -299,7 +349,7 @@ export function VoiceAssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsProcessing(false);
     }
-  }, [messages]);
+  }, [messages, persistHistory]);
 
   // Create audio element on mount
   if (typeof window !== 'undefined' && !audioElementRef.current) {
