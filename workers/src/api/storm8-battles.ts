@@ -431,6 +431,31 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
   };
 }
 
+// Increment a character's trophy counters. Uses an upsert so it works even if
+// the character has no trophies row yet (older characters were missing one,
+// which silently dropped all of their wins/losses/kills/deaths).
+function bumpTrophies(
+  db: D1Database,
+  characterId: string,
+  delta: { wins?: number; losses?: number; kills?: number; deaths?: number },
+) {
+  const w = delta.wins ?? 0;
+  const l = delta.losses ?? 0;
+  const k = delta.kills ?? 0;
+  const d = delta.deaths ?? 0;
+  return db
+    .prepare(`
+      INSERT INTO trophies (character_id, wins, losses, kills, deaths)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(character_id) DO UPDATE SET
+        wins = wins + excluded.wins,
+        losses = losses + excluded.losses,
+        kills = kills + excluded.kills,
+        deaths = deaths + excluded.deaths
+    `)
+    .bind(characterId, w, l, k, d);
+}
+
 // ============================================================================
 // NORMAL BATTLE (PvP Attack)
 // ============================================================================
@@ -467,6 +492,16 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
 
   if (!attackerStats || !defenderStats) {
     return c.json({ error: 'Character stats not found' }, 404);
+  }
+
+  // A defeated attacker can't fight until healed.
+  if (attackerStats.current_health <= 0) {
+    return c.json({ error: 'Your character has been defeated. Heal at the hospital before attacking.' }, 400);
+  }
+
+  // A defeated defender is unattackable until they recover.
+  if (defenderStats.current_health <= 0) {
+    return c.json({ error: 'This target has already been defeated and is recovering in the hospital.' }, 400);
   }
 
   // Check stamina
@@ -565,23 +600,18 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     );
   }
 
-  // Update trophies and handle kill
+  // Update trophies and handle kill. On a kill the defender stays at 0 health
+  // (set above) — they are "defeated" and unattackable until they heal at the
+  // hospital, rather than instantly respawning.
   if (result.defender_killed) {
     statements.push(
-      db.prepare('UPDATE trophies SET kills = kills + 1, wins = wins + 1 WHERE character_id = ?')
-        .bind(attackerStats.id),
-      db.prepare('UPDATE trophies SET deaths = deaths + 1, losses = losses + 1 WHERE character_id = ?')
-        .bind(defenderStats.id),
-      // Respawn defender with full health
-      db.prepare('UPDATE characters SET current_health = max_health WHERE id = ?')
-        .bind(defenderStats.id)
+      bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
+      bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 })
     );
   } else {
     statements.push(
-      db.prepare(`UPDATE trophies SET wins = wins + ${result.attacker_won ? 1 : 0}, losses = losses + ${result.attacker_won ? 0 : 1} WHERE character_id = ?`)
-        .bind(attackerStats.id),
-      db.prepare(`UPDATE trophies SET wins = wins + ${!result.attacker_won ? 1 : 0}, losses = losses + ${!result.attacker_won ? 0 : 1} WHERE character_id = ?`)
-        .bind(defenderStats.id)
+      bumpTrophies(db, attackerStats.id, result.attacker_won ? { wins: 1 } : { losses: 1 }),
+      bumpTrophies(db, defenderStats.id, result.attacker_won ? { losses: 1 } : { wins: 1 })
     );
   }
 
@@ -728,6 +758,14 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     return c.json({ error: 'Character stats not found' }, 404);
   }
 
+  if (attackerStats.current_health <= 0) {
+    return c.json({ error: 'Your character has been defeated. Heal at the hospital before attacking.' }, 400);
+  }
+
+  if (defenderStats.current_health <= 0) {
+    return c.json({ error: 'This target has already been defeated.' }, 400);
+  }
+
   // Check stamina
   if (attackerStats.current_stamina < 1) {
     return c.json({ error: 'Insufficient stamina' }, 400);
@@ -752,20 +790,16 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
       .bind(hitlist_id, attackerStats.id, result.damage_dealt, result.defender_killed),
   ];
 
-  // Handle kill - award bounty and update hitlist
+  // Handle kill - award bounty and update hitlist. The target stays at 0 health
+  // (defeated/unattackable) until they heal, rather than respawning instantly.
   if (result.defender_killed) {
     statements.push(
       db.prepare('UPDATE hitlist SET state = \'claimed\', claimed_at = ?, claimed_by_character_id = ? WHERE id = ?')
         .bind(now, attackerStats.id, hitlist_id),
       db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency + ? WHERE id = ?')
         .bind(hitlist.bounty_amount, attackerStats.id),
-      db.prepare('UPDATE trophies SET kills = kills + 1 WHERE character_id = ?')
-        .bind(attackerStats.id),
-      db.prepare('UPDATE trophies SET deaths = deaths + 1 WHERE character_id = ?')
-        .bind(defenderStats.id),
-      // Respawn defender
-      db.prepare('UPDATE characters SET current_health = max_health WHERE id = ?')
-        .bind(defenderStats.id)
+      bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
+      bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 })
     );
   }
 
