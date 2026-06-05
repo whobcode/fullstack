@@ -15,6 +15,11 @@ export type CharacterBattleStats = {
   id: string;
   level: number;
 
+  // Core character stats (from the character sheet: atk / def / spd).
+  attack: number;
+  defense: number;
+  speed: number;
+
   // Skill points (scaling multiplier)
   attack_skill_points: number;
   defense_skill_points: number;
@@ -43,6 +48,8 @@ export type BattleResult = {
   currency_stolen: number;
   defender_health_after: number;
   defender_killed: boolean;
+  critical: boolean; // Attacker's speed landed a critical hit (1.5x)
+  dodged: boolean;   // Defender's speed glanced the blow (0.5x)
   variance_applied: number; // For debugging/display
   attacker_effective_power: number;
   defender_effective_power: number;
@@ -67,7 +74,8 @@ const DEFAULT_CONFIG: BattleConfig = {
 export function calculateAttackPower(stats: CharacterBattleStats): number {
   const equipmentPower = stats.equipment_attack * stats.usable_clan_members;
   const skillPower = stats.attack_skill_points * stats.level;
-  return equipmentPower + skillPower;
+  // The character's ATK stat contributes directly to attack power.
+  return equipmentPower + skillPower + (stats.attack || 0);
 }
 
 /**
@@ -77,7 +85,8 @@ export function calculateAttackPower(stats: CharacterBattleStats): number {
 export function calculateDefensePower(stats: CharacterBattleStats): number {
   const equipmentPower = stats.equipment_defense * stats.usable_clan_members;
   const skillPower = stats.defense_skill_points * stats.level;
-  return equipmentPower + skillPower;
+  // The character's DEF stat contributes directly to defense power.
+  return equipmentPower + skillPower + (stats.defense || 0);
 }
 
 /**
@@ -226,7 +235,7 @@ export function resolveBattle(
 
   // Determine outcome (probabilistic comparison)
   const powerDifferential = attackerWithVariance.value - defenderWithVariance.value;
-  const damageDealt = Math.max(0, Math.floor(powerDifferential));
+  let damageDealt = Math.max(0, Math.floor(powerDifferential));
 
   // Check if defender is protected (only for normal battles)
   const defenderProtected = !isHitlistBattle &&
@@ -241,10 +250,35 @@ export function resolveBattle(
       currency_stolen: 0,
       defender_health_after: defender.current_health,
       defender_killed: false,
+      critical: false,
+      dodged: false,
       variance_applied: attackerWithVariance.variance,
       attacker_effective_power: attackerWithVariance.value,
       defender_effective_power: defenderWithVariance.value,
     };
+  }
+
+  // Speed decides initiative: a faster attacker can land a critical hit (1.5x),
+  // a faster defender can partly dodge (0.5x). Bigger speed gaps = better odds.
+  let critical = false;
+  let dodged = false;
+  if (damageDealt > 0) {
+    const atkSpd = attacker.speed || 0;
+    const defSpd = defender.speed || 0;
+    const denom = atkSpd + defSpd + 1;
+    if (atkSpd > defSpd) {
+      const critChance = Math.min(0.5, (atkSpd - defSpd) / denom);
+      if (random() < critChance) {
+        damageDealt = Math.floor(damageDealt * 1.5);
+        critical = true;
+      }
+    } else if (defSpd > atkSpd) {
+      const dodgeChance = Math.min(0.5, (defSpd - atkSpd) / denom);
+      if (random() < dodgeChance) {
+        damageDealt = Math.floor(damageDealt * 0.5);
+        dodged = true;
+      }
+    }
   }
 
   // Apply damage
@@ -263,6 +297,8 @@ export function resolveBattle(
     currency_stolen: currencyStolen,
     defender_health_after: defenderHealthAfter,
     defender_killed: defenderKilled,
+    critical,
+    dodged,
     variance_applied: attackerWithVariance.variance,
     attacker_effective_power: attackerWithVariance.value,
     defender_effective_power: defenderWithVariance.value,
