@@ -625,10 +625,34 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
 
   await db.batch(statements);
 
+  // Names for the battle visual.
+  const names = await db
+    .prepare('SELECT id, gamertag FROM characters WHERE id IN (?, ?)')
+    .bind(attackerStats.id, defenderStats.id)
+    .all<{ id: string; gamertag: string }>();
+  const nameOf = (id: string) => names.results?.find((r) => r.id === id)?.gamertag ?? 'Unknown';
+
   return c.json({
     data: {
       battle_id: battleId,
       result,
+      // Combatant snapshots so the client can render HP bars and the damage hit.
+      attacker: {
+        id: attackerStats.id,
+        gamertag: nameOf(attackerStats.id),
+        health: attackerStats.current_health,
+        max_health: attackerStats.max_health,
+      },
+      defender: {
+        id: defenderStats.id,
+        gamertag: nameOf(defenderStats.id),
+        health_before: defenderStats.current_health,
+        health_after: result.defender_health_after,
+        max_health: defenderStats.max_health,
+        killed: result.defender_killed,
+      },
+      damage_dealt: result.damage_dealt,
+      currency_stolen: result.currency_stolen,
       xp_gained: xpGained,
       xp_multiplier: xpMultiplier,
       level_up: levelUpResult ? {
