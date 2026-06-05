@@ -1,5 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../lib/api';
+import { useAuth } from '../lib/AuthContext';
+
+// A health bar that colors by remaining percentage.
+function HpBar({ current, max }: { current: number; max: number }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
+  const color = pct > 50 ? 'bg-green-500' : pct > 20 ? 'bg-yellow-500' : 'bg-shade-red-600';
+  return (
+    <div className="w-full bg-shade-black-900 rounded-full h-4 neon-border overflow-hidden">
+      <div className={`h-4 rounded-full transition-all duration-300 ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+// One side of the battle arena: avatar, name, and an HP bar.
+function Combatant({
+  name, avatar, hp, maxHp, defeated, role,
+}: { name: string; avatar?: string | null; hp: number; maxHp: number; defeated?: boolean; role: string }) {
+  return (
+    <div className="flex-1 text-center min-w-0">
+      <p className="text-xs uppercase tracking-widest text-shade-red-400 mb-1">{role}</p>
+      <div className={`w-20 h-20 mx-auto rounded-full overflow-hidden silhouette-avatar flex items-center justify-center mb-2 ${defeated ? 'grayscale opacity-40' : 'breathing-glow'}`}>
+        {avatar
+          ? <img src={avatar} alt={name} className="w-full h-full object-cover" />
+          : <span className="text-2xl neon-text">{(name || '?').charAt(0).toUpperCase()}</span>}
+      </div>
+      <p className="font-bold text-shade-red-100 truncate">{name}</p>
+      <div className="mt-2"><HpBar current={hp} max={maxHp} /></div>
+      <p className="text-xs text-shade-red-300 mt-1">
+        {Math.max(0, Math.round(hp))} / {maxHp} HP{defeated ? ' 💀' : ''}
+      </p>
+    </div>
+  );
+}
 
 // Skill Allocation Interface
 function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: () => void }) {
@@ -216,7 +249,8 @@ function ClanManagement({ onUpdate }: { onUpdate: () => void }) {
 }
 
 // Ability Shop UI
-function AbilityShop({ onUpdate }: { onUpdate: () => void }) {
+function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => void }) {
+  const characterLevel = character?.level ?? 0;
   const [abilities, setAbilities] = useState<any[]>([]);
   const [ownedAbilities, setOwnedAbilities] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'shop' | 'owned'>('shop');
@@ -297,13 +331,21 @@ function AbilityShop({ onUpdate }: { onUpdate: () => void }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_bonus}
+                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_value}
                   </div>
                   <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_bonus}
+                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_value}
                   </div>
                 </div>
-                <p className="text-xs text-shade-red-400 mt-2">Level {ability.level_required} required</p>
+                {ability.description && (
+                  <p className="text-xs text-shade-red-300 mt-2">{ability.description}</p>
+                )}
+                <p className="text-xs text-shade-red-400 mt-2">
+                  Requires level {ability.level_requirement}
+                  {characterLevel >= ability.level_requirement
+                    ? <span className="text-green-500"> — ✓ you qualify</span>
+                    : <span className="text-shade-red-600"> — locked (you are {characterLevel})</span>}
+                </p>
               </div>
             ))
           )}
@@ -319,10 +361,10 @@ function AbilityShop({ onUpdate }: { onUpdate: () => void }) {
                 <p className="text-sm text-shade-red-300 mb-2">{ability.category}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_bonus}
+                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_value}
                   </div>
                   <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_bonus}
+                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_value}
                   </div>
                 </div>
                 <p className="text-xs text-shade-red-600 mt-2">✓ Owned (Qty: {ability.quantity || 1})</p>
@@ -335,26 +377,49 @@ function AbilityShop({ onUpdate }: { onUpdate: () => void }) {
   );
 }
 
-// Attack Buttons with Stamina Display
+// Attack interface with a visual battle arena (HP bars + animated damage).
 function AttackInterface({ character, onUpdate }: { character: any; onUpdate: () => void }) {
+  const { user } = useAuth();
   const [targetId, setTargetId] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [attacking, setAttacking] = useState(false);
+  const [battle, setBattle] = useState<any>(null);
+  const [defHp, setDefHp] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  // Animate the defender's HP from before -> after when a battle resolves.
+  const animateDamage = (before: number, after: number) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const start = performance.now();
+    const duration = 700;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - start) / duration);
+      setDefHp(Math.round(before + (after - before) * k));
+      if (k < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    setDefHp(before);
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   const handleAttack = async () => {
     setError(null);
-    setSuccess(null);
     if (!targetId.trim()) {
       setError('Enter a target character ID');
       return;
     }
+    setAttacking(true);
     try {
-      const res = await apiClient.post<{ damage_dealt: number }>('/storm8/attack', { defender_character_id: targetId });
-      setSuccess(`Attack successful! Dealt ${res.damage_dealt} damage`);
-      setTargetId('');
+      const res = await apiClient.post<{ data: any }>('/storm8/attack', { defender_character_id: targetId.trim() });
+      const d = res.data;
+      setBattle(d);
+      animateDamage(d.defender.health_before, d.defender.health_after);
       onUpdate();
     } catch (err: any) {
       setError(err.message || 'Attack failed');
+    } finally {
+      setAttacking(false);
     }
   };
 
@@ -378,6 +443,44 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
         <p className="text-xs text-shade-red-300 mt-2">Regenerates 1 per 3 minutes</p>
       </div>
 
+      {/* Battle arena */}
+      {battle && (
+        <div className="bg-shade-black-700 neon-border rounded-lg p-4 mb-4">
+          <div className="flex items-stretch gap-3">
+            <Combatant
+              role="Attacker"
+              name={battle.attacker.gamertag}
+              avatar={user?.shade_avatar_url}
+              hp={battle.attacker.health}
+              maxHp={battle.attacker.max_health}
+            />
+            <div className="flex flex-col items-center justify-center px-2">
+              <span className="text-2xl neon-text-strong">⚔️</span>
+              <span className="text-shade-red-500 font-bold text-lg">-{battle.damage_dealt}</span>
+            </div>
+            <Combatant
+              role="Defender"
+              name={battle.defender.gamertag}
+              hp={defHp}
+              maxHp={battle.defender.max_health}
+              defeated={battle.defender.killed && defHp <= 0}
+            />
+          </div>
+          <div className="text-center mt-3 text-sm">
+            {battle.defender.killed
+              ? <p className="text-shade-red-600 font-bold animate-pulse">💀 {battle.defender.gamertag} was DEFEATED!</p>
+              : battle.result?.attacker_won
+                ? <p className="text-green-500">Hit for {battle.damage_dealt} damage.</p>
+                : <p className="text-shade-red-300">Attack deflected — no damage.</p>}
+            <p className="text-shade-red-400 mt-1">
+              {battle.currency_stolen > 0 && <span>💰 Stole {battle.currency_stolen} • </span>}
+              +{battle.xp_gained} XP
+              {battle.level_up && <span className="text-green-500"> • Level up → {battle.level_up.new_level}!</span>}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         <input
           type="text"
@@ -389,14 +492,13 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
 
         <button
           onClick={handleAttack}
-          disabled={character.current_stamina < 1}
+          disabled={character.current_stamina < 1 || attacking}
           className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold text-lg"
         >
-          ⚔️ ATTACK (Costs 1 Stamina)
+          {attacking ? 'Attacking…' : '⚔️ ATTACK (Costs 1 Stamina)'}
         </button>
 
         {error && <p className="text-shade-red-600">{error}</p>}
-        {success && <p className="text-shade-red-600">{success}</p>}
       </div>
     </div>
   );
@@ -621,7 +723,7 @@ export default function Storm8Page() {
         <div>
           <SkillAllocation character={character} onUpdate={fetchCharacter} />
           <ClanManagement onUpdate={fetchCharacter} />
-          <AbilityShop onUpdate={fetchCharacter} />
+          <AbilityShop character={character} onUpdate={fetchCharacter} />
         </div>
 
         {/* Right Column */}
