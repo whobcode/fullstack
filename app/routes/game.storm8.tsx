@@ -456,7 +456,9 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
             />
             <div className="flex flex-col items-center justify-center px-2">
               <span className="text-2xl neon-text-strong">⚔️</span>
-              <span className="text-shade-red-500 font-bold text-lg">-{battle.damage_dealt}</span>
+              <span className={`font-bold text-lg ${battle.result?.critical ? 'text-yellow-400' : 'text-shade-red-500'}`}>-{battle.damage_dealt}</span>
+              {battle.result?.critical && <span className="text-[10px] font-bold text-yellow-400">CRIT! ×1.5</span>}
+              {battle.result?.dodged && <span className="text-[10px] font-bold text-blue-400">GLANCING ×0.5</span>}
             </div>
             <Combatant
               role="Defender"

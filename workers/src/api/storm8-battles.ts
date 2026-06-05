@@ -357,6 +357,7 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
     .prepare(`
       SELECT
         c.id, c.level,
+        c.atk, c.def, c.spd,
         c.attack_skill_points, c.defense_skill_points, c.health_skill_points,
         c.current_health, c.max_health, c.current_stamina,
         c.unbanked_currency, c.banked_currency
@@ -367,6 +368,9 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
     .first<{
       id: string;
       level: number;
+      atk: number;
+      def: number;
+      spd: number;
       attack_skill_points: number;
       defense_skill_points: number;
       health_skill_points: number;
@@ -417,6 +421,9 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
   return {
     id: char.id,
     level: char.level,
+    attack: char.atk || 0,
+    defense: char.def || 0,
+    speed: char.spd || 0,
     attack_skill_points: char.attack_skill_points,
     defense_skill_points: char.defense_skill_points,
     health_skill_points: char.health_skill_points,
