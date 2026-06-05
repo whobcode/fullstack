@@ -356,7 +356,7 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
   const char = await db
     .prepare(`
       SELECT
-        c.id, c.level,
+        c.id, c.level, c.class,
         c.atk, c.def, c.spd,
         c.attack_skill_points, c.defense_skill_points, c.health_skill_points,
         c.current_health, c.max_health, c.current_stamina,
@@ -368,6 +368,7 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
     .first<{
       id: string;
       level: number;
+      class: string;
       atk: number;
       def: number;
       spd: number;
@@ -421,6 +422,7 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
   return {
     id: char.id,
     level: char.level,
+    char_class: char.class,
     attack: char.atk || 0,
     defense: char.def || 0,
     speed: char.spd || 0,
@@ -562,6 +564,10 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
       .bind(result.defender_health_after, defenderStats.id),
 
+    // Update attacker health (they can take counterattack damage)
+    db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
+      .bind(result.attacker_health_after, attackerStats.id),
+
     // Create battle record
     db.prepare(`
       INSERT INTO battles (id, attacker_char_id, defender_char_id, mode, state, seed, battle_type, started_at, ended_at, winner_char_id, currency_stolen, defender_health_after)
@@ -607,13 +613,18 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     );
   }
 
-  // Update trophies and handle kill. On a kill the defender stays at 0 health
-  // (set above) — they are "defeated" and unattackable until they heal at the
-  // hospital, rather than instantly respawning.
+  // Update trophies and handle kills. A defeated character stays at 0 health
+  // (set above) — unattackable until they heal — rather than respawning. The
+  // attacker can also die to the defender's counterattack.
   if (result.defender_killed) {
     statements.push(
       bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
       bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 })
+    );
+  } else if (result.attacker_killed) {
+    statements.push(
+      bumpTrophies(db, defenderStats.id, { kills: 1, wins: 1 }),
+      bumpTrophies(db, attackerStats.id, { deaths: 1, losses: 1 })
     );
   } else {
     statements.push(
@@ -643,12 +654,14 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     data: {
       battle_id: battleId,
       result,
-      // Combatant snapshots so the client can render HP bars and the damage hit.
+      // Combatant snapshots so the client can render HP bars and the exchange.
       attacker: {
         id: attackerStats.id,
         gamertag: nameOf(attackerStats.id),
-        health: attackerStats.current_health,
+        health_before: attackerStats.current_health,
+        health_after: result.attacker_health_after,
         max_health: attackerStats.max_health,
+        killed: result.attacker_killed,
       },
       defender: {
         id: defenderStats.id,
@@ -658,7 +671,9 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
         max_health: defenderStats.max_health,
         killed: result.defender_killed,
       },
+      first_striker: result.first_striker,
       damage_dealt: result.damage_dealt,
+      damage_to_attacker: result.damage_to_attacker,
       currency_stolen: result.currency_stolen,
       xp_gained: xpGained,
       xp_multiplier: xpMultiplier,
@@ -802,9 +817,9 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     return c.json({ error: 'Insufficient stamina' }, 400);
   }
 
-  // Resolve battle (hitlist = true, no health protection)
+  // Resolve battle (hitlist = ambush: no health protection, no counterattack)
   const seed = crypto.randomUUID();
-  const result = resolveBattle(attackerStats, defenderStats, seed, {}, true);
+  const result = resolveBattle(attackerStats, defenderStats, seed, {}, true, false);
 
   const now = new Date().toISOString();
   const statements = [

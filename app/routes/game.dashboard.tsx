@@ -316,6 +316,7 @@ function AllocatePointsForm({
       <h3 className="text-lg font-bold neon-text">
         You have {character.unspent_stat_points - totalAllocated} unspent stat points!
       </h3>
+      <p className="text-xs text-shade-red-400 mt-1">Each point in HP adds +100 HP. Other stats add +1 per point.</p>
       <form onSubmit={handleSubmit} className="space-y-2 mt-2">
         {Object.keys(points).map((stat) => (
           <div key={stat} className="flex items-center justify-between">

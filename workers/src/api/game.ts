@@ -506,6 +506,9 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         return c.json({ error: 'Invalid number of points to allocate.' }, 400);
     }
 
+    // Each point spent on HP is worth +100 HP; the other stats are +1 per point.
+    // unspent_stat_points still decreases by the number of points spent.
+    const HP_PER_POINT = 100;
     await db.prepare(`
         UPDATE characters
         SET
@@ -517,7 +520,7 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
             unspent_stat_points = unspent_stat_points - ?
         WHERE id = ?
     `).bind(
-        pointsToAllocate.hp,
+        pointsToAllocate.hp * HP_PER_POINT,
         pointsToAllocate.atk,
         pointsToAllocate.def,
         pointsToAllocate.mp,
