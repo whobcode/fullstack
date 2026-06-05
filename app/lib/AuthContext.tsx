@@ -10,6 +10,7 @@ interface User {
   avatar_url?: string;
   cover_photo_url?: string;
   bio?: string;
+  has_password?: boolean;
 }
 
 interface AuthContextType {

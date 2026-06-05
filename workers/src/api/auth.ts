@@ -5,7 +5,7 @@ import type { Bindings } from '../bindings';
 import { loginSchema, registerSchema } from '../shared/schemas/auth';
 import { googleAuthSchema } from '../shared/schemas/google';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
-import { passwordResetRequestSchema, passwordResetSchema } from '../shared/schemas/password-reset';
+import { passwordResetRequestSchema, passwordResetSchema, passwordChangeSchema } from '../shared/schemas/password-reset';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
 import { rollInitialCharacter, sanitizeGamertag } from '../core/classes';
@@ -639,6 +639,60 @@ auth.post('/password-reset/reset', zValidator('json', passwordResetSchema), asyn
     return c.json({ message: 'Password reset successfully. Please log in with your new password.' });
   } catch (error) {
     console.error('Password reset error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Change or create the current user's password (from account settings).
+// Accounts created via Google / magic link have no password yet, so this also
+// serves as "create a password" — in that case currentPassword is not required.
+auth.post('/password/change', authMiddleware, zValidator('json', passwordChangeSchema), async (c) => {
+  const authUser = c.get('user') as { id: string };
+  const { currentPassword, newPassword } = c.req.valid('json');
+  const db = c.env.DB;
+
+  try {
+    const row = await db
+      .prepare('SELECT password_hash FROM users WHERE id = ?')
+      .bind(authUser.id)
+      .first<{ password_hash: string | null }>();
+
+    if (!row) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    const hadPassword = !!row.password_hash;
+
+    // If the account already has a password, the current one must be supplied and correct.
+    if (hadPassword) {
+      if (!currentPassword) {
+        return c.json({ error: 'Current password is required' }, 400);
+      }
+      const ok = await verifyPassword(currentPassword, row.password_hash!);
+      if (!ok) {
+        return c.json({ error: 'Current password is incorrect' }, 401);
+      }
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .bind(newHash, authUser.id)
+      .run();
+
+    // Invalidate other sessions for security, but keep the caller logged in.
+    const currentToken = getCookie(c, 'session_token');
+    if (currentToken) {
+      const keepHash = await hashToken(currentToken);
+      await db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?')
+        .bind(authUser.id, keepHash)
+        .run();
+    }
+
+    return c.json({
+      message: hadPassword ? 'Password changed successfully' : 'Password created successfully',
+    });
+  } catch (error) {
+    console.error('Password change error:', error);
     return c.json({ error: 'An internal error occurred' }, 500);
   }
 });

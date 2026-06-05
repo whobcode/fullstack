@@ -41,8 +41,9 @@ users.get('/me', authMiddleware, async (c) => {
   const db = c.env.DB;
 
   const character = await db.prepare('SELECT id FROM characters WHERE user_id = ?').bind(user.id).first<{id: string}>();
+  const account = await db.prepare('SELECT (password_hash IS NOT NULL) AS has_password FROM users WHERE id = ?').bind(user.id).first<{ has_password: number }>();
 
-  return c.json({ data: { ...user, characterId: character?.id } });
+  return c.json({ data: { ...user, characterId: character?.id, has_password: !!account?.has_password } });
 });
 
 // PUT /api/users/me - Update the current authenticated user's profile
