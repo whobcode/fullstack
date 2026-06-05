@@ -387,26 +387,26 @@ async function getCharacterBattleStats(db: D1Database, characterId: string): Pro
 
   const usableClanMembers = calculateUsableClanMembers(char.level, clanCount?.total || 0);
 
-  // Get top 3 attack abilities (one per category)
+  // Best attack ability per category (SQLite has no DISTINCT ON — use GROUP BY).
   const attackAbilities = await db
     .prepare(`
-      SELECT DISTINCT ON (a.category) a.attack_value
+      SELECT MAX(a.attack_value) AS attack_value
       FROM character_abilities ca
       JOIN abilities a ON ca.ability_id = a.id
       WHERE ca.character_id = ?
-      ORDER BY a.category, a.attack_value DESC
+      GROUP BY a.category
     `)
     .bind(characterId)
     .all();
 
-  // Get top 3 defense abilities (one per category)
+  // Best defense ability per category.
   const defenseAbilities = await db
     .prepare(`
-      SELECT DISTINCT ON (a.category) a.defense_value
+      SELECT MAX(a.defense_value) AS defense_value
       FROM character_abilities ca
       JOIN abilities a ON ca.ability_id = a.id
       WHERE ca.character_id = ?
-      ORDER BY a.category, a.defense_value DESC
+      GROUP BY a.category
     `)
     .bind(characterId)
     .all();
