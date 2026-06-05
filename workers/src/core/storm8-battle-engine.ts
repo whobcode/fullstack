@@ -66,9 +66,17 @@ export type BattleConfig = {
 
 const DEFAULT_CONFIG: BattleConfig = {
   variance_percentage: 15,
-  health_protection_threshold: 26,
+  // No low-health "escape" — every hit lands so health visibly ticks down to 0.
+  health_protection_threshold: 0,
   currency_steal_percentage: 10,
 };
+
+// Damage with mitigation: defense reduces damage but never blocks it entirely,
+// so a landed attack always chips at least some health (you can see HP drop).
+function computeHit(attackValue: number, defenseValue: number): number {
+  if (attackValue <= 0) return 0;
+  return Math.max(1, Math.round((attackValue * attackValue) / (attackValue + defenseValue + 1)));
+}
 
 /**
  * Calculate total attack power using Storm8 formula:
@@ -251,9 +259,9 @@ export function resolveBattle(
   const defenderAtk = applyVariance(calculateAttackPower(defender), finalConfig.variance_percentage, random);
   const attackerDef = applyVariance(calculateDefensePower(attacker), finalConfig.variance_percentage, random);
 
-  // Potential damage each would deal to the other.
-  const attackerHit = Math.max(0, Math.floor(attackerAtk.value - defenderDef.value));
-  const counterHit = allowCounter ? Math.max(0, Math.floor(defenderAtk.value - attackerDef.value)) : 0;
+  // Potential damage each would deal to the other (mitigation, never 0 if you hit).
+  const attackerHit = computeHit(attackerAtk.value, defenderDef.value);
+  const counterHit = allowCounter ? computeHit(defenderAtk.value, attackerDef.value) : 0;
 
   const baseResult = {
     variance_applied: attackerAtk.variance,

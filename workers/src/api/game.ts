@@ -507,8 +507,10 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
     }
 
     // Each point spent on HP is worth +100 HP; the other stats are +1 per point.
-    // unspent_stat_points still decreases by the number of points spent.
+    // unspent_stat_points still decreases by the number of points spent. The HP
+    // stat IS the battle health pool, so grow max/current health alongside it.
     const HP_PER_POINT = 100;
+    const hpGain = pointsToAllocate.hp * HP_PER_POINT;
     await db.prepare(`
         UPDATE characters
         SET
@@ -517,14 +519,18 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
             def = def + ?,
             mp = mp + ?,
             spd = spd + ?,
+            max_health = max_health + ?,
+            current_health = current_health + ?,
             unspent_stat_points = unspent_stat_points - ?
         WHERE id = ?
     `).bind(
-        pointsToAllocate.hp * HP_PER_POINT,
+        hpGain,
         pointsToAllocate.atk,
         pointsToAllocate.def,
         pointsToAllocate.mp,
         pointsToAllocate.spd,
+        hpGain,
+        hpGain,
         totalPointsToSpend,
         character.id
     ).run();
