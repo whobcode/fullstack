@@ -17,7 +17,9 @@ api.get('/', (c) => {
 // plain-text 404 (which the frontend surfaces as "Invalid response from server").
 function lazyRoute(
   basePath: string,
-  importer: () => Promise<{ default: Hono<{ Bindings: Bindings }> }>,
+  // Sub-routers vary in their Variables (some add `user` via auth middleware),
+  // so accept any Hono instance here — we only call its `fetch`.
+  importer: () => Promise<{ default: Hono<any, any, any> }>,
 ) {
   return new Hono<{ Bindings: Bindings }>().all('*', async (c) => {
     const { default: routes } = await importer();

@@ -1,5 +1,130 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
+import { apiClient } from "../lib/api";
+
+function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (newPassword.length < 8) {
+      setMessage({ type: "error", text: "New password must be at least 8 characters." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMessage({ type: "error", text: "Passwords do not match." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiClient.post("/auth/password/change", {
+        ...(hasPassword ? { currentPassword } : {}),
+        newPassword,
+      });
+      setMessage({
+        type: "success",
+        text: hasPassword ? "Password changed successfully." : "Password created successfully.",
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputClass =
+    "w-full px-3 py-2 rounded-lg bg-social-cream-100 border border-social-cream-300 text-social-forest-700 focus:outline-none focus:ring-2 focus:ring-social-gold-400";
+
+  return (
+    <section className="social-panel rounded-2xl p-5 shadow">
+      <h2 className="text-xl font-semibold text-social-forest-700 mb-1">
+        {hasPassword ? "Change Password" : "Create Password"}
+      </h2>
+      <p className="text-sm text-social-forest-500 mb-4">
+        {hasPassword
+          ? "Update the password you use to sign in."
+          : "Your account currently signs in with Google or a magic link. Set a password to also sign in with email and password."}
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        {hasPassword && (
+          <div>
+            <label className="block text-sm text-social-forest-500 mb-1" htmlFor="current-password">
+              Current password
+            </label>
+            <input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className={inputClass}
+              required
+            />
+          </div>
+        )}
+        <div>
+          <label className="block text-sm text-social-forest-500 mb-1" htmlFor="new-password">
+            New password
+          </label>
+          <input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className={inputClass}
+            minLength={8}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-social-forest-500 mb-1" htmlFor="confirm-password">
+            Confirm new password
+          </label>
+          <input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={inputClass}
+            minLength={8}
+            required
+          />
+        </div>
+
+        {message && (
+          <p
+            className={`text-sm ${
+              message.type === "success" ? "text-social-green-600" : "text-red-600"
+            }`}
+          >
+            {message.text}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-gradient-to-r from-social-forest-600 to-social-forest-800 text-social-cream-100 px-6 py-2.5 rounded-lg font-semibold hover:from-social-forest-700 hover:to-social-forest-900 transition-all shadow disabled:opacity-60"
+        >
+          {submitting ? "Saving…" : hasPassword ? "Change Password" : "Create Password"}
+        </button>
+      </form>
+    </section>
+  );
+}
 
 export default function SettingsPage() {
   const { isAuthenticated, user } = useAuth();
@@ -55,6 +180,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Password - create or change */}
+      <PasswordSection hasPassword={!!user?.has_password} />
 
       {/* Game Access - Hidden gateway to the game */}
       <section className="social-panel rounded-2xl p-5 shadow border-2 border-social-gold-400">
