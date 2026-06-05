@@ -103,6 +103,11 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
   return (
     <div className="beveled-panel rounded-lg p-6 mb-6">
       <h2 className="text-2xl font-bold mb-4 neon-text">Skill Allocation</h2>
+      <p className="text-xs text-shade-red-300 mb-3 bg-shade-black-800 p-2 rounded neon-border">
+        Optional <span className="text-shade-red-100">bonus</span> points. Battles are driven mainly by your
+        character's <span className="text-shade-red-100">ATK / DEF / SPD / HP</span> (allocate those on the
+        Dashboard); these skill points add extra attack/defense/HP on top.
+      </p>
       <p className="text-shade-red-200 mb-4">
         Available Points: <span className="text-shade-red-600 font-bold text-xl">{remaining}</span>
       </p>
@@ -372,6 +377,34 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
             ))
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Shows the stats that actually drive combat, so it's clear what matters.
+function BattleStats({ character }: { character: any }) {
+  const cur = character.current_health ?? 0;
+  const max = character.max_health ?? 1;
+  return (
+    <div className="beveled-panel rounded-lg p-6 mb-6">
+      <h2 className="text-2xl font-bold mb-2 neon-text">Your Battle Stats</h2>
+      <p className="text-xs text-shade-red-300 mb-3">These drive your damage and survivability. Allocate on the Dashboard.</p>
+      <div className="grid grid-cols-4 gap-2 text-center mb-3">
+        {[['ATK', character.atk], ['DEF', character.def], ['SPD', character.spd], ['Class', character.class]].map(([label, val]) => (
+          <div key={label as string} className="bg-shade-black-800 rounded p-2 neon-border">
+            <div className="text-[10px] uppercase text-shade-red-400">{label}</div>
+            <div className="text-shade-red-100 font-semibold truncate">{val ?? 0}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between text-sm text-shade-red-200 mb-1">
+        <span>Health</span>
+        <span>{cur.toLocaleString()} / {max.toLocaleString()}</span>
+      </div>
+      <HpBar current={cur} max={max} />
+      {cur <= 0 && (
+        <p className="text-xs text-shade-red-600 mt-2">💀 Defeated — heal at the hospital to fight again.</p>
       )}
     </div>
   );
@@ -743,6 +776,7 @@ export default function Storm8Page() {
 
         {/* Right Column */}
         <div>
+          <BattleStats character={character} />
           <AttackInterface character={character} onUpdate={fetchCharacter} />
           <HitlistBrowser character={character} onUpdate={fetchCharacter} />
           <BattleFeed />
