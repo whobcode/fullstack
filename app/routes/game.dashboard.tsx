@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
+import { useAuth } from '../lib/AuthContext';
 import { SquarePayment } from '../components/SquarePayment';
 
 type SlotInfo = {
@@ -302,7 +303,7 @@ function AllocatePointsForm({
       return;
     }
     try {
-      await apiClient.post('/game/character/allocate-points', points);
+      await apiClient.post('/game/character/allocate-points', { characterId: character.id, ...points });
       setPoints({ hp: 0, atk: 0, def: 0, mp: 0, spd: 0 });
       onAllocationComplete();
     } catch (err: any) {
@@ -425,6 +426,7 @@ function PurchaseSlotModal({
 }
 
 export default function GameDashboardPage() {
+  const { user } = useAuth();
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -619,6 +621,12 @@ export default function GameDashboardPage() {
         >
           Dashboard
         </button>
+        <Link
+          to="/shade/profile"
+          className="px-4 py-2 bg-shade-black-800 border border-shade-red-800 text-shade-red-400 rounded hover:border-shade-red-600 transition-all"
+        >
+          Gamer Profile
+        </Link>
         <button
           onClick={() => setView('story')}
           className="px-4 py-2 bg-shade-black-800 border border-shade-red-800 text-shade-red-400 rounded hover:border-shade-red-600 transition-all"
@@ -629,7 +637,20 @@ export default function GameDashboardPage() {
 
       {character && character.first_game_access_completed ? (
         <>
-          <h1 className="text-2xl font-bold mb-4 neon-text">Welcome, {character.gamertag}!</h1>
+          <div className="flex items-center gap-4 mb-4">
+            <Link
+              to="/shade/profile"
+              className="w-14 h-14 rounded-full overflow-hidden silhouette-avatar breathing-glow flex items-center justify-center shrink-0"
+              title="View gamer profile"
+            >
+              {user?.shade_avatar_url ? (
+                <img src={user.shade_avatar_url} alt="Shade avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl neon-text">{character.gamertag?.charAt(0).toUpperCase()}</span>
+              )}
+            </Link>
+            <h1 className="text-2xl font-bold neon-text">Welcome, {character.gamertag}!</h1>
+          </div>
           {character.unspent_stat_points > 0 && (
             <AllocatePointsForm
               character={character}

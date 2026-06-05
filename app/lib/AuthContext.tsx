@@ -11,6 +11,7 @@ interface User {
   cover_photo_url?: string;
   bio?: string;
   has_password?: boolean;
+  shade_avatar_url?: string | null;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (user: User) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -46,6 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await apiClient.get<{ data: User }>('/users/me');
+      setUser(response.data);
+    } catch (error) {
+      // Keep the existing user on a transient failure.
+    }
+  };
+
   const logout = async () => {
     try {
         await apiClient.post('/auth/logout', {});
@@ -57,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, refreshUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

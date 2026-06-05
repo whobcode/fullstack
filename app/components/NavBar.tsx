@@ -29,6 +29,7 @@ export function NavBar() {
           </Link>
           <div className="flex items-center space-x-6">
             <Link to="/shade/dashboard" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Dashboard</Link>
+            <Link to="/shade/profile" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Profile</Link>
             <Link to="/shade/battle" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Battle</Link>
             <Link to="/shade/players" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Find Players</Link>
             <Link to="/shade/leaderboard" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Leaderboard</Link>

@@ -17,6 +17,7 @@ export default [
   // Game Routes (under /shade prefix)
   route("shade", "routes/shade.index.tsx"),  // Game landing/login page
   route("shade/dashboard", "routes/game.dashboard.tsx"),
+  route("shade/profile", "routes/shade.profile.tsx"),
   route("shade/battle", "routes/game.storm8.tsx"),
   route("shade/players", "routes/game.players.tsx"),
   route("shade/battles/:id", "routes/battles.$id.tsx"),

@@ -4,19 +4,26 @@ import { useAuth } from "../lib/AuthContext";
 import { apiClient } from "../lib/api";
 
 export default function ShadeIndexPage() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, refreshUser } = useAuth();
   const [shadeAvatar, setShadeAvatar] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const generateShadeAvatar = async () => {
     setIsGenerating(true);
     setError(null);
+    setSaved(false);
 
     try {
-      const result = await apiClient.post<{ image: string; success: boolean }>("/ai/shade-avatar", {});
+      const result = await apiClient.post<{ image: string; url?: string; success: boolean }>("/ai/shade-avatar", {});
       if (result.image) {
         setShadeAvatar(result.image);
+      }
+      if (result.url) {
+        // Persisted server-side; refresh context so it shows across the game.
+        setSaved(true);
+        await refreshUser();
       }
     } catch (err: any) {
       setError(err?.message || "Failed to generate shade avatar");
@@ -27,10 +34,12 @@ export default function ShadeIndexPage() {
 
   // Determine what to show in the avatar circle
   const getAvatarContent = () => {
-    if (shadeAvatar) {
+    // Freshly generated this session, or previously saved shade avatar.
+    const shadeSrc = shadeAvatar || user?.shade_avatar_url;
+    if (shadeSrc) {
       return (
         <img
-          src={shadeAvatar}
+          src={shadeSrc}
           alt="Your Shade"
           className="w-full h-full object-cover rounded-full"
         />
@@ -79,9 +88,13 @@ export default function ShadeIndexPage() {
                 disabled={isGenerating}
                 className="text-xs px-3 py-1 bg-shade-black-800 neon-border text-shade-red-400 rounded hover:neon-glow transition-all disabled:opacity-50"
               >
-                Generate Shade Avatar
+                {user?.shade_avatar_url || shadeAvatar ? "Regenerate Shade Avatar" : "Generate Shade Avatar"}
               </button>
             </div>
+          )}
+
+          {saved && (
+            <p className="text-xs text-shade-red-400 mb-4">Saved to your profile ✓</p>
           )}
 
           {error && (
