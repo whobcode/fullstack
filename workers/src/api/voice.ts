@@ -93,48 +93,33 @@ async function witSynthesize(
   return res.arrayBuffer();
 }
 
-// POST /voice/transcribe - Speech-to-text via Wit.ai
+// Speech-to-text via Workers AI Whisper. Unlike Wit.ai's /speech endpoint, this
+// handles the browser's MediaRecorder output (webm/opus on Chrome/Firefox,
+// mp4/aac on Safari) directly, so the mic actually works.
+async function transcribeAudio(ai: Ai, audio: ArrayBuffer): Promise<string> {
+  const base64 = arrayBufferToBase64(audio);
+  const result = (await ai.run(
+    '@cf/openai/whisper-large-v3-turbo' as keyof AiModels,
+    { audio: base64 } as any,
+  )) as { text?: string };
+  return (result?.text || '').trim();
+}
+
+// POST /voice/transcribe - Speech-to-text via Workers AI Whisper
 voice.post('/transcribe', authMiddleware, async (c) => {
   try {
-    const witToken = c.env.WIT_AI_TOKEN;
-    if (!witToken) {
-      return c.json({ error: 'Wit.ai not configured' }, 500);
-    }
-
     // Get raw audio data from request body
     const audioData = await c.req.arrayBuffer();
     if (!audioData || audioData.byteLength === 0) {
       return c.json({ error: 'No audio data provided' }, 400);
     }
 
-    // Get content type from request (default to audio/wav)
-    const contentType = c.req.header('Content-Type') || 'audio/wav';
-
-    // Call Wit.ai Speech API
-    const witResponse = await fetch(
-      `https://api.wit.ai/speech?v=${WIT_API_VERSION}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${witToken}`,
-          'Content-Type': contentType,
-        },
-        body: audioData,
-      }
-    );
-
-    if (!witResponse.ok) {
-      const errorText = await witResponse.text();
-      console.error('Wit.ai STT error:', errorText);
-      return c.json({ error: 'Speech recognition failed' }, 500);
-    }
-
-    const result = await witResponse.json() as WitSpeechResponse;
+    const text = await transcribeAudio(c.env.AI, audioData);
 
     return c.json({
-      text: result.text || '',
-      intents: result.intents || [],
-      entities: result.entities || {},
+      text,
+      intents: [],
+      entities: {},
     });
   } catch (err: any) {
     console.error('Transcribe error:', err?.message || err);
@@ -236,28 +221,9 @@ voice.post('/conversation', authMiddleware, async (c) => {
       }
     }
 
-    // Step 1: Transcribe audio via Wit.ai
+    // Step 1: Transcribe audio via Workers AI Whisper (handles browser audio).
     const audioData = await audioFile.arrayBuffer();
-    const sttResponse = await fetch(
-      `https://api.wit.ai/speech?v=${WIT_API_VERSION}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${witToken}`,
-          'Content-Type': audioFile.type || 'audio/wav',
-        },
-        body: audioData,
-      }
-    );
-
-    if (!sttResponse.ok) {
-      const errorText = await sttResponse.text();
-      console.error('Wit.ai STT error:', errorText);
-      return c.json({ error: 'Speech recognition failed' }, 500);
-    }
-
-    const sttResult = await sttResponse.json() as WitSpeechResponse;
-    const userText = sttResult.text || '';
+    const userText = await transcribeAudio(c.env.AI, audioData);
 
     if (!userText.trim()) {
       return c.json({ error: 'Could not understand audio' }, 400);
