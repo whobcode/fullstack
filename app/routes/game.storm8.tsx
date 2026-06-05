@@ -45,13 +45,9 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
   });
   const [error, setError] = useState<string | null>(null);
 
-  const availablePoints = character.level * 5 - (
-    character.attack_skill_points +
-    character.defense_skill_points +
-    character.health_skill_points +
-    character.energy_skill_points +
-    character.stamina_skill_points
-  );
+  // Skill points draw from the SAME unspent pool as the Dashboard stats — show
+  // the real number so it matches what the server will actually accept.
+  const availablePoints = character.unspent_stat_points ?? 0;
 
   const totalAllocated = Object.values(skills).reduce((sum, p) => sum + p, 0);
   const remaining = availablePoints - totalAllocated;
@@ -104,12 +100,15 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
     <div className="beveled-panel rounded-lg p-6 mb-6">
       <h2 className="text-2xl font-bold mb-4 neon-text">Skill Allocation</h2>
       <p className="text-xs text-shade-red-300 mb-3 bg-shade-black-800 p-2 rounded neon-border">
-        Optional <span className="text-shade-red-100">bonus</span> points. Battles are driven mainly by your
-        character's <span className="text-shade-red-100">ATK / DEF / SPD / HP</span> (allocate those on the
-        Dashboard); these skill points add extra attack/defense/HP on top.
+        These spend the <span className="text-shade-red-100">same unspent points</span> as the Dashboard.
+        Spend them here for <span className="text-shade-red-100">bonus</span> attack/defense/HP, or on the
+        Dashboard for your core ATK/DEF/SPD/HP. Battles use both.
       </p>
       <p className="text-shade-red-200 mb-4">
-        Available Points: <span className="text-shade-red-600 font-bold text-xl">{remaining}</span>
+        Unspent Points: <span className="text-shade-red-600 font-bold text-xl">{remaining}</span>
+        {availablePoints === 0 && (
+          <span className="text-xs text-shade-red-400 block">You've spent all your points. Earn more by leveling up.</span>
+        )}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -419,7 +418,15 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
   const [battle, setBattle] = useState<any>(null);
   const [defHp, setDefHp] = useState(0);
   const [atkHp, setAtkHp] = useState(0);
+  const [targets, setTargets] = useState<any[]>([]);
   const rafRef = useRef<number | null>(null);
+
+  // Load attackable players so the user can pick a target instead of pasting an ID.
+  useEffect(() => {
+    apiClient.get<{ data: any[] }>('/game/characters')
+      .then(r => setTargets(r.data || []))
+      .catch(() => {});
+  }, []);
 
   // Animate both combatants' HP from before -> after when a battle resolves.
   const animateExchange = (d: any) => {
@@ -530,17 +537,31 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
       )}
 
       <div className="space-y-3">
+        {targets.length > 0 && (
+          <select
+            value={targetId}
+            onChange={e => setTargetId(e.target.value)}
+            className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100"
+          >
+            <option value="">— Choose a target —</option>
+            {targets.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.gamertag} (Lv.{t.level} {t.class})
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="text"
           value={targetId}
           onChange={e => setTargetId(e.target.value)}
-          placeholder="Enter target character ID"
+          placeholder={targets.length > 0 ? '…or paste a target character ID' : 'Enter target character ID'}
           className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100 placeholder-shade-red-400"
         />
 
         <button
           onClick={handleAttack}
-          disabled={character.current_stamina < 1 || attacking}
+          disabled={character.current_stamina < 1 || attacking || !targetId.trim()}
           className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold text-lg"
         >
           {attacking ? 'Attacking…' : '⚔️ ATTACK (Costs 1 Stamina)'}
