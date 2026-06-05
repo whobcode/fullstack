@@ -1,9 +1,21 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { deleteCookie } from 'hono/cookie';
 import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
 import { updateProfileSchema } from '../shared/schemas/profile';
+
+// Best-effort delete of an R2 object given its public URL (avatars/covers).
+async function deleteMediaByUrl(env: Bindings, url: string | null | undefined): Promise<void> {
+  if (!url) return;
+  try {
+    const key = new URL(url).pathname.replace(/^\/+/, '');
+    if (key) await env.MEDIA.delete(key);
+  } catch {
+    // Ignore malformed URLs / delete failures — not worth blocking account deletion.
+  }
+}
 
 // We need to extend the Hono generic type to include the 'user' variable
 // that our middleware adds to the context.
@@ -84,6 +96,42 @@ users.put(
     }
   }
 );
+
+// DELETE /api/users/me - Permanently delete the current user's account.
+// Removes everything tied to the account: the saved voice conversation (KV),
+// uploaded media (R2), and the user row — which cascades to characters,
+// sessions, posts, friends, etc. via ON DELETE CASCADE in D1.
+users.delete('/me', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  try {
+    // 1. Voice assistant data in KV (same key scheme as the voice routes).
+    await c.env.APP_CONFIG.delete(`voice:history:${user.id}`);
+
+    // 2. Uploaded media in R2 (current avatar / cover / shade avatar).
+    const media = await db
+      .prepare('SELECT avatar_url, cover_photo_url, shade_avatar_url FROM users WHERE id = ?')
+      .bind(user.id)
+      .first<{ avatar_url: string | null; cover_photo_url: string | null; shade_avatar_url: string | null }>();
+    if (media) {
+      await deleteMediaByUrl(c.env, media.avatar_url);
+      await deleteMediaByUrl(c.env, media.cover_photo_url);
+      await deleteMediaByUrl(c.env, media.shade_avatar_url);
+    }
+
+    // 3. The user row (cascades to all related D1 tables).
+    await db.prepare('DELETE FROM users WHERE id = ?').bind(user.id).run();
+
+    // 4. Clear the session cookie on the client.
+    deleteCookie(c, 'session_token');
+
+    return c.json({ message: 'Account deleted' });
+  } catch (error) {
+    console.error('Account deletion error:', error);
+    return c.json({ error: 'Failed to delete account' }, 500);
+  }
+});
 
 // GET /api/users/search - Search for users (for friend recommendations)
 users.get('/search', authMiddleware, async (c) => {

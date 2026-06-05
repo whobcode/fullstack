@@ -6,6 +6,7 @@ import {
   chatRequestSchema,
   synthesizeRequestSchema,
   conversationRequestSchema,
+  voiceHistorySchema,
   type ChatMessage,
 } from '../shared/schemas/voice';
 
@@ -33,8 +34,17 @@ const voice = new Hono<App>();
 // Wit.ai API version
 const WIT_API_VERSION = '20230215';
 
-// System prompt for the voice assistant
-const VOICE_SYSTEM_PROMPT = `You are a helpful and friendly voice assistant. Keep your responses concise and conversational since they will be spoken aloud. Avoid using markdown, code blocks, or formatting that doesn't work well in speech. Respond naturally as if having a spoken conversation.`;
+// System prompt for the voice assistant. Personalized with the account's
+// username so the assistant knows who it's speaking with.
+function buildSystemPrompt(username?: string): string {
+  const base = `You are a helpful and friendly voice assistant for the .shade platform. Keep your responses concise and conversational since they will be spoken aloud. Avoid using markdown, code blocks, or formatting that doesn't work well in speech. Respond naturally as if having a spoken conversation.`;
+  return username ? `${base} You are speaking with ${username}; address them by name when it feels natural.` : base;
+}
+
+// Per-user KV key for the saved voice conversation.
+const voiceHistoryKey = (userId: string) => `voice:history:${userId}`;
+// Keep stored history bounded.
+const MAX_STORED_MESSAGES = 50;
 
 // Helper to convert ArrayBuffer to base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -135,10 +145,11 @@ voice.post(
   async (c) => {
     try {
       const { message, history } = c.req.valid('json');
+      const user = c.get('user');
 
       // Build messages array with system prompt
       const messages: ChatMessage[] = [
-        { role: 'system', content: VOICE_SYSTEM_PROMPT },
+        { role: 'system', content: buildSystemPrompt(user?.username) },
         ...history,
         { role: 'user', content: message },
       ];
@@ -231,7 +242,7 @@ voice.post('/conversation', authMiddleware, async (c) => {
 
     // Step 2: Generate AI response via Workers AI
     const messages: ChatMessage[] = [
-      { role: 'system', content: VOICE_SYSTEM_PROMPT },
+      { role: 'system', content: buildSystemPrompt(c.get('user')?.username) },
       ...history,
       { role: 'user', content: userText },
     ];
@@ -294,6 +305,46 @@ voice.get('/voices', authMiddleware, async (c) => {
   } catch (err: any) {
     console.error('Voices error:', err?.message || err);
     return c.json({ error: 'Failed to fetch voices' }, 500);
+  }
+});
+
+// GET /voice/history - Load the user's saved voice conversation (from KV)
+voice.get('/history', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const raw = await c.env.APP_CONFIG.get(voiceHistoryKey(user.id));
+    const messages = raw ? JSON.parse(raw) : [];
+    return c.json({ messages });
+  } catch (err: any) {
+    console.error('Load voice history error:', err?.message || err);
+    return c.json({ messages: [] });
+  }
+});
+
+// PUT /voice/history - Save the user's voice conversation (to KV)
+voice.put('/history', authMiddleware, zValidator('json', voiceHistorySchema), async (c) => {
+  try {
+    const user = c.get('user');
+    const { messages } = c.req.valid('json');
+    // Only keep the most recent messages so the KV value stays small.
+    const trimmed = messages.slice(-MAX_STORED_MESSAGES);
+    await c.env.APP_CONFIG.put(voiceHistoryKey(user.id), JSON.stringify(trimmed));
+    return c.json({ ok: true, count: trimmed.length });
+  } catch (err: any) {
+    console.error('Save voice history error:', err?.message || err);
+    return c.json({ error: 'Failed to save conversation' }, 500);
+  }
+});
+
+// DELETE /voice/history - Clear the user's saved voice conversation
+voice.delete('/history', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    await c.env.APP_CONFIG.delete(voiceHistoryKey(user.id));
+    return c.json({ ok: true });
+  } catch (err: any) {
+    console.error('Clear voice history error:', err?.message || err);
+    return c.json({ error: 'Failed to clear conversation' }, 500);
   }
 });
 

@@ -1,7 +1,60 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { apiClient } from "../lib/api";
+
+function DeleteAccountSection() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setError(null);
+    setDeleting(true);
+    try {
+      await apiClient.delete("/users/me");
+      // Account (and its data) is gone — clear local session and leave.
+      await logout();
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete account.");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <section className="social-panel rounded-2xl p-5 shadow border border-red-300">
+      <h2 className="text-xl font-semibold text-red-700 mb-1">Delete Account</h2>
+      <p className="text-sm text-social-forest-500 mb-4">
+        Permanently delete your account and all associated data — your profile, posts, friends,
+        game characters, uploaded images, and your saved voice assistant conversations. This cannot
+        be undone.
+      </p>
+      <label className="block text-sm text-social-forest-500 mb-1" htmlFor="delete-confirm">
+        Type <span className="font-semibold text-red-700">DELETE</span> to confirm
+      </label>
+      <input
+        id="delete-confirm"
+        type="text"
+        value={confirmText}
+        onChange={(e) => setConfirmText(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg bg-social-cream-100 border border-red-200 text-social-forest-700 focus:outline-none focus:ring-2 focus:ring-red-400 mb-3"
+        placeholder="DELETE"
+      />
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={confirmText !== "DELETE" || deleting}
+        className="w-full bg-red-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {deleting ? "Deleting…" : "Delete My Account"}
+      </button>
+    </section>
+  );
+}
 
 function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -206,6 +259,9 @@ export default function SettingsPage() {
           <Link to="/privacy" className="text-social-green-600 hover:underline">View Privacy Policy</Link>
         </div>
       </section>
+
+      {/* Danger zone */}
+      <DeleteAccountSection />
       </div>
     </div>
   );
