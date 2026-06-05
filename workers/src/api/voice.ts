@@ -40,10 +40,57 @@ const VOICE_SYSTEM_PROMPT = `You are a helpful and friendly voice assistant. Kee
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(binary);
+}
+
+// Wit.ai TTS requires a voice; this is the name as returned by GET /voice/voices.
+const DEFAULT_VOICE = 'wit$Rebecca';
+// Wit.ai /synthesize caps the input length; keep spoken text within a safe bound.
+const WIT_TTS_MAX_CHARS = 280;
+
+function clampForTts(text: string): string {
+  if (text.length <= WIT_TTS_MAX_CHARS) return text;
+  const slice = text.slice(0, WIT_TTS_MAX_CHARS);
+  const lastSpace = slice.lastIndexOf(' ');
+  return (lastSpace > 40 ? slice.slice(0, lastSpace) : slice).trim();
+}
+
+// Call Wit.ai text-to-speech correctly: the text (`q`) and a REQUIRED `voice`
+// go in a JSON body, not the query string. Returns WAV audio bytes or throws
+// with the upstream detail.
+async function witSynthesize(
+  token: string,
+  text: string,
+  opts: { voice?: string; style?: string; speed?: number; pitch?: number } = {},
+): Promise<ArrayBuffer> {
+  const body: Record<string, unknown> = {
+    q: clampForTts(text),
+    voice: opts.voice || DEFAULT_VOICE,
+  };
+  if (opts.style) body.style = opts.style;
+  // Our API takes 0.5–2.0 multipliers; Wit expects integer percentages (100 = normal).
+  if (typeof opts.speed === 'number') body.speed = Math.round(opts.speed * 100);
+  if (typeof opts.pitch === 'number') body.pitch = Math.round(opts.pitch * 100);
+
+  const res = await fetch(`https://api.wit.ai/synthesize?v=${WIT_API_VERSION}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'audio/wav',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Wit.ai TTS ${res.status}: ${detail.slice(0, 300)}`);
+  }
+  return res.arrayBuffer();
 }
 
 // POST /voice/transcribe - Speech-to-text via Wit.ai
@@ -147,35 +194,7 @@ voice.post(
 
       const { text, voice: voiceId, speed, pitch } = c.req.valid('json');
 
-      // Build query params
-      const params = new URLSearchParams({
-        v: WIT_API_VERSION,
-        q: text,
-      });
-      if (voiceId) params.set('voice', voiceId);
-      if (speed) params.set('speed', speed.toString());
-      if (pitch) params.set('pitch', pitch.toString());
-
-      // Call Wit.ai Synthesize API
-      const witResponse = await fetch(
-        `https://api.wit.ai/synthesize?${params.toString()}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${witToken}`,
-            Accept: 'audio/wav',
-          },
-        }
-      );
-
-      if (!witResponse.ok) {
-        const errorText = await witResponse.text();
-        console.error('Wit.ai TTS error:', errorText);
-        return c.json({ error: 'Speech synthesis failed' }, 500);
-      }
-
-      // Return audio as base64
-      const audioBuffer = await witResponse.arrayBuffer();
+      const audioBuffer = await witSynthesize(witToken, text, { voice: voiceId, speed, pitch });
       const base64Audio = arrayBufferToBase64(audioBuffer);
 
       return c.json({
@@ -184,7 +203,7 @@ voice.post(
       });
     } catch (err: any) {
       console.error('Synthesize error:', err?.message || err);
-      return c.json({ error: 'Failed to synthesize speech' }, 500);
+      return c.json({ error: 'Speech synthesis failed', detail: err?.message }, 502);
     }
   }
 );
@@ -258,44 +277,20 @@ voice.post('/conversation', authMiddleware, async (c) => {
 
     const responseText = aiResult.response || '';
 
-    // Step 3: Synthesize response via Wit.ai TTS
-    const ttsParams = new URLSearchParams({
-      v: WIT_API_VERSION,
-      q: responseText,
-    });
-
-    const ttsResponse = await fetch(
-      `https://api.wit.ai/synthesize?${ttsParams.toString()}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${witToken}`,
-          Accept: 'audio/wav',
-        },
-      }
-    );
-
-    if (!ttsResponse.ok) {
-      // If TTS fails, still return text response
-      console.error('Wit.ai TTS error, returning text only');
-      return c.json({
-        userText,
-        responseText,
-        audio: null,
-        messages: [
-          { role: 'user', content: userText },
-          { role: 'assistant', content: responseText },
-        ],
-      });
+    // Step 3: Synthesize response via Wit.ai TTS. If it fails, still return the
+    // text response so the conversation isn't lost.
+    let audio: string | null = null;
+    try {
+      const audioBuffer = await witSynthesize(witToken, responseText);
+      audio = `data:audio/wav;base64,${arrayBufferToBase64(audioBuffer)}`;
+    } catch (ttsErr: any) {
+      console.error('Wit.ai TTS error, returning text only:', ttsErr?.message || ttsErr);
     }
-
-    const audioBuffer = await ttsResponse.arrayBuffer();
-    const base64Audio = arrayBufferToBase64(audioBuffer);
 
     return c.json({
       userText,
       responseText,
-      audio: `data:audio/wav;base64,${base64Audio}`,
+      audio,
       messages: [
         { role: 'user', content: userText },
         { role: 'assistant', content: responseText },
