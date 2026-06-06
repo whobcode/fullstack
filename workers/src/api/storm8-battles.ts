@@ -495,17 +495,33 @@ function bumpTrophies(
     .bind(characterId, w, l, k, d);
 }
 
+// Resolve a target character by id or (case-insensitive) gamertag/name.
+async function resolveTargetId(db: D1Database, opts: { id?: string; gamertag?: string }): Promise<string | null> {
+  if (opts.id) return opts.id;
+  if (opts.gamertag) {
+    const row = await db
+      .prepare('SELECT id FROM characters WHERE gamertag = ? COLLATE NOCASE')
+      .bind(opts.gamertag.trim())
+      .first<{ id: string }>();
+    return row ? row.id : null;
+  }
+  return null;
+}
+
 // ============================================================================
 // NORMAL BATTLE (PvP Attack)
 // ============================================================================
 
-const attackPlayerSchema = z.object({
-  defender_character_id: z.string(),
-});
+const attackPlayerSchema = z
+  .object({
+    defender_character_id: z.string().optional(),
+    defender_gamertag: z.string().optional(),
+  })
+  .refine((d) => d.defender_character_id || d.defender_gamertag, { message: 'Provide a target name or id' });
 
 storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
   const user = c.get('user');
-  const { defender_character_id } = c.req.valid('json');
+  const { defender_character_id, defender_gamertag } = c.req.valid('json');
   const db = c.env.DB;
 
   // Get attacker character (the one selected in the Battle tab)
@@ -519,7 +535,13 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     return c.json({ error: 'Character not found' }, 404);
   }
 
-  if (attackerChar.id === defender_character_id) {
+  // Resolve the target by id or name.
+  const defenderId = await resolveTargetId(db, { id: defender_character_id, gamertag: defender_gamertag });
+  if (!defenderId) {
+    return c.json({ error: `No character found named "${defender_gamertag ?? ''}"` }, 404);
+  }
+
+  if (attackerChar.id === defenderId) {
     return c.json({ error: 'Cannot attack yourself' }, 400);
   }
 
@@ -528,7 +550,7 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
 
   // Get stats
   const attackerStats = await getCharacterBattleStats(db, attackerChar.id);
-  const defenderStats = await getCharacterBattleStats(db, defender_character_id);
+  const defenderStats = await getCharacterBattleStats(db, defenderId);
 
   if (!attackerStats || !defenderStats) {
     return c.json({ error: 'Character stats not found' }, 404);
@@ -721,14 +743,17 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
 // HITLIST SYSTEM
 // ============================================================================
 
-const postBountySchema = z.object({
-  target_character_id: z.string(),
-  bounty_amount: z.number().int().min(1000),
-});
+const postBountySchema = z
+  .object({
+    target_character_id: z.string().optional(),
+    target_gamertag: z.string().optional(),
+    bounty_amount: z.number().int().min(1000),
+  })
+  .refine((d) => d.target_character_id || d.target_gamertag, { message: 'Provide a target name or id' });
 
 storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => {
   const user = c.get('user');
-  const { target_character_id, bounty_amount } = c.req.valid('json');
+  const { target_character_id, target_gamertag, bounty_amount } = c.req.valid('json');
   const db = c.env.DB;
 
   const charId = await actingCharId(db, c, user.id);
@@ -741,7 +766,12 @@ storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => 
     return c.json({ error: 'Character not found' }, 404);
   }
 
-  if (char.id === target_character_id) {
+  const targetId = await resolveTargetId(db, { id: target_character_id, gamertag: target_gamertag });
+  if (!targetId) {
+    return c.json({ error: `No character found named "${target_gamertag ?? ''}"` }, 404);
+  }
+
+  if (char.id === targetId) {
     return c.json({ error: 'Cannot hitlist yourself' }, 400);
   }
 
@@ -753,7 +783,7 @@ storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => 
   const hitlistId = crypto.randomUUID();
   await db.batch([
     db.prepare('INSERT INTO hitlist (id, target_character_id, posted_by_character_id, bounty_amount) VALUES (?, ?, ?, ?)')
-      .bind(hitlistId, target_character_id, char.id, bounty_amount),
+      .bind(hitlistId, targetId, char.id, bounty_amount),
     db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ? WHERE id = ?')
       .bind(bounty_amount, char.id),
   ]);
