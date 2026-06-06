@@ -1,44 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { apiClient } from '../lib/api';
-import { useAuth } from '../lib/AuthContext';
+import { HpBar } from '../components/BattleArena';
+import { useBattleResult } from '../lib/BattleResultContext';
 
 // Append the acting character to a storm8 API path so the server acts on the
 // character selected in the Battle tab (not just slot 1).
 function withChar(path: string, characterId?: string | null) {
   if (!characterId) return path;
   return `${path}${path.includes('?') ? '&' : '?'}character_id=${encodeURIComponent(characterId)}`;
-}
-
-// A health bar that colors by remaining percentage.
-function HpBar({ current, max }: { current: number; max: number }) {
-  const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
-  const color = pct > 50 ? 'bg-green-500' : pct > 20 ? 'bg-yellow-500' : 'bg-shade-red-600';
-  return (
-    <div className="w-full bg-shade-black-900 rounded-full h-4 neon-border overflow-hidden">
-      <div className={`h-4 rounded-full transition-all duration-300 ${color}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-// One side of the battle arena: avatar, name, and an HP bar.
-function Combatant({
-  name, avatar, hp, maxHp, defeated, role,
-}: { name: string; avatar?: string | null; hp: number; maxHp: number; defeated?: boolean; role: string }) {
-  return (
-    <div className="flex-1 text-center min-w-0">
-      <p className="text-xs uppercase tracking-widest text-shade-red-400 mb-1">{role}</p>
-      <div className={`w-20 h-20 mx-auto rounded-full overflow-hidden silhouette-avatar flex items-center justify-center mb-2 ${defeated ? 'grayscale opacity-40' : 'breathing-glow'}`}>
-        {avatar
-          ? <img src={avatar} alt={name} className="w-full h-full object-cover" />
-          : <span className="text-2xl neon-text">{(name || '?').charAt(0).toUpperCase()}</span>}
-      </div>
-      <p className="font-bold text-shade-red-100 truncate">{name}</p>
-      <div className="mt-2"><HpBar current={hp} max={maxHp} /></div>
-      <p className="text-xs text-shade-red-300 mt-1">
-        {Math.max(0, Math.round(hp))} / {maxHp} HP{defeated ? ' 💀' : ''}
-      </p>
-    </div>
-  );
 }
 
 // Skill Allocation Interface
@@ -416,17 +385,13 @@ function BattleStats({ character }: { character: any }) {
   );
 }
 
-// Attack interface with a visual battle arena (HP bars + animated damage).
+// Attack interface — the resolved battle pops up in the global arena overlay.
 function AttackInterface({ character, onUpdate }: { character: any; onUpdate: () => void }) {
-  const { user } = useAuth();
+  const { showBattle } = useBattleResult();
   const [targetId, setTargetId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [attacking, setAttacking] = useState(false);
-  const [battle, setBattle] = useState<any>(null);
-  const [defHp, setDefHp] = useState(0);
-  const [atkHp, setAtkHp] = useState(0);
   const [targets, setTargets] = useState<any[]>([]);
-  const rafRef = useRef<number | null>(null);
 
   // Load attackable players so the user can pick a target instead of pasting an ID.
   useEffect(() => {
@@ -435,37 +400,16 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
       .catch(() => {});
   }, []);
 
-  // Animate both combatants' HP from before -> after when a battle resolves.
-  const animateExchange = (d: any) => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    setDefHp(d.defender.health_before);
-    setAtkHp(d.attacker.health_before);
-    const start = performance.now();
-    const duration = 700;
-    const lerp = (a: number, b: number, k: number) => Math.round(a + (b - a) * k);
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - start) / duration);
-      setDefHp(lerp(d.defender.health_before, d.defender.health_after, k));
-      setAtkHp(lerp(d.attacker.health_before, d.attacker.health_after, k));
-      if (k < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-
   const handleAttack = async () => {
     setError(null);
     if (!targetId.trim()) {
-      setError('Enter a target character ID');
+      setError('Choose a target');
       return;
     }
     setAttacking(true);
     try {
       const res = await apiClient.post<{ data: any }>(withChar('/storm8/attack', character?.id), { defender_character_id: targetId.trim() });
-      const d = res.data;
-      setBattle(d);
-      animateExchange(d);
+      showBattle(res.data);
       onUpdate();
     } catch (err: any) {
       setError(err.message || 'Attack failed');
@@ -493,55 +437,6 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
         </div>
         <p className="text-xs text-shade-red-300 mt-2">Regenerates 1 per 3 minutes</p>
       </div>
-
-      {/* Battle arena */}
-      {battle && (
-        <div className="bg-shade-black-700 neon-border rounded-lg p-4 mb-4">
-          <p className="text-center text-[11px] uppercase tracking-widest text-shade-red-400 mb-2">
-            {battle.first_striker === 'defender'
-              ? `${battle.defender.gamertag} was faster — struck first!`
-              : `${battle.attacker.gamertag} was faster — struck first!`}
-          </p>
-          <div className="flex items-stretch gap-3">
-            <Combatant
-              role={`Attacker${battle.first_striker === 'attacker' ? ' ⚡' : ''}`}
-              name={battle.attacker.gamertag}
-              avatar={user?.shade_avatar_url}
-              hp={atkHp}
-              maxHp={battle.attacker.max_health}
-              defeated={battle.attacker.killed && atkHp <= 0}
-            />
-            <div className="flex flex-col items-center justify-center px-2">
-              <span className="text-2xl neon-text-strong">⚔️</span>
-              <span className="font-bold text-shade-red-500">-{battle.damage_dealt}</span>
-              {battle.damage_to_attacker > 0 && (
-                <span className="text-[10px] text-blue-300 mt-1">counter -{battle.damage_to_attacker}</span>
-              )}
-            </div>
-            <Combatant
-              role={`Defender${battle.first_striker === 'defender' ? ' ⚡' : ''}`}
-              name={battle.defender.gamertag}
-              hp={defHp}
-              maxHp={battle.defender.max_health}
-              defeated={battle.defender.killed && defHp <= 0}
-            />
-          </div>
-          <div className="text-center mt-3 text-sm">
-            {battle.defender.killed
-              ? <p className="text-shade-red-600 font-bold animate-pulse">💀 {battle.defender.gamertag} was DEFEATED!</p>
-              : battle.attacker.killed
-                ? <p className="text-shade-red-600 font-bold animate-pulse">💀 You were DEFEATED by {battle.defender.gamertag}'s counterattack!</p>
-                : battle.result?.attacker_won
-                  ? <p className="text-green-500">You won the exchange — {battle.damage_dealt} dealt vs {battle.damage_to_attacker} taken.</p>
-                  : <p className="text-shade-red-300">You lost the exchange — {battle.damage_dealt} dealt vs {battle.damage_to_attacker} taken.</p>}
-            <p className="text-shade-red-400 mt-1">
-              {battle.currency_stolen > 0 && <span>💰 Stole {battle.currency_stolen} • </span>}
-              +{battle.xp_gained} XP
-              {battle.level_up && <span className="text-green-500"> • Level up → {battle.level_up.new_level}!</span>}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-3">
         {targets.length > 0 && (
@@ -582,6 +477,7 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
 
 // Hitlist Browser
 function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () => void }) {
+  const { showBattle } = useBattleResult();
   const [hitlist, setHitlist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -625,8 +521,8 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
   const handleHitlistAttack = async (hitlistId: string) => {
     setError(null);
     try {
-      const res = await apiClient.post<{ bounty_claimed?: boolean; bounty_amount?: number; damage_dealt?: number }>(withChar('/storm8/hitlist/attack', character?.id), { hitlist_id: hitlistId });
-      alert(`Attack successful! ${res.bounty_claimed ? `You claimed the ${res.bounty_amount} bounty!` : `Dealt ${res.damage_dealt} damage`}`);
+      const res = await apiClient.post<{ data: any }>(withChar('/storm8/hitlist/attack', character?.id), { hitlist_id: hitlistId });
+      showBattle(res.data);
       fetchHitlist();
       onUpdate();
     } catch (err: any) {

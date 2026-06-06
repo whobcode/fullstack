@@ -10,6 +10,7 @@ import { NavBar } from "./components/NavBar";
 import { VoiceAssistant } from "./components/VoiceAssistant";
 import { AuthProvider } from "./lib/AuthContext";
 import { VoiceAssistantProvider } from "./lib/VoiceAssistantContext";
+import { BattleResultProvider } from "./lib/BattleResultContext";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -38,13 +39,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="bg-black text-shade-red-100">
         <AuthProvider>
-          <VoiceAssistantProvider>
-            <NavBar />
-            <main className="container mx-auto p-4">
-              {children}
-            </main>
-            <VoiceAssistant />
-          </VoiceAssistantProvider>
+          <BattleResultProvider>
+            <VoiceAssistantProvider>
+              <NavBar />
+              <main className="container mx-auto p-4">
+                {children}
+              </main>
+              <VoiceAssistant />
+            </VoiceAssistantProvider>
+          </BattleResultProvider>
         </AuthProvider>
         <ScrollRestoration />
         <Scripts />
