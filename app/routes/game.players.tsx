@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
+import { useBattleResult } from '../lib/BattleResultContext';
 
 export default function PlayersPage() {
     const [players, setPlayers] = useState<any[]>([]);
@@ -9,8 +9,8 @@ export default function PlayersPage() {
     const [error, setError] = useState<string | null>(null);
     const [attackStatus, setAttackStatus] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
-    const navigate = useNavigate();
     const { user } = useAuth();
+    const { showBattle } = useBattleResult();
 
     // Generate invite link for sharing
     const inviteLink = typeof window !== 'undefined'
@@ -34,9 +34,11 @@ export default function PlayersPage() {
     }, [user?.characterId]);
 
     const handleAttack = async (defenderId: string) => {
+        setAttackStatus(null);
         try {
-            const res = await apiClient.post<{ data: { battleId: string }}>('/game/battles', { defenderId, mode: 'async' });
-            navigate(`/shade/battles/${res.data.battleId}`);
+            // Use the real combat system; the result pops up in the global battle arena.
+            const res = await apiClient.post<{ data: any }>('/storm8/attack', { defender_character_id: defenderId });
+            showBattle(res.data);
         } catch (err: any) {
             setAttackStatus(err.message ?? 'Failed to launch attack.');
         }

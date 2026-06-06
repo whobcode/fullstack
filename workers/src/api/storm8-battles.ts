@@ -884,9 +884,35 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
 
   await db.batch(statements);
 
+  const names = await db
+    .prepare('SELECT id, gamertag FROM characters WHERE id IN (?, ?)')
+    .bind(attackerStats.id, defenderStats.id)
+    .all<{ id: string; gamertag: string }>();
+  const nameOf = (id: string) => names.results?.find((r) => r.id === id)?.gamertag ?? 'Unknown';
+
   return c.json({
     data: {
       result,
+      // Combatant snapshot for the shared battle arena overlay.
+      attacker: {
+        id: attackerStats.id,
+        gamertag: nameOf(attackerStats.id),
+        health_before: attackerStats.current_health,
+        health_after: result.attacker_health_after,
+        max_health: attackerStats.max_health,
+        killed: result.attacker_killed,
+      },
+      defender: {
+        id: defenderStats.id,
+        gamertag: nameOf(defenderStats.id),
+        health_before: defenderStats.current_health,
+        health_after: result.defender_health_after,
+        max_health: defenderStats.max_health,
+        killed: result.defender_killed,
+      },
+      first_striker: result.first_striker,
+      damage_dealt: result.damage_dealt,
+      damage_to_attacker: result.damage_to_attacker,
       bounty_claimed: result.defender_killed,
       bounty_amount: result.defender_killed ? hitlist.bounty_amount : 0,
     },
