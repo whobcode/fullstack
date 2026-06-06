@@ -62,7 +62,7 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
       case 'defense':
         return `Each point = +${character.level} defense power (scales with level)`;
       case 'health':
-        return 'Each point = +10 max HP';
+        return 'Each point = +100 max HP';
       case 'energy':
         return 'Each point = +1 max energy (for missions)';
       case 'stamina':
