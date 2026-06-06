@@ -639,19 +639,19 @@ export default function GameDashboardPage() {
 
       <div className="flex gap-2 mb-4">
         <button
-          className="px-4 py-2 bg-shade-black-700 neon-border text-shade-red-500 rounded"
+          className="px-4 py-2 rounded-lg font-bold bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white shadow-lg shadow-shade-red-900/40"
         >
           Dashboard
         </button>
         <Link
           to="/shade/profile"
-          className="px-4 py-2 bg-shade-black-800 border border-shade-red-800 text-shade-red-400 rounded hover:border-shade-red-600 transition-all"
+          className="px-4 py-2 rounded-lg bg-shade-black-800 border border-shade-red-800/60 text-shade-red-300 hover:border-fuchsia-500/60 hover:text-fuchsia-300 transition-all"
         >
           Gamer Profile
         </Link>
         <button
           onClick={() => setView('story')}
-          className="px-4 py-2 bg-shade-black-800 border border-shade-red-800 text-shade-red-400 rounded hover:border-shade-red-600 transition-all"
+          className="px-4 py-2 rounded-lg bg-shade-black-800 border border-shade-red-800/60 text-shade-red-300 hover:border-amber-500/60 hover:text-amber-300 transition-all"
         >
           Story Mode
         </button>
@@ -709,15 +709,24 @@ export default function GameDashboardPage() {
                 ↺ Reset Points
               </button>
             </div>
-            <div className="p-4 beveled-panel">
-              <h2 className="text-xl font-semibold neon-text">Trophies</h2>
-              <p className="text-shade-red-100">Wins: {character.wins}</p>
-              <p className="text-shade-red-100">Losses: {character.losses}</p>
-              <p className="text-shade-red-100">Kills: {character.kills}</p>
-              <p className="text-shade-red-100">Deaths: {character.deaths}</p>
+            <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">
+              <h2 className="text-xl font-bold neon-text mb-3">Trophies</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Wins', val: character.wins, c: 'text-emerald-300' },
+                  { label: 'Losses', val: character.losses, c: 'text-shade-red-300' },
+                  { label: 'Kills', val: character.kills, c: 'text-fuchsia-300' },
+                  { label: 'Deaths', val: character.deaths, c: 'text-sky-300' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg p-3 bg-shade-black-950/60 border border-white/10">
+                    <div className="text-[10px] uppercase tracking-wider text-shade-red-400">{s.label}</div>
+                    <div className={`text-lg font-bold ${s.c}`}>{s.val ?? 0}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="p-4 beveled-panel col-span-2">
-              <h2 className="text-xl font-semibold neon-text">Active Battles</h2>
+            <div className="p-5 rounded-xl col-span-2 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">
+              <h2 className="text-xl font-bold neon-text">Active Battles</h2>
               <div className="space-y-2 mt-2">
                 {battles.length > 0 ? (
                   battles.map((b) => (

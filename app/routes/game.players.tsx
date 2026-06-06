@@ -77,7 +77,7 @@ export default function PlayersPage() {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-4 neon-text">Find Someone to Attack</h1>
+            <h1 className="text-3xl font-extrabold mb-4 bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">Find Someone to Attack</h1>
             {attackStatus && (
                 <div className="mb-4 rounded border border-shade-red-600 bg-shade-black-700 px-3 py-2 text-sm text-shade-red-100">
                     {attackStatus}
@@ -92,15 +92,20 @@ export default function PlayersPage() {
                         <div className="p-4 beveled-panel text-shade-red-100">No in-game players available to attack right now.</div>
                     )}
                     {players.map(player => (
-                        <div key={player.id} className="p-4 beveled-panel flex justify-between items-center">
-                            <div>
-                                <p className="font-bold neon-text">{player.gamertag}</p>
-                                <p className="text-sm text-shade-black-400">Lvl {player.level} {player.class}</p>
+                        <div key={player.id} className="p-4 rounded-xl flex justify-between items-center bg-gradient-to-r from-shade-black-800 to-shade-black-900 border border-shade-red-800/40 hover:border-shade-red-600/70 transition-all">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-shade-red-700 to-fuchsia-700 flex items-center justify-center font-bold text-white shrink-0">
+                                    {player.gamertag?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-bold text-shade-red-100 truncate">{player.gamertag}</p>
+                                    <p className="text-xs text-shade-red-400 capitalize">Lv.{player.level} {player.class}</p>
+                                </div>
                             </div>
                             <button
                                 onClick={() => handleAttack(player.id)}
-                                className="bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all px-4 py-2 rounded">
-                                Attack
+                                className="bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white font-bold px-4 py-2 rounded-lg shadow-lg shadow-shade-red-900/40 hover:from-shade-red-600 hover:to-shade-red-400 transition-all">
+                                ⚔ Attack
                             </button>
                         </div>
                     ))}

@@ -375,6 +375,22 @@ game.get('/characters', async (c) => {
     return c.json({ data: characters.results });
 });
 
+// Global leaderboard: top fighters by level, then wins, then kills.
+game.get('/leaderboard', async (c) => {
+    const db = c.env.DB;
+    const rows = await db.prepare(`
+        SELECT c.id, c.gamertag, c.class, c.level,
+               COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
+               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
+        FROM characters c
+        LEFT JOIN trophies t ON t.character_id = c.id
+        WHERE c.first_game_access_completed = TRUE
+        ORDER BY c.level DESC, wins DESC, kills DESC
+        LIMIT 25
+    `).all();
+    return c.json({ data: rows.results || [] });
+});
+
 // Get all user's characters
 game.get('/my-characters', async (c) => {
     const user = c.get('user');
