@@ -358,9 +358,19 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
 }
 
 // Shows the stats that actually drive combat, so it's clear what matters.
-function BattleStats({ character }: { character: any }) {
+function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => void }) {
   const cur = character.current_health ?? 0;
   const max = character.max_health ?? 1;
+
+  const handleRespec = async () => {
+    if (!confirm('Reset all stat points? Your character returns to base stats and every point is refunded.')) return;
+    try {
+      await apiClient.post('/game/character/respec', { characterId: character.id });
+      onUpdate();
+    } catch {
+      // ignore — onUpdate refresh will reflect actual state
+    }
+  };
   return (
     <div className="beveled-panel rounded-lg p-6 mb-6">
       <h2 className="text-2xl font-bold mb-2 neon-text">Your Battle Stats</h2>
@@ -381,6 +391,15 @@ function BattleStats({ character }: { character: any }) {
       {cur <= 0 && (
         <p className="text-xs text-shade-red-600 mt-2">💀 Defeated — heal at the hospital to fight again.</p>
       )}
+      <div className="flex justify-between items-center mt-3 text-sm">
+        <span className="text-shade-red-300">Unspent points: <span className="text-shade-red-100 font-bold">{character.unspent_stat_points ?? 0}</span></span>
+        <button
+          onClick={handleRespec}
+          className="bg-shade-black-900 neon-border text-shade-red-400 hover:neon-glow transition-all px-3 py-1.5 rounded text-xs font-bold"
+        >
+          ↺ Reset Points
+        </button>
+      </div>
     </div>
   );
 }
@@ -723,7 +742,7 @@ export default function Storm8Page() {
 
         {/* Right Column */}
         <div>
-          <BattleStats character={character} />
+          <BattleStats character={character} onUpdate={fetchCharacters} />
           <AttackInterface character={character} onUpdate={fetchCharacters} />
           <HitlistBrowser character={character} onUpdate={fetchCharacters} />
           <BattleFeed characterId={character.id} />

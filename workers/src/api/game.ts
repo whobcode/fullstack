@@ -481,7 +481,7 @@ game.delete('/character/:id', async (c) => {
     return c.json({ message: 'Character deleted. Slot is now available for a new character.', slot: character.slot_number });
 });
 
-import { allocatePointsSchema } from '../shared/schemas/game';
+import { allocatePointsSchema, respecSchema } from '../shared/schemas/game';
 
 // Allocate stat points
 game.post('/character/allocate-points', zValidator('json', allocatePointsSchema), async (c) => {
@@ -536,6 +536,47 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
     ).run();
 
     return c.json({ message: 'Stat points allocated successfully.' });
+});
+
+// Respec: refund every allocated point and reset the character to its class
+// base stats. The full lifetime point budget for the character's level is
+// returned as unspent points so it can be re-allocated.
+game.post('/character/respec', zValidator('json', respecSchema), async (c) => {
+    const user = c.get('user');
+    const { characterId } = c.req.valid('json');
+    const db = c.env.DB;
+
+    const ch = await db
+        .prepare('SELECT id, class, level FROM characters WHERE id = ? AND user_id = ?')
+        .bind(characterId, user.id)
+        .first<{ id: string; class: keyof typeof BASE_STATS; level: number }>();
+
+    if (!ch) {
+        return c.json({ error: 'Character not found or does not belong to you.' }, 404);
+    }
+
+    const base = BASE_STATS[ch.class] ?? BASE_STATS.phoenix;
+    const budget = getTotalStatPointsForLevel(ch.level);
+
+    await db.prepare(`
+        UPDATE characters
+        SET
+            hp = ?, atk = ?, def = ?, mp = ?, spd = ?,
+            attack_skill_points = 0, defense_skill_points = 0, health_skill_points = 0,
+            energy_skill_points = 0, stamina_skill_points = 0,
+            max_health = ?, current_health = ?,
+            max_energy = 20, current_energy = 20,
+            max_stamina = 5, current_stamina = 5,
+            unspent_stat_points = ?
+        WHERE id = ?
+    `).bind(
+        base.hp, base.atk, base.def, base.mp, base.spd,
+        base.hp, base.hp,
+        budget,
+        ch.id
+    ).run();
+
+    return c.json({ message: 'Points reset — all stat points refunded.', unspent_stat_points: budget });
 });
 
 

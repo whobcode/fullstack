@@ -535,6 +535,18 @@ export default function GameDashboardPage() {
     }
   };
 
+  const handleRespec = async (charId: string) => {
+    if (!confirm('Reset all stat points? Your character returns to base stats and every point is refunded to re-allocate.')) {
+      return;
+    }
+    try {
+      await apiClient.post('/game/character/respec', { characterId: charId });
+      await fetchCharacter(charId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset points');
+    }
+  };
+
   if (loading && !slotInfo) return <div className="neon-text">Loading...</div>;
   if (error) return <div className="text-shade-red-600">Error: {error}</div>;
 
@@ -673,6 +685,12 @@ export default function GameDashboardPage() {
               <p className="text-shade-red-100">
                 Unspent Points: {character.unspent_stat_points.toLocaleString()}
               </p>
+              <button
+                onClick={() => handleRespec(character.id)}
+                className="mt-3 w-full bg-shade-black-900 neon-border text-shade-red-400 hover:neon-glow transition-all px-3 py-2 rounded text-sm font-bold"
+              >
+                ↺ Reset Points
+              </button>
             </div>
             <div className="p-4 beveled-panel">
               <h2 className="text-xl font-semibold neon-text">Trophies</h2>
