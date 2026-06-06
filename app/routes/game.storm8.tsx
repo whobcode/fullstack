@@ -73,7 +73,7 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
   };
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Skill Allocation</h2>
       <p className="text-xs text-shade-red-300 mb-3 bg-shade-black-800 p-2 rounded neon-border">
         These spend the <span className="text-shade-red-100">same unspent points</span> as the Dashboard.
@@ -174,7 +174,7 @@ function ClanManagement({ characterId, onUpdate }: { characterId?: string | null
   if (loading) return <div>Loading clan data...</div>;
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Clan Management</h2>
 
       {clanData && (
@@ -270,7 +270,7 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
   if (loading) return <div>Loading abilities...</div>;
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Ability Shop</h2>
 
       <div className="flex gap-2 mb-4">
@@ -372,7 +372,7 @@ function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => 
     }
   };
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-2 neon-text">Your Battle Stats</h2>
       <p className="text-xs text-shade-red-300 mb-3">These drive your damage and survivability. Allocate on the Dashboard.</p>
       <div className="grid grid-cols-4 gap-2 text-center mb-3">
@@ -443,7 +443,7 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
   };
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Attack</h2>
 
       <div className="bg-shade-black-600 neon-border p-4 rounded mb-4">
@@ -557,7 +557,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
   if (loading) return <div>Loading hitlist...</div>;
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Hitlist</h2>
 
       <div className="bg-shade-black-600 neon-border p-4 rounded mb-4">
@@ -645,7 +645,7 @@ function BattleFeed({ characterId }: { characterId?: string | null }) {
   if (loading) return <div>Loading battle feed...</div>;
 
   return (
-    <div className="beveled-panel rounded-lg p-6 mb-6">
+    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
       <h2 className="text-2xl font-bold mb-4 neon-text">Battle Feed</h2>
 
       <div className="space-y-2">
