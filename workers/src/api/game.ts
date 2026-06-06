@@ -695,9 +695,13 @@ game.get('/battles', authMiddleware, async (c) => {
     const character = await db.prepare('SELECT id FROM characters WHERE user_id = ?').bind(user.id).first<{id: string}>();
     if (!character) return c.json({ data: [] });
 
-    const battles = await db.prepare('SELECT * FROM battles WHERE attacker_char_id = ? OR defender_char_id = ? ORDER BY started_at DESC')
-        .bind(character.id, character.id)
-        .all();
+    // Only genuinely active battles — completed history doesn't belong here.
+    const battles = await db.prepare(`
+        SELECT * FROM battles
+        WHERE (attacker_char_id = ? OR defender_char_id = ?)
+          AND state IN ('pending', 'active')
+        ORDER BY started_at DESC
+    `).bind(character.id, character.id).all();
 
     return c.json({ data: battles.results });
 });
