@@ -376,10 +376,15 @@ function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => 
       <h2 className="text-2xl font-bold mb-2 neon-text">Your Battle Stats</h2>
       <p className="text-xs text-shade-red-300 mb-3">These drive your damage and survivability. Allocate on the Dashboard.</p>
       <div className="grid grid-cols-4 gap-2 text-center mb-3">
-        {[['ATK', character.atk], ['DEF', character.def], ['SPD', character.spd], ['Class', character.class]].map(([label, val]) => (
-          <div key={label as string} className="bg-shade-black-800 rounded p-2 neon-border">
-            <div className="text-[10px] uppercase text-shade-red-400">{label}</div>
-            <div className="text-shade-red-100 font-semibold truncate">{val ?? 0}</div>
+        {[
+          { label: 'ATK', val: character.atk, accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
+          { label: 'DEF', val: character.def, accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
+          { label: 'SPD', val: character.spd, accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
+          { label: 'Class', val: character.class, accent: 'from-fuchsia-600/30 to-fuchsia-900/10 text-fuchsia-300' },
+        ].map((s) => (
+          <div key={s.label} className={`rounded-lg p-2 bg-gradient-to-br ${s.accent} border border-white/10`}>
+            <div className="text-[10px] uppercase tracking-wider opacity-80">{s.label}</div>
+            <div className="font-bold truncate">{s.val ?? 0}</div>
           </div>
         ))}
       </div>
@@ -483,7 +488,7 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
         <button
           onClick={handleAttack}
           disabled={character.current_stamina < 1 || attacking || !targetName.trim()}
-          className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold text-lg"
+          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white p-3 rounded-lg font-bold text-lg shadow-lg shadow-shade-red-900/40 hover:from-shade-red-600 hover:to-shade-red-400 transition-all disabled:from-shade-black-700 disabled:to-shade-black-700 disabled:text-shade-red-400 disabled:shadow-none"
         >
           {attacking ? 'Attacking…' : '⚔️ ATTACK (Costs 1 Stamina)'}
         </button>
@@ -713,7 +718,7 @@ export default function Storm8Page() {
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-bold neon-text">Storm8 Battle System</h1>
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">⚔ Battle Arena</h1>
         {/* Character selector: choose which of your characters fights/builds */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-shade-red-300">Fighting as:</span>
