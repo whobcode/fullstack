@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
+// Append the acting character to a storm8 API path so the server acts on the
+// character selected in the Battle tab (not just slot 1).
+function withChar(path: string, characterId?: string | null) {
+  if (!characterId) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}character_id=${encodeURIComponent(characterId)}`;
+}
+
 // A health bar that colors by remaining percentage.
 function HpBar({ current, max }: { current: number; max: number }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
@@ -71,7 +78,7 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
       return;
     }
     try {
-      await apiClient.post('/storm8/skills/allocate', skills);
+      await apiClient.post(withChar('/storm8/skills/allocate', character?.id), skills);
       setSkills({ attack: 0, defense: 0, health: 0, energy: 0, stamina: 0 });
       onUpdate();
     } catch (err: any) {
@@ -163,7 +170,7 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
 }
 
 // Clan Management UI
-function ClanManagement({ onUpdate }: { onUpdate: () => void }) {
+function ClanManagement({ characterId, onUpdate }: { characterId?: string | null; onUpdate: () => void }) {
   const [clanData, setClanData] = useState<any>(null);
   const [recruitCount, setRecruitCount] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -171,7 +178,7 @@ function ClanManagement({ onUpdate }: { onUpdate: () => void }) {
 
   const fetchClan = async () => {
     try {
-      const res = await apiClient.get<{ data: any }>('/storm8/clan');
+      const res = await apiClient.get<{ data: any }>(withChar('/storm8/clan', characterId));
       setClanData(res.data);
     } catch (err: any) {
       setError(err.message);
@@ -187,7 +194,7 @@ function ClanManagement({ onUpdate }: { onUpdate: () => void }) {
   const handleRecruit = async () => {
     setError(null);
     try {
-      await apiClient.post('/storm8/clan/recruit', { count: recruitCount });
+      await apiClient.post(withChar('/storm8/clan/recruit', characterId), { count: recruitCount });
       fetchClan();
       onUpdate();
     } catch (err: any) {
@@ -264,8 +271,8 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
   const fetchAbilities = async () => {
     try {
       const [shopRes, ownedRes] = await Promise.all([
-        apiClient.get<{ data: any[] }>('/storm8/abilities'),
-        apiClient.get<{ data: any[] }>('/storm8/abilities/owned'),
+        apiClient.get<{ data: any[] }>(withChar('/storm8/abilities', character?.id)),
+        apiClient.get<{ data: any[] }>(withChar('/storm8/abilities/owned', character?.id)),
       ]);
       setAbilities(shopRes.data || []);
       setOwnedAbilities(ownedRes.data || []);
@@ -283,7 +290,7 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
   const handlePurchase = async (abilityId: string) => {
     setError(null);
     try {
-      await apiClient.post('/storm8/abilities/purchase', { ability_id: abilityId });
+      await apiClient.post(withChar('/storm8/abilities/purchase', character?.id), { ability_id: abilityId });
       fetchAbilities();
       onUpdate();
     } catch (err: any) {
@@ -455,7 +462,7 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
     }
     setAttacking(true);
     try {
-      const res = await apiClient.post<{ data: any }>('/storm8/attack', { defender_character_id: targetId.trim() });
+      const res = await apiClient.post<{ data: any }>(withChar('/storm8/attack', character?.id), { defender_character_id: targetId.trim() });
       const d = res.data;
       setBattle(d);
       animateExchange(d);
@@ -603,7 +610,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
       return;
     }
     try {
-      await apiClient.post('/storm8/hitlist/post', {
+      await apiClient.post(withChar('/storm8/hitlist/post', character?.id), {
         target_character_id: postTarget,
         bounty_amount: bountyAmount,
       });
@@ -618,7 +625,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
   const handleHitlistAttack = async (hitlistId: string) => {
     setError(null);
     try {
-      const res = await apiClient.post<{ bounty_claimed?: boolean; bounty_amount?: number; damage_dealt?: number }>('/storm8/hitlist/attack', { hitlist_id: hitlistId });
+      const res = await apiClient.post<{ bounty_claimed?: boolean; bounty_amount?: number; damage_dealt?: number }>(withChar('/storm8/hitlist/attack', character?.id), { hitlist_id: hitlistId });
       alert(`Attack successful! ${res.bounty_claimed ? `You claimed the ${res.bounty_amount} bounty!` : `Dealt ${res.damage_dealt} damage`}`);
       fetchHitlist();
       onUpdate();
@@ -696,13 +703,13 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
 }
 
 // Battle Feed Display
-function BattleFeed() {
+function BattleFeed({ characterId }: { characterId?: string | null }) {
   const [feed, setFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchFeed = async () => {
     try {
-      const res = await apiClient.get<{ data: any[] }>('/storm8/feed');
+      const res = await apiClient.get<{ data: any[] }>(withChar('/storm8/feed', characterId));
       setFeed(res.data || []);
     } catch (err) {
       console.error('Failed to fetch battle feed', err);
@@ -760,14 +767,17 @@ function BattleFeed() {
 
 // Main Storm8 Page
 export default function Storm8Page() {
-  const [character, setCharacter] = useState<any>(null);
+  const [characters, setCharacters] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCharacter = async () => {
+  const fetchCharacters = async () => {
     try {
-      const res = await apiClient.get<{ data: any }>('/game/character');
-      setCharacter(res.data);
+      const res = await apiClient.get<{ data: any[] }>('/game/my-characters');
+      const list = (res.data || []).filter((ch) => ch.first_game_access_completed);
+      setCharacters(list);
+      setSelectedId((prev) => (prev && list.some((ch) => ch.id === prev) ? prev : list[0]?.id ?? null));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -776,31 +786,51 @@ export default function Storm8Page() {
   };
 
   useEffect(() => {
-    fetchCharacter();
+    fetchCharacters();
   }, []);
+
+  const character = characters.find((ch) => ch.id === selectedId) ?? null;
 
   if (loading) return <div className="p-4 text-shade-red-200">Loading...</div>;
   if (error) return <div className="p-4 text-shade-red-600">Error: {error}</div>;
-  if (!character) return <div className="p-4 text-shade-red-300">No character found</div>;
+  if (!character) return <div className="p-4 text-shade-red-300">No character found. Create one on the Dashboard.</div>;
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 neon-text">Storm8 Battle System</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <h1 className="text-3xl font-bold neon-text">Storm8 Battle System</h1>
+        {/* Character selector: choose which of your characters fights/builds */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-shade-red-300">Fighting as:</span>
+          <select
+            value={selectedId ?? ''}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="p-2 rounded bg-shade-black-600 neon-border text-shade-red-100"
+          >
+            {characters.map((ch) => (
+              <option key={ch.id} value={ch.id}>
+                {ch.gamertag} — Slot {ch.slot_number} (Lv.{ch.level} {ch.class})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Keyed by selectedId so panels refetch when you switch characters */}
+      <div className="grid md:grid-cols-2 gap-6" key={selectedId}>
         {/* Left Column */}
         <div>
-          <SkillAllocation character={character} onUpdate={fetchCharacter} />
-          <ClanManagement onUpdate={fetchCharacter} />
-          <AbilityShop character={character} onUpdate={fetchCharacter} />
+          <SkillAllocation character={character} onUpdate={fetchCharacters} />
+          <ClanManagement characterId={character.id} onUpdate={fetchCharacters} />
+          <AbilityShop character={character} onUpdate={fetchCharacters} />
         </div>
 
         {/* Right Column */}
         <div>
           <BattleStats character={character} />
-          <AttackInterface character={character} onUpdate={fetchCharacter} />
-          <HitlistBrowser character={character} onUpdate={fetchCharacter} />
-          <BattleFeed />
+          <AttackInterface character={character} onUpdate={fetchCharacters} />
+          <HitlistBrowser character={character} onUpdate={fetchCharacters} />
+          <BattleFeed characterId={character.id} />
         </div>
       </div>
     </div>

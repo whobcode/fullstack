@@ -46,6 +46,25 @@ const storm8 = new Hono<App>();
 // All routes require authentication
 storm8.use('*', authMiddleware);
 
+// Resolve which of the user's characters is acting. The Battle tab passes
+// ?character_id=...; we verify ownership and otherwise fall back to slot 1.
+// Returns null if a character_id was provided that the user doesn't own.
+async function actingCharId(db: D1Database, c: any, userId: string): Promise<string | null> {
+  const requested = c.req.query('character_id');
+  if (requested) {
+    const owned = await db
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .bind(requested, userId)
+      .first<{ id: string }>();
+    return owned ? owned.id : null;
+  }
+  const first = await db
+    .prepare('SELECT id FROM characters WHERE user_id = ? ORDER BY slot_number LIMIT 1')
+    .bind(userId)
+    .first<{ id: string }>();
+  return first ? first.id : null;
+}
+
 // ============================================================================
 // SKILL ALLOCATION
 // ============================================================================
@@ -69,9 +88,13 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
     return c.json({ error: 'Must allocate at least 1 point' }, 400);
   }
 
+  const charId = await actingCharId(db, c, user.id);
+  if (!charId) {
+    return c.json({ error: 'Character not found' }, 404);
+  }
   const char = await db
-    .prepare('SELECT unspent_stat_points FROM characters WHERE user_id = ?')
-    .bind(user.id)
+    .prepare('SELECT unspent_stat_points FROM characters WHERE id = ?')
+    .bind(charId)
     .first<{ unspent_stat_points: number }>();
 
   if (!char || totalAllocated > char.unspent_stat_points) {
@@ -93,7 +116,7 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
         current_health = current_health + (? * 10),
         max_energy = 20 + (energy_skill_points + ?),
         max_stamina = 5 + (stamina_skill_points + ?)
-      WHERE user_id = ?
+      WHERE id = ?
     `)
     .bind(
       allocation.attack,
@@ -106,7 +129,7 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
       allocation.health,
       allocation.energy,
       allocation.stamina,
-      user.id
+      charId
     )
     .run();
 
@@ -114,8 +137,8 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
   const allocations = Object.entries(allocation)
     .filter(([_, points]) => points > 0)
     .map(([stat, points]) =>
-      db.prepare('INSERT INTO skill_allocations (character_id, stat_type, points_allocated) VALUES ((SELECT id FROM characters WHERE user_id = ?), ?, ?)')
-        .bind(user.id, stat, points)
+      db.prepare('INSERT INTO skill_allocations (character_id, stat_type, points_allocated) VALUES (?, ?, ?)')
+        .bind(charId, stat, points)
     );
 
   if (allocations.length > 0) {
@@ -133,10 +156,11 @@ storm8.get('/clan', async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT id, level FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string; level: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id, level FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string; level: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -170,10 +194,11 @@ storm8.post('/clan/recruit', zValidator('json', recruitClanSchema), async (c) =>
   const { count } = c.req.valid('json');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT id FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -208,10 +233,11 @@ storm8.get('/abilities', async (c) => {
   const db = c.env.DB;
   const user = c.get('user');
 
-  const char = await db
-    .prepare('SELECT level FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ level: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT level FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ level: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -235,10 +261,11 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
   const { ability_id } = c.req.valid('json');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT id, unbanked_currency, level FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string; unbanked_currency: number; level: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id, unbanked_currency, level FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string; unbanked_currency: number; level: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -276,16 +303,17 @@ storm8.get('/abilities/owned', async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  const owned = await db
+  const charId = await actingCharId(db, c, user.id);
+  const owned = charId ? await db
     .prepare(`
       SELECT a.*, ca.quantity
       FROM character_abilities ca
       JOIN abilities a ON ca.ability_id = a.id
-      WHERE ca.character_id = (SELECT id FROM characters WHERE user_id = ?)
+      WHERE ca.character_id = ?
       ORDER BY a.category, a.attack_value DESC
     `)
-    .bind(user.id)
-    .all();
+    .bind(charId)
+    .all() : { results: [] };
 
   return c.json({ data: owned.results });
 });
@@ -480,11 +508,12 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
   const { defender_character_id } = c.req.valid('json');
   const db = c.env.DB;
 
-  // Get attacker character
-  const attackerChar = await db
-    .prepare('SELECT id FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string }>();
+  // Get attacker character (the one selected in the Battle tab)
+  const attackerCharId = await actingCharId(db, c, user.id);
+  const attackerChar = attackerCharId ? await db
+    .prepare('SELECT id FROM characters WHERE id = ?')
+    .bind(attackerCharId)
+    .first<{ id: string }>() : null;
 
   if (!attackerChar) {
     return c.json({ error: 'Character not found' }, 404);
@@ -702,10 +731,11 @@ storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => 
   const { target_character_id, bounty_amount } = c.req.valid('json');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT id, unbanked_currency FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string; unbanked_currency: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id, unbanked_currency FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string; unbanked_currency: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -758,10 +788,11 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
   const { hitlist_id } = c.req.valid('json');
   const db = c.env.DB;
 
-  const attackerChar = await db
-    .prepare('SELECT id FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string }>();
+  const attackerCharId = await actingCharId(db, c, user.id);
+  const attackerChar = attackerCharId ? await db
+    .prepare('SELECT id FROM characters WHERE id = ?')
+    .bind(attackerCharId)
+    .first<{ id: string }>() : null;
 
   if (!attackerChar) {
     return c.json({ error: 'Character not found' }, 404);
@@ -904,10 +935,11 @@ storm8.post('/hospital/heal', async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT current_health, max_health, unbanked_currency FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ current_health: number; max_health: number; unbanked_currency: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT current_health, max_health, unbanked_currency FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ current_health: number; max_health: number; unbanked_currency: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -926,8 +958,8 @@ storm8.post('/hospital/heal', async (c) => {
   }
 
   await db
-    .prepare('UPDATE characters SET current_health = max_health, unbanked_currency = unbanked_currency - ? WHERE user_id = ?')
-    .bind(cost, user.id)
+    .prepare('UPDATE characters SET current_health = max_health, unbanked_currency = unbanked_currency - ? WHERE id = ?')
+    .bind(cost, charId)
     .run();
 
   return c.json({ message: `Healed ${hpNeeded} HP for ${cost} currency` });
@@ -941,10 +973,11 @@ storm8.get('/feed', async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT id FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ id: string }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
