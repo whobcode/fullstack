@@ -179,7 +179,7 @@ game.post('/characters/create', zValidator('json', createCharacterSchema), async
 
   try {
     // Check if gamertag is unique
-    const existingGamertag = await db.prepare('SELECT id FROM characters WHERE gamertag = ?').bind(gamertag).first();
+    const existingGamertag = await db.prepare('SELECT id FROM characters WHERE gamertag = ? COLLATE NOCASE').bind(gamertag).first();
     if (existingGamertag) {
       return c.json({ error: 'Gamertag is already taken.' }, 409);
     }
@@ -277,7 +277,7 @@ game.post('/first-access', zValidator('json', firstAccessSchema), async (c) => {
     }
 
     // 2. Check if gamertag is unique
-    const existingGamertag = await db.prepare('SELECT id FROM characters WHERE gamertag = ?').bind(gamertag).first();
+    const existingGamertag = await db.prepare('SELECT id FROM characters WHERE gamertag = ? COLLATE NOCASE').bind(gamertag).first();
     if (existingGamertag) {
       return c.json({ error: 'Gamertag is already taken.' }, 409);
     }
@@ -344,7 +344,7 @@ game.post('/character/customize', zValidator('json', customizeCharacterSchema), 
     }
 
     if (gamertag) {
-      const taken = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ? AND id != ?').bind(gamertag, ch.id).first();
+      const taken = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ? COLLATE NOCASE AND id != ?').bind(gamertag, ch.id).first();
       if (taken) return c.json({ error: 'Gamertag is already taken.' }, 409);
     }
 
@@ -711,14 +711,28 @@ game.get('/battles/:id', async (c) => {
     const battleId = c.req.param('id');
     const db = c.env.DB;
 
-    const battle = await db.prepare('SELECT * FROM battles WHERE id = ?').bind(battleId).first();
+    const battle = await db.prepare('SELECT * FROM battles WHERE id = ?').bind(battleId).first<BattleRow>();
     if (!battle) return c.json({ error: 'Battle not found' }, 404);
 
     const turns = await db.prepare('SELECT * FROM battle_turns WHERE battle_id = ? ORDER BY turn_index ASC').bind(battleId).all();
 
-    // We could also join with character tables to get gamertags
+    // Resolve gamertags so the UI never shows raw character ids.
+    const names = await db
+        .prepare('SELECT id, gamertag FROM characters WHERE id IN (?, ?)')
+        .bind(battle.attacker_char_id, battle.defender_char_id)
+        .all<{ id: string; gamertag: string }>();
+    const nameOf = (id: string | null | undefined) =>
+        (id && names.results?.find((r) => r.id === id)?.gamertag) || 'Unknown';
 
-    return c.json({ data: { ...battle, turns: turns.results } });
+    return c.json({
+        data: {
+            ...battle,
+            attacker_gamertag: nameOf(battle.attacker_char_id),
+            defender_gamertag: nameOf(battle.defender_char_id),
+            winner_gamertag: nameOf(battle.winner_char_id),
+            turns: turns.results,
+        },
+    });
 });
 
 // Submit a turn for a battle (DEPRECATED - battles now resolve instantly)

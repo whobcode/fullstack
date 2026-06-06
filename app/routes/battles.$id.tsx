@@ -66,7 +66,7 @@ export default function BattlePage() {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold mb-4 neon-text">Battle: {battle.attacker_char_id} vs {battle.defender_char_id}</h1>
+            <h1 className="text-2xl font-bold mb-4 neon-text">Battle: {battle.attacker_gamertag ?? 'Unknown'} vs {battle.defender_gamertag ?? 'Unknown'}</h1>
             <p className="text-shade-red-100">Status: <span className="font-semibold neon-text">{battle.state}</span></p>
 
             {isMyTurn && (
@@ -76,7 +76,7 @@ export default function BattlePage() {
             )}
             {battle.state === 'completed' && (
                 <div className="my-4 space-y-3">
-                    <p className="text-lg font-bold text-shade-red-400">Winner: {battle.winner_char_id}</p>
+                    <p className="text-lg font-bold text-shade-red-400">Winner: {battle.winner_gamertag ?? 'Unknown'}</p>
                     {opponentId && (
                         <div className="flex items-center gap-3">
                             <button
@@ -97,7 +97,7 @@ export default function BattlePage() {
                 <div className="space-y-2 mt-2">
                     {battle.turns.map((turn: any) => (
                         <div key={turn.id} className="p-2 beveled-panel">
-                           <p className="text-shade-red-100">Turn {turn.turn_index}: {turn.actor_char_id} attacks, dealing {turn.damage} damage.</p>
+                           <p className="text-shade-red-100">Turn {turn.turn_index}: {turn.actor_char_id === battle.defender_char_id ? (battle.defender_gamertag ?? 'Defender') : (battle.attacker_gamertag ?? 'Attacker')} attacks, dealing {turn.damage} damage.</p>
                            <p className="text-xs text-shade-black-400">Target HP after: {turn.hp_after_target}</p>
                         </div>
                     ))}
