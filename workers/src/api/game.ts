@@ -506,10 +506,11 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         return c.json({ error: 'Invalid number of points to allocate.' }, 400);
     }
 
-    // Each point spent on HP is worth +100 HP; the other stats are +1 per point.
-    // unspent_stat_points still decreases by the number of points spent. The HP
-    // stat IS the battle health pool, so grow max/current health alongside it.
+    // Per-point gains: HP +100, SPD +2, others +1. unspent_stat_points still
+    // decreases by the number of points spent. The HP stat IS the battle health
+    // pool, so grow max/current health alongside it.
     const HP_PER_POINT = 100;
+    const SPD_PER_POINT = 2;
     const hpGain = pointsToAllocate.hp * HP_PER_POINT;
     await db.prepare(`
         UPDATE characters
@@ -528,7 +529,7 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         pointsToAllocate.atk,
         pointsToAllocate.def,
         pointsToAllocate.mp,
-        pointsToAllocate.spd,
+        pointsToAllocate.spd * SPD_PER_POINT,
         hpGain,
         hpGain,
         totalPointsToSpend,
