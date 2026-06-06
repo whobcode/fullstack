@@ -22,7 +22,6 @@ export const allocatePointsSchema = z.object({
     hp: z.number().int().min(0).default(0),
     atk: z.number().int().min(0).default(0),
     def: z.number().int().min(0).default(0),
-    mp: z.number().int().min(0).default(0),
     spd: z.number().int().min(0).default(0),
 });
 

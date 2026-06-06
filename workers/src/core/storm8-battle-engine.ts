@@ -92,7 +92,8 @@ function classAttackBonus(stats: CharacterBattleStats): number {
 }
 
 export function calculateAttackPower(stats: CharacterBattleStats): number {
-  const equipmentPower = stats.equipment_attack * stats.usable_clan_members;
+  // Equipment is wielded by you plus your clan; solo players still get it once.
+  const equipmentPower = stats.equipment_attack * Math.max(1, stats.usable_clan_members);
   const skillPower = stats.attack_skill_points * stats.level;
   // The character's ATK stat contributes directly to attack power, plus any
   // class-specific bonus (dragons gain from DEF + SPD).
@@ -104,7 +105,8 @@ export function calculateAttackPower(stats: CharacterBattleStats): number {
  * Total Defense = (equipment_defense × usable_clan_members) + (defense_skill_points × level)
  */
 export function calculateDefensePower(stats: CharacterBattleStats): number {
-  const equipmentPower = stats.equipment_defense * stats.usable_clan_members;
+  // Equipment is wielded by you plus your clan; solo players still get it once.
+  const equipmentPower = stats.equipment_defense * Math.max(1, stats.usable_clan_members);
   const skillPower = stats.defense_skill_points * stats.level;
   // The character's DEF stat contributes directly to defense power.
   return equipmentPower + skillPower + (stats.defense || 0);

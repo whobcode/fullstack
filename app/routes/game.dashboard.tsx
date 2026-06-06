@@ -281,8 +281,15 @@ function AllocatePointsForm({
   character: Character;
   onAllocationComplete: () => void;
 }) {
-  const [points, setPoints] = useState({ hp: 0, atk: 0, def: 0, mp: 0, spd: 0 });
+  const [points, setPoints] = useState({ hp: 0, atk: 0, def: 0, spd: 0 });
   const [error, setError] = useState<string | null>(null);
+
+  const STAT_META: Record<string, { label: string; hint: string; accent: string; ring: string }> = {
+    hp:  { label: 'HP',  hint: '+100 / pt',     accent: 'text-emerald-400', ring: 'focus:ring-emerald-400' },
+    atk: { label: 'ATK', hint: '+1% base / pt', accent: 'text-rose-400',    ring: 'focus:ring-rose-400' },
+    def: { label: 'DEF', hint: '+1% base / pt', accent: 'text-sky-400',     ring: 'focus:ring-sky-400' },
+    spd: { label: 'SPD', hint: '+2 / pt',       accent: 'text-amber-400',   ring: 'focus:ring-amber-400' },
+  };
 
   const totalAllocated = Object.values(points).reduce((sum, p) => sum + p, 0);
 
@@ -304,7 +311,7 @@ function AllocatePointsForm({
     }
     try {
       await apiClient.post('/game/character/allocate-points', { characterId: character.id, ...points });
-      setPoints({ hp: 0, atk: 0, def: 0, mp: 0, spd: 0 });
+      setPoints({ hp: 0, atk: 0, def: 0, spd: 0 });
       onAllocationComplete();
     } catch (err: any) {
       setError(err.message);
@@ -312,31 +319,33 @@ function AllocatePointsForm({
   };
 
   return (
-    <div className="mt-6 p-4 border border-shade-red-700 rounded">
+    <div className="mt-6 p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-700/60 shadow-[0_0_25px_rgba(255,42,42,0.15)]">
       <h3 className="text-lg font-bold neon-text">
-        You have {character.unspent_stat_points - totalAllocated} unspent stat points!
+        {character.unspent_stat_points - totalAllocated} unspent stat points
       </h3>
-      <p className="text-xs text-shade-red-400 mt-1">Per point: HP +100, SPD +2, ATK/DEF/MP +1.</p>
-      <form onSubmit={handleSubmit} className="space-y-2 mt-2">
-        {Object.keys(points).map((stat) => (
-          <div key={stat} className="flex items-center justify-between">
-            <label className="uppercase text-shade-red-100">{stat}</label>
+      <p className="text-xs text-shade-red-400 mt-1 mb-3">Spend them to power up. Gains shown per point.</p>
+      <form onSubmit={handleSubmit} className="space-y-2">
+        {(Object.keys(points) as (keyof typeof points)[]).map((stat) => (
+          <div key={stat} className="flex items-center justify-between gap-3 bg-shade-black-800/60 rounded-lg px-3 py-2 border border-white/5">
+            <div className="flex items-baseline gap-2">
+              <span className={`font-bold ${STAT_META[stat].accent}`}>{STAT_META[stat].label}</span>
+              <span className="text-[10px] text-shade-red-400/80">{STAT_META[stat].hint}</span>
+            </div>
             <input
               type="number"
-              value={points[stat as keyof typeof points]}
-              onChange={(e) =>
-                handlePointChange(stat as keyof typeof points, parseInt(e.target.value, 10) || 0)
-              }
-              className="w-24 p-1 rounded bg-shade-black-600 neon-border hover:neon-glow transition-all"
+              min={0}
+              value={points[stat]}
+              onChange={(e) => handlePointChange(stat, parseInt(e.target.value, 10) || 0)}
+              className={`w-24 p-1.5 rounded bg-shade-black-950 border border-white/10 text-shade-red-100 focus:outline-none focus:ring-2 ${STAT_META[stat].ring}`}
             />
           </div>
         ))}
-        {error && <p className="text-shade-red-600">{error}</p>}
+        {error && <p className="text-shade-red-500 text-sm">{error}</p>}
         <button
           type="submit"
-          className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded mt-2"
+          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white font-bold p-2.5 rounded-lg mt-2 hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40"
         >
-          Allocate Points
+          Allocate {totalAllocated > 0 ? `${totalAllocated} ` : ''}Points
         </button>
       </form>
     </div>
@@ -671,23 +680,31 @@ export default function GameDashboardPage() {
             />
           )}
           <div className="mt-6 grid grid-cols-2 gap-4">
-            <div className="p-4 beveled-panel">
-              <h2 className="text-xl font-semibold neon-text">Stats</h2>
-              <p className="text-shade-red-100">Class: {character.class}</p>
-              <p className="text-shade-red-100">
-                Level: {character.level} ({character.xp.toLocaleString()} XP)
-              </p>
-              <p className="text-shade-red-100">HP: {character.hp.toLocaleString()}</p>
-              <p className="text-shade-red-100">ATK: {character.atk.toLocaleString()}</p>
-              <p className="text-shade-red-100">DEF: {character.def.toLocaleString()}</p>
-              <p className="text-shade-red-100">MP: {character.mp.toLocaleString()}</p>
-              <p className="text-shade-red-100">SPD: {character.spd.toLocaleString()}</p>
-              <p className="text-shade-red-100">
-                Unspent Points: {character.unspent_stat_points.toLocaleString()}
+            <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60 shadow-[0_0_25px_rgba(255,42,42,0.12)]">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-bold neon-text">Stats</h2>
+                <span className="text-xs px-2 py-1 rounded-full bg-shade-red-900/40 text-shade-red-200 border border-shade-red-700/50 capitalize">{character.class} • Lv.{character.level}</span>
+              </div>
+              <p className="text-xs text-shade-red-400 mb-3">{character.xp.toLocaleString()} XP</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'HP', val: character.hp, accent: 'from-emerald-600/30 to-emerald-900/10 text-emerald-300' },
+                  { label: 'ATK', val: character.atk, accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
+                  { label: 'DEF', val: character.def, accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
+                  { label: 'SPD', val: character.spd, accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
+                ].map((s) => (
+                  <div key={s.label} className={`rounded-lg p-3 bg-gradient-to-br ${s.accent} border border-white/10`}>
+                    <div className="text-[10px] uppercase tracking-wider opacity-80">{s.label}</div>
+                    <div className="text-lg font-bold">{s.val.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-shade-red-200 mt-3 text-sm">
+                Unspent points: <span className="font-bold text-shade-red-100">{character.unspent_stat_points.toLocaleString()}</span>
               </p>
               <button
                 onClick={() => handleRespec(character.id)}
-                className="mt-3 w-full bg-shade-black-900 neon-border text-shade-red-400 hover:neon-glow transition-all px-3 py-2 rounded text-sm font-bold"
+                className="mt-3 w-full bg-shade-black-950 border border-shade-red-700/60 text-shade-red-300 hover:bg-shade-red-900/30 hover:text-shade-red-100 transition-all px-3 py-2 rounded-lg text-sm font-bold"
               >
                 ↺ Reset Points
               </button>

@@ -494,9 +494,9 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
     // Target the specific character the user is editing (and verify ownership),
     // rather than whichever character happens to come back first.
     const character = await db
-        .prepare('SELECT id, unspent_stat_points FROM characters WHERE id = ? AND user_id = ?')
+        .prepare('SELECT id, class, unspent_stat_points FROM characters WHERE id = ? AND user_id = ?')
         .bind(characterId, user.id)
-        .first<{id: string, unspent_stat_points: number}>();
+        .first<{id: string, class: keyof typeof BASE_STATS, unspent_stat_points: number}>();
 
     if (!character) {
         return c.json({ error: 'Character not found or does not belong to you.' }, 404);
@@ -506,19 +506,22 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         return c.json({ error: 'Invalid number of points to allocate.' }, 400);
     }
 
-    // Per-point gains: HP +100, SPD +2, others +1. unspent_stat_points still
-    // decreases by the number of points spent. The HP stat IS the battle health
-    // pool, so grow max/current health alongside it.
+    // Per-point gains:
+    //   HP  = +100 each
+    //   SPD = +2 each
+    //   ATK/DEF = +1% of the class BASE stat each (100 points = +100% = +base)
+    const base = BASE_STATS[character.class] ?? BASE_STATS.phoenix;
     const HP_PER_POINT = 100;
     const SPD_PER_POINT = 2;
     const hpGain = pointsToAllocate.hp * HP_PER_POINT;
+    const atkGain = Math.round((pointsToAllocate.atk * base.atk) / 100);
+    const defGain = Math.round((pointsToAllocate.def * base.def) / 100);
     await db.prepare(`
         UPDATE characters
         SET
             hp = hp + ?,
             atk = atk + ?,
             def = def + ?,
-            mp = mp + ?,
             spd = spd + ?,
             max_health = max_health + ?,
             current_health = current_health + ?,
@@ -526,9 +529,8 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         WHERE id = ?
     `).bind(
         hpGain,
-        pointsToAllocate.atk,
-        pointsToAllocate.def,
-        pointsToAllocate.mp,
+        atkGain,
+        defGain,
         pointsToAllocate.spd * SPD_PER_POINT,
         hpGain,
         hpGain,
