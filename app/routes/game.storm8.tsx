@@ -407,12 +407,12 @@ function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => 
 // Attack interface — the resolved battle pops up in the global arena overlay.
 function AttackInterface({ character, onUpdate }: { character: any; onUpdate: () => void }) {
   const { showBattle } = useBattleResult();
-  const [targetId, setTargetId] = useState('');
+  const [targetName, setTargetName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [attacking, setAttacking] = useState(false);
   const [targets, setTargets] = useState<any[]>([]);
 
-  // Load attackable players so the user can pick a target instead of pasting an ID.
+  // Load attackable players so the user can pick a target by name.
   useEffect(() => {
     apiClient.get<{ data: any[] }>('/game/characters')
       .then(r => setTargets(r.data || []))
@@ -421,13 +421,13 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
 
   const handleAttack = async () => {
     setError(null);
-    if (!targetId.trim()) {
+    if (!targetName.trim()) {
       setError('Choose a target');
       return;
     }
     setAttacking(true);
     try {
-      const res = await apiClient.post<{ data: any }>(withChar('/storm8/attack', character?.id), { defender_character_id: targetId.trim() });
+      const res = await apiClient.post<{ data: any }>(withChar('/storm8/attack', character?.id), { defender_gamertag: targetName.trim() });
       showBattle(res.data);
       onUpdate();
     } catch (err: any) {
@@ -460,13 +460,13 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
       <div className="space-y-3">
         {targets.length > 0 && (
           <select
-            value={targetId}
-            onChange={e => setTargetId(e.target.value)}
+            value={targetName}
+            onChange={e => setTargetName(e.target.value)}
             className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100"
           >
             <option value="">— Choose a target —</option>
             {targets.map(t => (
-              <option key={t.id} value={t.id}>
+              <option key={t.id} value={t.gamertag}>
                 {t.gamertag} (Lv.{t.level} {t.class})
               </option>
             ))}
@@ -474,15 +474,15 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
         )}
         <input
           type="text"
-          value={targetId}
-          onChange={e => setTargetId(e.target.value)}
-          placeholder={targets.length > 0 ? '…or paste a target character ID' : 'Enter target character ID'}
+          value={targetName}
+          onChange={e => setTargetName(e.target.value)}
+          placeholder={targets.length > 0 ? '…or type a character name' : 'Enter a character name'}
           className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100 placeholder-shade-red-400"
         />
 
         <button
           onClick={handleAttack}
-          disabled={character.current_stamina < 1 || attacking || !targetId.trim()}
+          disabled={character.current_stamina < 1 || attacking || !targetName.trim()}
           className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold text-lg"
         >
           {attacking ? 'Attacking…' : '⚔️ ATTACK (Costs 1 Stamina)'}
@@ -521,12 +521,12 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
   const handlePostHitlist = async () => {
     setError(null);
     if (!postTarget.trim()) {
-      setError('Enter a target character ID');
+      setError('Enter a target character name');
       return;
     }
     try {
       await apiClient.post(withChar('/storm8/hitlist/post', character?.id), {
-        target_character_id: postTarget,
+        target_gamertag: postTarget.trim(),
         bounty_amount: bountyAmount,
       });
       setPostTarget('');
@@ -562,7 +562,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
             type="text"
             value={postTarget}
             onChange={e => setPostTarget(e.target.value)}
-            placeholder="Target character ID"
+            placeholder="Target character name"
             className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 placeholder-shade-red-400"
           />
           <input
