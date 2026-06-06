@@ -112,8 +112,8 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
         energy_skill_points = energy_skill_points + ?,
         stamina_skill_points = stamina_skill_points + ?,
         unspent_stat_points = unspent_stat_points - ?,
-        max_health = max_health + (? * 10),
-        current_health = current_health + (? * 10),
+        max_health = max_health + (? * 100),
+        current_health = current_health + (? * 100),
         max_energy = 20 + (energy_skill_points + ?),
         max_stamina = 5 + (stamina_skill_points + ?)
       WHERE id = ?
