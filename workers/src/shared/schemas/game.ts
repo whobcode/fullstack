@@ -13,6 +13,10 @@ export const firstAccessSchema = z.object({
   }),
 });
 
+export const respecSchema = z.object({
+    characterId: z.string().uuid({ message: 'Invalid character ID' }),
+});
+
 export const allocatePointsSchema = z.object({
     characterId: z.string().uuid({ message: 'Invalid character ID' }),
     hp: z.number().int().min(0).default(0),
