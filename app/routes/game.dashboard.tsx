@@ -160,7 +160,7 @@ function CreateCharacterForm({
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 beveled-panel">
+    <div className="max-w-md mx-auto p-6 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60 shadow-[0_0_25px_rgba(255,42,42,0.15)]">
       <h2 className="text-xl font-bold mb-4 neon-text">Create Character (Slot {slotNumber})</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -169,7 +169,7 @@ function CreateCharacterForm({
             type="text"
             value={gamertag}
             onChange={(e) => setGamertag(e.target.value)}
-            className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
+            className="w-full p-2 rounded-lg bg-shade-black-950 border border-shade-red-800/50 text-shade-red-100 focus:outline-none focus:ring-2 focus:ring-shade-red-500 transition-all"
             required
             minLength={3}
             maxLength={20}
@@ -182,7 +182,7 @@ function CreateCharacterForm({
           <select
             value={selectedClass}
             onChange={(e) => setSelectedClass(e.target.value)}
-            className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
+            className="w-full p-2 rounded-lg bg-shade-black-950 border border-shade-red-800/50 text-shade-red-100 focus:outline-none focus:ring-2 focus:ring-shade-red-500 transition-all"
           >
             <option value="phoenix">Phoenix Rider</option>
             <option value="dphoenix">Dark Phoenix Rider</option>
@@ -203,7 +203,7 @@ function CreateCharacterForm({
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded disabled:opacity-50"
+            className="flex-1 bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white font-bold p-2.5 rounded-lg hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Character'}
           </button>
@@ -238,7 +238,7 @@ function FirstAccessWizard({
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 beveled-panel">
+    <div className="max-w-md mx-auto p-6 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60 shadow-[0_0_25px_rgba(255,42,42,0.15)]">
       <h2 className="text-xl font-bold mb-4 neon-text">Complete Character Setup</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -247,7 +247,7 @@ function FirstAccessWizard({
             type="text"
             value={gamertag}
             onChange={(e) => setGamertag(e.target.value)}
-            className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
+            className="w-full p-2 rounded-lg bg-shade-black-950 border border-shade-red-800/50 text-shade-red-100 focus:outline-none focus:ring-2 focus:ring-shade-red-500 transition-all"
             required
           />
         </div>
@@ -256,7 +256,7 @@ function FirstAccessWizard({
           <select
             value={selectedClass}
             onChange={(e) => setSelectedClass(e.target.value)}
-            className="w-full p-2 rounded beveled-panel hover:neon-glow transition-all"
+            className="w-full p-2 rounded-lg bg-shade-black-950 border border-shade-red-800/50 text-shade-red-100 focus:outline-none focus:ring-2 focus:ring-shade-red-500 transition-all"
           >
             <option value="phoenix">Phoenix Rider</option>
             <option value="dphoenix">Dark Phoenix Rider</option>
@@ -268,7 +268,7 @@ function FirstAccessWizard({
         {error && <p className="text-shade-red-600">{error}</p>}
         <button
           type="submit"
-          className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded"
+          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white font-bold p-2.5 rounded-lg hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40"
         >
           Create Character
         </button>
@@ -358,7 +358,7 @@ function AllocatePointsForm({
 // Story mode placeholder
 function StoryModePlaceholder() {
   return (
-    <div className="p-6 beveled-panel text-center">
+    <div className="p-8 rounded-xl bg-gradient-to-br from-fuchsia-950/30 via-shade-black-900 to-black border border-fuchsia-800/40 text-center">
       <div className="text-4xl mb-4">📖</div>
       <h2 className="text-2xl font-bold neon-text mb-2">Story Mode</h2>
       <p className="text-shade-red-300 mb-4">Coming Soon!</p>
@@ -401,7 +401,7 @@ function PurchaseSlotModal({
   if (paymentSuccess) {
     return (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div className="beveled-panel p-6 max-w-sm w-full mx-4 text-center">
+        <div className="rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 p-6 max-w-sm w-full mx-4 text-center">
           <div className="text-4xl mb-4">✅</div>
           <h2 className="text-xl font-bold neon-text mb-2">Payment Successful!</h2>
           <p className="text-shade-red-200 mb-4">
@@ -424,7 +424,7 @@ function PurchaseSlotModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-      <div className="beveled-panel p-6 max-w-md w-full mx-4">
+      <div className="rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 p-6 max-w-md w-full mx-4">
         <h2 className="text-xl font-bold neon-text mb-4">Unlock Slot {slotNumber}</h2>
         <SquarePayment
           amount={price}
@@ -828,7 +828,7 @@ export default function GameDashboardPage() {
           </div>
         </>
       ) : (
-        <div className="text-center p-8 beveled-panel">
+        <div className="text-center p-8 rounded-xl bg-gradient-to-br from-shade-black-800 to-black border border-shade-red-800/50">
           <p className="text-shade-red-300">Select a character or create a new one to begin.</p>
         </div>
       )}

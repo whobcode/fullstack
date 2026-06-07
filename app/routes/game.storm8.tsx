@@ -114,7 +114,7 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
         <button
           type="submit"
           disabled={totalAllocated === 0}
-          className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold"
+          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold"
         >
           Allocate {totalAllocated} Point{totalAllocated !== 1 ? 's' : ''}
         </button>
@@ -197,7 +197,7 @@ function ClanManagement({ characterId, onUpdate }: { characterId?: string | null
               />
               <button
                 onClick={handleRecruit}
-                className="flex-1 bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded font-bold"
+                className="flex-1 bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 p-2 rounded font-bold"
               >
                 Recruit {recruitCount} Member{recruitCount !== 1 ? 's' : ''}
               </button>
@@ -281,7 +281,7 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
             <p className="text-shade-red-300">No abilities available at your level</p>
           ) : (
             abilities.map(ability => (
-              <div key={ability.id} className="neon-border rounded p-4 hover:neon-glow transition-all">
+              <div key={ability.id} className="rounded-lg p-4 bg-gradient-to-br from-shade-black-800 to-shade-black-900 border border-shade-red-800/50 hover:border-shade-red-600/70 transition-all">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-bold text-lg text-shade-red-100">{ability.name}</h3>
@@ -289,7 +289,7 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
                   </div>
                   <button
                     onClick={() => handlePurchase(ability.id)}
-                    className="bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all px-4 py-2 rounded font-bold"
+                    className="bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 px-4 py-2 rounded font-bold"
                   >
                     Buy {ability.cost}
                   </button>
@@ -321,7 +321,7 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
             <p className="text-shade-red-300">You don't own any abilities yet</p>
           ) : (
             ownedAbilities.map((ability, idx) => (
-              <div key={idx} className="neon-border rounded p-4 hover:neon-glow transition-all">
+              <div key={idx} className="rounded-lg p-4 bg-gradient-to-br from-shade-black-800 to-shade-black-900 border border-shade-red-800/50 hover:border-shade-red-600/70 transition-all">
                 <h3 className="font-bold text-shade-red-100">{ability.name}</h3>
                 <p className="text-sm text-shade-red-300 mb-2">{ability.category}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -565,7 +565,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
           />
           <button
             onClick={handlePostHitlist}
-            className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all p-2 rounded font-bold"
+            className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 p-2 rounded font-bold"
           >
             Post Bounty ({bountyAmount} currency)
           </button>
@@ -595,7 +595,7 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
               <button
                 onClick={() => handleHitlistAttack(hit.id)}
                 disabled={character.current_stamina < 1}
-                className="w-full bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow-strong transition-all disabled:bg-shade-black-600 disabled:text-shade-red-300 p-2 rounded font-bold"
+                className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:bg-shade-black-600 disabled:text-shade-red-300 p-2 rounded font-bold"
               >
                 Attack (1 Stamina)
               </button>
