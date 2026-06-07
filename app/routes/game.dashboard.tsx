@@ -436,8 +436,8 @@ function PurchaseSlotModal({
 }
 
 export default function GameDashboardPage() {
-  const { user } = useAuth();
-  const { activeId, setActive } = useActiveCharacter();
+  const { user, refreshUser } = useAuth();
+  const { activeId, setActive, characters: myChars } = useActiveCharacter();
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -544,6 +544,16 @@ export default function GameDashboardPage() {
     fetchSlotInfo();
     if (selectedCharacterId) {
       fetchCharacter(selectedCharacterId);
+    }
+  };
+
+  const handleSetDefense = async (charId: string) => {
+    if (!charId) return;
+    try {
+      await apiClient.post('/game/defense-character', { characterId: charId });
+      await refreshUser();
+    } catch (err: any) {
+      setError(err.message || 'Failed to set defender');
     }
   };
 
@@ -659,6 +669,24 @@ export default function GameDashboardPage() {
           Story Mode
         </button>
       </div>
+
+      {/* Defense character: who gets challenged when someone attacks you */}
+      {myChars.length > 0 && (
+        <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-sky-950/40 to-shade-black-900 border border-sky-800/40 flex flex-col sm:flex-row sm:items-center gap-2">
+          <span className="text-sm text-sky-200">🛡️ Defending character:</span>
+          <select
+            value={user?.defense_character_id ?? ''}
+            onChange={(e) => handleSetDefense(e.target.value)}
+            className="p-2 rounded bg-shade-black-700 border border-sky-700/50 text-shade-red-100 text-sm"
+          >
+            <option value="" disabled>Choose a defender…</option>
+            {myChars.map((ch: any) => (
+              <option key={ch.id} value={ch.id}>{ch.gamertag} (Lv.{ch.level} {ch.class})</option>
+            ))}
+          </select>
+          <span className="text-xs text-sky-300/70">This character is challenged when another player attacks you.</span>
+        </div>
+      )}
 
       {character && character.first_game_access_completed ? (
         <>

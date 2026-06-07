@@ -53,9 +53,9 @@ users.get('/me', authMiddleware, async (c) => {
   const db = c.env.DB;
 
   const character = await db.prepare('SELECT id FROM characters WHERE user_id = ?').bind(user.id).first<{id: string}>();
-  const account = await db.prepare('SELECT (password_hash IS NOT NULL) AS has_password, shade_avatar_url, active_character_id FROM users WHERE id = ?').bind(user.id).first<{ has_password: number; shade_avatar_url: string | null; active_character_id: string | null }>();
+  const account = await db.prepare('SELECT (password_hash IS NOT NULL) AS has_password, shade_avatar_url, active_character_id, defense_character_id FROM users WHERE id = ?').bind(user.id).first<{ has_password: number; shade_avatar_url: string | null; active_character_id: string | null; defense_character_id: string | null }>();
 
-  return c.json({ data: { ...user, characterId: character?.id, has_password: !!account?.has_password, shade_avatar_url: account?.shade_avatar_url ?? null, active_character_id: account?.active_character_id ?? null } });
+  return c.json({ data: { ...user, characterId: character?.id, has_password: !!account?.has_password, shade_avatar_url: account?.shade_avatar_url ?? null, active_character_id: account?.active_character_id ?? null, defense_character_id: account?.defense_character_id ?? null } });
 });
 
 // PUT /api/users/me - Update the current authenticated user's profile
