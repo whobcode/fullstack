@@ -49,7 +49,7 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
   })();
 
   return (
-    <div className="beveled-panel p-5 rounded-lg">
+    <div className="rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="text-xs text-shade-red-400">Slot {char.slot_number}</div>
@@ -173,7 +173,7 @@ export default function GamerProfilePage() {
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Profile header */}
-      <div className="beveled-panel p-6 rounded-lg flex flex-col sm:flex-row items-center gap-6">
+      <div className="rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 p-6 flex flex-col sm:flex-row items-center gap-6 shadow-[0_0_25px_rgba(255,42,42,0.12)]">
         <div className="w-28 h-28 rounded-full overflow-hidden silhouette-avatar breathing-glow flex items-center justify-center shrink-0">
           {avatarSrc ? (
             <img src={avatarSrc} alt="Shade avatar" className="w-full h-full object-cover" />
@@ -230,7 +230,7 @@ export default function GamerProfilePage() {
       <div>
         <h2 className="text-lg font-bold neon-text mb-3">Characters</h2>
         {completedChars.length === 0 ? (
-          <div className="beveled-panel p-6 text-center text-shade-red-300">
+          <div className="rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 p-6 text-center text-shade-red-300">
             No characters yet.{" "}
             <Link to="/shade/dashboard" className="neon-text underline">
               Create one

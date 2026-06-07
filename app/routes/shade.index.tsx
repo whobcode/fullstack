@@ -116,7 +116,7 @@ export default function ShadeIndexPage() {
               </p>
               <Link
                 to="/shade/dashboard"
-                className="block w-full max-w-xs mx-auto bg-shade-black-900 neon-border-thick text-shade-red-600 px-8 py-4 rounded-lg font-bold text-lg hover:neon-glow-strong transition-all"
+                className="block w-full max-w-xs mx-auto bg-gradient-to-r from-shade-red-700 via-fuchsia-700 to-shade-red-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:from-shade-red-600 hover:to-shade-red-500 transition-all shadow-lg shadow-fuchsia-900/40"
               >
                 Enter Your Shade
               </Link>
@@ -125,13 +125,13 @@ export default function ShadeIndexPage() {
             <>
               <Link
                 to="/login"
-                className="block w-full max-w-xs mx-auto bg-shade-black-900 neon-border-thick text-shade-red-600 px-8 py-4 rounded-lg font-bold text-lg hover:neon-glow-strong transition-all"
+                className="block w-full max-w-xs mx-auto bg-gradient-to-r from-shade-red-700 via-fuchsia-700 to-shade-red-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:from-shade-red-600 hover:to-shade-red-500 transition-all shadow-lg shadow-fuchsia-900/40"
               >
                 Login to Enter
               </Link>
               <Link
                 to="/register"
-                className="block w-full max-w-xs mx-auto bg-shade-black-600 neon-border text-shade-red-300 px-8 py-3 rounded-lg hover:neon-glow transition-all"
+                className="block w-full max-w-xs mx-auto bg-shade-black-800 border border-fuchsia-700/50 text-fuchsia-200 px-8 py-3 rounded-lg hover:border-fuchsia-500 hover:text-fuchsia-100 transition-all"
               >
                 Claim Your Shade
               </Link>
