@@ -55,22 +55,6 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
     }
   };
 
-  const getSkillInfo = (skill: string) => {
-    switch (skill) {
-      case 'attack':
-        return `Each point = +${character.level} attack power (scales with level)`;
-      case 'defense':
-        return `Each point = +${character.level} defense power (scales with level)`;
-      case 'health':
-        return 'Each point = +100 max HP';
-      case 'energy':
-        return 'Each point = +1 max energy (for missions)';
-      case 'stamina':
-        return 'Each point = +1 max stamina (for attacks)';
-      default:
-        return '';
-    }
-  };
 
   return (
     <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
@@ -117,7 +101,6 @@ function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: ()
                 </button>
               </div>
             </div>
-            <p className="text-sm text-shade-red-300">{getSkillInfo(skill)}</p>
             <p className="text-sm text-shade-red-400 mt-1">
               Current: {character[`${skill}_skill_points`] || 0} → New: {(character[`${skill}_skill_points`] || 0) + value}
             </p>

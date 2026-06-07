@@ -35,7 +35,6 @@ const STAT_KEYS: { key: keyof GamerCharacter; label: string }[] = [
   { key: "hp", label: "HP" },
   { key: "atk", label: "ATK" },
   { key: "def", label: "DEF" },
-  { key: "mp", label: "MP" },
   { key: "spd", label: "SPD" },
 ];
 
@@ -74,7 +73,7 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 mb-4">
+      <div className="grid grid-cols-4 gap-2 mb-4">
         {STAT_KEYS.map(({ key, label }) => (
           <div key={label} className="text-center bg-shade-black-800 rounded p-2">
             <div className="text-[10px] uppercase text-shade-red-400">{label}</div>

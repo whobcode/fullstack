@@ -284,11 +284,11 @@ function AllocatePointsForm({
   const [points, setPoints] = useState({ hp: 0, atk: 0, def: 0, spd: 0 });
   const [error, setError] = useState<string | null>(null);
 
-  const STAT_META: Record<string, { label: string; hint: string; accent: string; ring: string }> = {
-    hp:  { label: 'HP',  hint: '+100 / pt',     accent: 'text-emerald-400', ring: 'focus:ring-emerald-400' },
-    atk: { label: 'ATK', hint: '+1% base / pt', accent: 'text-rose-400',    ring: 'focus:ring-rose-400' },
-    def: { label: 'DEF', hint: '+1% base / pt', accent: 'text-sky-400',     ring: 'focus:ring-sky-400' },
-    spd: { label: 'SPD', hint: '+2 / pt',       accent: 'text-amber-400',   ring: 'focus:ring-amber-400' },
+  const STAT_META: Record<string, { label: string; accent: string; ring: string }> = {
+    hp:  { label: 'HP',  accent: 'text-emerald-400', ring: 'focus:ring-emerald-400' },
+    atk: { label: 'ATK', accent: 'text-rose-400',    ring: 'focus:ring-rose-400' },
+    def: { label: 'DEF', accent: 'text-sky-400',     ring: 'focus:ring-sky-400' },
+    spd: { label: 'SPD', accent: 'text-amber-400',   ring: 'focus:ring-amber-400' },
   };
 
   const totalAllocated = Object.values(points).reduce((sum, p) => sum + p, 0);
@@ -323,13 +323,12 @@ function AllocatePointsForm({
       <h3 className="text-lg font-bold neon-text">
         {character.unspent_stat_points - totalAllocated} unspent stat points
       </h3>
-      <p className="text-xs text-shade-red-400 mt-1 mb-3">Spend them to power up. Gains shown per point.</p>
+      <p className="text-xs text-shade-red-400 mt-1 mb-3">Spend them to power up — experiment to find what each point does.</p>
       <form onSubmit={handleSubmit} className="space-y-2">
         {(Object.keys(points) as (keyof typeof points)[]).map((stat) => (
           <div key={stat} className="flex items-center justify-between gap-3 bg-shade-black-800/60 rounded-lg px-3 py-2 border border-white/5">
             <div className="flex items-baseline gap-2">
               <span className={`font-bold ${STAT_META[stat].accent}`}>{STAT_META[stat].label}</span>
-              <span className="text-[10px] text-shade-red-400/80">{STAT_META[stat].hint}</span>
             </div>
             <input
               type="number"

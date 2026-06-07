@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiClient } from "../lib/api";
 
 type Row = {
@@ -6,6 +7,7 @@ type Row = {
   gamertag: string;
   class: string;
   level: number;
+  owner: string;
   wins: number;
   losses: number;
   kills: number;
@@ -57,7 +59,7 @@ export default function GameLeaderboardPage() {
               {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-bold truncate">{r.gamertag}</div>
+              <Link to={`/shade/u/${encodeURIComponent(r.owner)}`} className="font-bold truncate hover:underline block">{r.gamertag}</Link>
               <div className="text-xs opacity-70 capitalize">{r.class} • Lv.{r.level}</div>
             </div>
             <div className="flex gap-3 text-center text-xs">

@@ -376,19 +376,54 @@ game.get('/characters', async (c) => {
 });
 
 // Global leaderboard: top fighters by level, then wins, then kills.
+// Public — trophies only, never any private stats. `owner` links to the profile.
 game.get('/leaderboard', async (c) => {
     const db = c.env.DB;
     const rows = await db.prepare(`
-        SELECT c.id, c.gamertag, c.class, c.level,
+        SELECT c.id, c.gamertag, c.class, c.level, u.username AS owner,
                COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
                COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
         FROM characters c
+        JOIN users u ON u.id = c.user_id
         LEFT JOIN trophies t ON t.character_id = c.id
         WHERE c.first_game_access_completed = TRUE
         ORDER BY c.level DESC, wins DESC, kills DESC
         LIMIT 25
     `).all();
     return c.json({ data: rows.results || [] });
+});
+
+// Public profile for any user: their characters with TROPHIES ONLY. Combat
+// stats (atk/def/spd/hp) are intentionally never exposed here — those are
+// private to the owner (see GET /game/profile for the owner's own full view).
+game.get('/profile/:username', async (c) => {
+    const username = c.req.param('username');
+    const db = c.env.DB;
+
+    const u = await db
+        .prepare('SELECT id, username, shade_avatar_url, created_at FROM users WHERE username = ? COLLATE NOCASE')
+        .bind(username)
+        .first<{ id: string; username: string; shade_avatar_url: string | null; created_at: string }>();
+    if (!u) {
+        return c.json({ error: 'User not found' }, 404);
+    }
+
+    const characters = await db.prepare(`
+        SELECT c.gamertag, c.class, c.level,
+               COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
+               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
+        FROM characters c
+        LEFT JOIN trophies t ON t.character_id = c.id
+        WHERE c.user_id = ? AND c.first_game_access_completed = TRUE
+        ORDER BY c.slot_number
+    `).bind(u.id).all();
+
+    return c.json({
+        data: {
+            profile: { username: u.username, shade_avatar_url: u.shade_avatar_url, created_at: u.created_at },
+            characters: characters.results || [],
+        },
+    });
 });
 
 // Get all user's characters

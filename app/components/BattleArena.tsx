@@ -12,6 +12,8 @@ export type BattleData = {
   attacker: Combatant;
   defender: Combatant;
   first_striker?: "attacker" | "defender";
+  attacker_hits?: number;
+  defender_hits?: number;
   damage_dealt: number;
   damage_to_attacker?: number;
   currency_stolen?: number;
@@ -95,8 +97,13 @@ export function BattleArena({ battle, attackerAvatar }: { battle: BattleData; at
         <div className="flex flex-col items-center justify-center px-2">
           <span className="text-2xl neon-text-strong">⚔️</span>
           <span className="font-bold text-shade-red-500">-{battle.damage_dealt}</span>
+          {(battle.attacker_hits ?? 0) > 1 && (
+            <span className="text-[10px] font-bold text-amber-300">{battle.attacker_hits}× hits!</span>
+          )}
           {(battle.damage_to_attacker ?? 0) > 0 && (
-            <span className="text-[10px] text-blue-300 mt-1">counter -{battle.damage_to_attacker}</span>
+            <span className="text-[10px] text-blue-300 mt-1">
+              counter -{battle.damage_to_attacker}{(battle.defender_hits ?? 0) > 1 ? ` (${battle.defender_hits}×)` : ''}
+            </span>
           )}
         </div>
         <Fighter
