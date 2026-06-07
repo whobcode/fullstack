@@ -430,9 +430,21 @@ game.get('/profile/:name', async (c) => {
         ORDER BY c.slot_number
     `).bind(u.id).all();
 
+    // Who answers when this player is attacked (so opponents know who they'll face).
+    const defender = await db.prepare(`
+        SELECT c.gamertag FROM users usr
+        JOIN characters c ON c.id = usr.defense_character_id
+        WHERE usr.id = ?
+    `).bind(u.id).first<{ gamertag: string }>();
+
     return c.json({
         data: {
-            profile: { username: u.username, shade_avatar_url: u.shade_avatar_url, created_at: u.created_at },
+            profile: {
+                username: u.username,
+                shade_avatar_url: u.shade_avatar_url,
+                created_at: u.created_at,
+                defender_gamertag: defender?.gamertag ?? null,
+            },
             characters: characters.results || [],
         },
     });

@@ -17,6 +17,7 @@ type PublicProfile = {
   username: string;
   shade_avatar_url: string | null;
   created_at: string | null;
+  defender_gamertag: string | null;
 };
 
 // Public profile: trophies only. Combat stats are private to the owner.
@@ -59,6 +60,9 @@ export default function PublicProfilePage() {
           <p className="text-shade-red-300 text-sm mt-1">
             {characters.length} character{characters.length === 1 ? "" : "s"} • {totalWins.toLocaleString()} wins • {totalKills.toLocaleString()} kills
           </p>
+          {profile.defender_gamertag && (
+            <p className="text-sm text-sky-300 mt-2">🛡️ Defender: <span className="font-bold">{profile.defender_gamertag}</span></p>
+          )}
           <Link to="/shade/leaderboard" className="text-xs text-shade-red-400 hover:text-shade-red-200 mt-3 inline-block">← Leaderboard</Link>
         </div>
       </div>
