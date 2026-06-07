@@ -53,6 +53,8 @@ export type BattleResult = {
   defender_killed: boolean;
   attacker_killed: boolean;      // The attacker can die to the counterattack
   first_striker: 'attacker' | 'defender'; // Decided by speed (initiative)
+  attacker_hits: number;         // How many times the attacker struck (speed → multi-hit)
+  defender_hits: number;         // How many times the defender struck back
   variance_applied: number; // For debugging/display
   attacker_effective_power: number;
   defender_effective_power: number;
@@ -287,52 +289,75 @@ export function resolveBattle(
       defender_killed: false,
       attacker_killed: false,
       first_striker: 'attacker',
+      attacker_hits: 0,
+      defender_hits: 0,
       ...baseResult,
     };
   }
 
-  // Initiative by speed; the attacker wins ties since they initiated.
-  const attackerFirst = (attacker.speed || 0) >= (defender.speed || 0);
+  // Speed decides initiative AND how many hits the faster fighter lands before
+  // the slower can respond: roughly faster_speed / slower_speed extra strikes
+  // (capped). The slower fighter gets a single retaliation if still standing.
+  const aSpd = attacker.speed || 0;
+  const dSpd = defender.speed || 0;
+  const attackerFirst = aSpd >= dSpd;
+  const MAX_HITS = 5;
+  const multiHits = (fast: number, slow: number) =>
+    Math.min(MAX_HITS, Math.max(1, Math.floor((fast || 0) / Math.max(1, slow || 0))));
+
+  const attackerHitCount = attackerFirst ? multiHits(aSpd, dSpd) : 1;
+  const defenderHitCount = !allowCounter ? 0 : (attackerFirst ? 1 : multiHits(dSpd, aSpd));
 
   let attackerHealthAfter = attacker.current_health;
   let defenderHealthAfter = defender.current_health;
   let attackerKilled = false;
   let defenderKilled = false;
+  let attackerHitsLanded = 0;
+  let defenderHitsLanded = 0;
 
-  if (attackerFirst) {
-    defenderHealthAfter = Math.max(0, defender.current_health - attackerHit);
+  const attackerStrike = () => {
+    defenderHealthAfter = Math.max(0, defenderHealthAfter - attackerHit * attackerHitCount);
+    attackerHitsLanded = attackerHitCount;
     defenderKilled = defenderHealthAfter === 0;
-    if (!defenderKilled) {
-      attackerHealthAfter = Math.max(0, attacker.current_health - counterHit);
-      attackerKilled = attackerHealthAfter === 0;
-    }
-  } else {
-    // Faster defender lands a pre-emptive counter first.
-    attackerHealthAfter = Math.max(0, attacker.current_health - counterHit);
+  };
+  const defenderStrike = () => {
+    attackerHealthAfter = Math.max(0, attackerHealthAfter - counterHit * defenderHitCount);
+    defenderHitsLanded = defenderHitCount;
     attackerKilled = attackerHealthAfter === 0;
-    if (!attackerKilled) {
-      defenderHealthAfter = Math.max(0, defender.current_health - attackerHit);
-      defenderKilled = defenderHealthAfter === 0;
-    }
+  };
+
+  // The faster fighter unloads all their hits first; the slower only retaliates
+  // if they survive.
+  if (attackerFirst) {
+    attackerStrike();
+    if (!defenderKilled && defenderHitCount > 0) defenderStrike();
+  } else {
+    if (defenderHitCount > 0) defenderStrike();
+    if (!attackerKilled) attackerStrike();
   }
 
-  // The attacker wins if they kill the defender, or (both survive) out-damage them.
-  const attackerWon = defenderKilled || (!attackerKilled && attackerHit > counterHit);
+  const damageDealt = defender.current_health - defenderHealthAfter;
+  const damageToAttacker = attacker.current_health - attackerHealthAfter;
 
-  const currencyStolen = (defenderKilled || (attackerWon && attackerHit > 0))
-    ? calculateCurrencyStolen(attackerHit, defender.unbanked_currency, finalConfig.currency_steal_percentage)
+  // The attacker wins if they kill the defender, or (both survive) out-damage them.
+  const attackerWon = defenderKilled || (!attackerKilled && damageDealt > damageToAttacker);
+
+  const currencyStolen = (defenderKilled || (attackerWon && damageDealt > 0))
+    ? calculateCurrencyStolen(damageDealt, defender.unbanked_currency, finalConfig.currency_steal_percentage)
     : 0;
 
   return {
     attacker_won: attackerWon,
-    damage_dealt: attackerHit,
-    damage_to_attacker: counterHit,
+    damage_dealt: damageDealt,
+    damage_to_attacker: damageToAttacker,
     currency_stolen: currencyStolen,
     defender_health_after: defenderHealthAfter,
     attacker_health_after: attackerHealthAfter,
     defender_killed: defenderKilled,
     attacker_killed: attackerKilled,
     first_striker: attackerFirst ? 'attacker' : 'defender',
+    attacker_hits: attackerHitsLanded,
+    defender_hits: defenderHitsLanded,
     ...baseResult,
   };
 }
