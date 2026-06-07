@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { useBattleResult } from '../lib/BattleResultContext';
@@ -98,7 +99,7 @@ export default function PlayersPage() {
                                     {player.gamertag?.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="font-bold text-shade-red-100 truncate">{player.gamertag}</p>
+                                    <Link to={`/shade/u/${encodeURIComponent(player.gamertag)}`} className="font-bold text-shade-red-100 truncate hover:underline block">{player.gamertag}</Link>
                                     <p className="text-xs text-shade-red-400 capitalize">Lv.{player.level} {player.class}</p>
                                 </div>
                             </div>

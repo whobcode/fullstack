@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { HpBar } from '../components/BattleArena';
 import { useBattleResult } from '../lib/BattleResultContext';
+import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 
 // Append the acting character to a storm8 API path so the server acts on the
 // character selected in the Battle tab (not just slot 1).
@@ -647,7 +649,8 @@ function BattleFeed({ characterId }: { characterId?: string | null }) {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-bold text-shade-red-100">
-                    {battle.attacker_won ? '✓ Victory' : '✗ Defeat'} vs {battle.defender_gamertag}
+                    {battle.attacker_won ? '✓ Victory' : '✗ Defeat'} vs{' '}
+                    <Link to={`/shade/u/${encodeURIComponent(battle.defender_gamertag)}`} className="hover:underline">{battle.defender_gamertag}</Link>
                   </p>
                   <p className="text-sm text-shade-red-300">
                     Damage: {battle.damage_dealt} | Stolen: {battle.currency_stolen}
@@ -670,44 +673,23 @@ function BattleFeed({ characterId }: { characterId?: string | null }) {
 
 // Main Storm8 Page
 export default function Storm8Page() {
-  const [characters, setCharacters] = useState<any[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchCharacters = async () => {
-    try {
-      const res = await apiClient.get<{ data: any[] }>('/game/my-characters');
-      const list = (res.data || []).filter((ch) => ch.first_game_access_completed);
-      setCharacters(list);
-      setSelectedId((prev) => (prev && list.some((ch) => ch.id === prev) ? prev : list[0]?.id ?? null));
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCharacters();
-  }, []);
-
-  const character = characters.find((ch) => ch.id === selectedId) ?? null;
+  const { characters, activeId, activeCharacter, setActive, refresh, loading } = useActiveCharacter();
 
   if (loading) return <div className="p-4 text-shade-red-200">Loading...</div>;
-  if (error) return <div className="p-4 text-shade-red-600">Error: {error}</div>;
-  if (!character) return <div className="p-4 text-shade-red-300">No character found. Create one on the Dashboard.</div>;
+  if (!activeCharacter) return <div className="p-4 text-shade-red-300">No character found. Create one on the Dashboard.</div>;
+
+  const character = activeCharacter;
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-3xl font-extrabold bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">⚔ Battle Arena</h1>
-        {/* Character selector: choose which of your characters fights/builds */}
+        {/* Playing-as selector: shared everywhere via the active character. */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-shade-red-300">Fighting as:</span>
+          <span className="text-sm text-shade-red-300">Playing as:</span>
           <select
-            value={selectedId ?? ''}
-            onChange={(e) => setSelectedId(e.target.value)}
+            value={activeId ?? ''}
+            onChange={(e) => setActive(e.target.value)}
             className="p-2 rounded bg-shade-black-600 neon-border text-shade-red-100"
           >
             {characters.map((ch) => (
@@ -719,20 +701,20 @@ export default function Storm8Page() {
         </div>
       </div>
 
-      {/* Keyed by selectedId so panels refetch when you switch characters */}
-      <div className="grid md:grid-cols-2 gap-6" key={selectedId}>
+      {/* Keyed by activeId so panels refetch when you switch characters */}
+      <div className="grid md:grid-cols-2 gap-6" key={activeId}>
         {/* Left Column */}
         <div>
-          <SkillAllocation character={character} onUpdate={fetchCharacters} />
-          <ClanManagement characterId={character.id} onUpdate={fetchCharacters} />
-          <AbilityShop character={character} onUpdate={fetchCharacters} />
+          <SkillAllocation character={character} onUpdate={refresh} />
+          <ClanManagement characterId={character.id} onUpdate={refresh} />
+          <AbilityShop character={character} onUpdate={refresh} />
         </div>
 
         {/* Right Column */}
         <div>
-          <BattleStats character={character} onUpdate={fetchCharacters} />
-          <AttackInterface character={character} onUpdate={fetchCharacters} />
-          <HitlistBrowser character={character} onUpdate={fetchCharacters} />
+          <BattleStats character={character} onUpdate={refresh} />
+          <AttackInterface character={character} onUpdate={refresh} />
+          <HitlistBrowser character={character} onUpdate={refresh} />
           <BattleFeed characterId={character.id} />
         </div>
       </div>

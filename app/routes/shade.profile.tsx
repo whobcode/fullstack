@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
+import { useActiveCharacter } from "../lib/ActiveCharacterContext";
+import { ProfileComments } from "../components/ProfileComments";
 
 type GamerCharacter = {
   id: string;
@@ -109,6 +111,7 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
 export default function GamerProfilePage() {
   const { isAuthenticated, refreshUser } = useAuth();
   const [profile, setProfile] = useState<GamerProfile | null>(null);
+  const { activeId, setActive } = useActiveCharacter();
   const [characters, setCharacters] = useState<GamerCharacter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +186,20 @@ export default function GamerProfilePage() {
           <p className="text-shade-red-300 text-sm mt-1">
             {completedChars.length} character{completedChars.length === 1 ? "" : "s"} • Top level {topLevel || "—"} • {totalWins.toLocaleString()} total wins
           </p>
+          {completedChars.length > 0 && (
+            <div className="flex items-center gap-2 justify-center sm:justify-start mt-3">
+              <span className="text-xs text-shade-red-300">Playing as:</span>
+              <select
+                value={activeId ?? ''}
+                onChange={(e) => setActive(e.target.value)}
+                className="text-sm p-1.5 rounded bg-shade-black-600 neon-border text-shade-red-100"
+              >
+                {completedChars.map((ch) => (
+                  <option key={ch.id} value={ch.id}>{ch.gamertag} (Lv.{ch.level} {ch.class})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2 justify-center sm:justify-start mt-4">
             <button
               onClick={regenerateAvatar}
@@ -217,11 +234,23 @@ export default function GamerProfilePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {completedChars.map((char) => (
-              <CharacterPanel key={char.id} char={char} />
+              <button
+                key={char.id}
+                onClick={() => setActive(char.id)}
+                className={`text-left rounded-xl transition-all ${char.id === activeId ? 'ring-2 ring-shade-red-500 shadow-[0_0_18px_rgba(255,42,42,0.35)]' : 'opacity-90 hover:opacity-100'}`}
+                title="Play as this character"
+              >
+                {char.id === activeId && (
+                  <div className="text-[10px] font-bold text-shade-red-300 px-2 pt-1">▶ PLAYING AS</div>
+                )}
+                <CharacterPanel char={char} />
+              </button>
             ))}
           </div>
         )}
       </div>
+
+      {profile?.username && <ProfileComments name={profile.username} />}
     </div>
   );
 }
