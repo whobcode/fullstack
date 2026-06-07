@@ -13,6 +13,7 @@ interface User {
   has_password?: boolean;
   shade_avatar_url?: string | null;
   active_character_id?: string | null;
+  defense_character_id?: string | null;
 }
 
 interface AuthContextType {

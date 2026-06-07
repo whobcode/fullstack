@@ -505,6 +505,21 @@ game.post('/active-character', zValidator('json', z.object({ characterId: z.stri
     return c.json({ message: 'Active character updated', active_character_id: characterId });
 });
 
+// Set the character that defends when this user is attacked.
+game.post('/defense-character', zValidator('json', z.object({ characterId: z.string().uuid() })), async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+    const { characterId } = c.req.valid('json');
+
+    const owned = await db.prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+        .bind(characterId, user.id)
+        .first();
+    if (!owned) return c.json({ error: 'Character not found or does not belong to you.' }, 404);
+
+    await db.prepare('UPDATE users SET defense_character_id = ? WHERE id = ?').bind(characterId, user.id).run();
+    return c.json({ message: 'Defense character updated', defense_character_id: characterId });
+});
+
 // Get all user's characters
 game.get('/my-characters', async (c) => {
     const user = c.get('user');

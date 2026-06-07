@@ -507,6 +507,28 @@ function bumpTrophies(
     .bind(characterId, w, l, k, d);
 }
 
+// If the target's owner has designated a defense character, the attack is
+// challenged against THAT character instead of whichever one was targeted.
+async function applyDefenseCharacter(db: D1Database, targetId: string): Promise<string> {
+  const owner = await db
+    .prepare('SELECT user_id FROM characters WHERE id = ?')
+    .bind(targetId)
+    .first<{ user_id: string }>();
+  if (!owner) return targetId;
+  const u = await db
+    .prepare('SELECT defense_character_id FROM users WHERE id = ?')
+    .bind(owner.user_id)
+    .first<{ defense_character_id: string | null }>();
+  if (u?.defense_character_id && u.defense_character_id !== targetId) {
+    const dc = await db
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .bind(u.defense_character_id, owner.user_id)
+      .first<{ id: string }>();
+    if (dc) return dc.id;
+  }
+  return targetId;
+}
+
 // Resolve a target character by id or (case-insensitive) gamertag/name.
 async function resolveTargetId(db: D1Database, opts: { id?: string; gamertag?: string }): Promise<string | null> {
   if (opts.id) return opts.id;
@@ -547,11 +569,13 @@ storm8.post('/attack', zValidator('json', attackPlayerSchema), async (c) => {
     return c.json({ error: 'Character not found' }, 404);
   }
 
-  // Resolve the target by id or name.
-  const defenderId = await resolveTargetId(db, { id: defender_character_id, gamertag: defender_gamertag });
-  if (!defenderId) {
+  // Resolve the target by id or name, then redirect to the owner's designated
+  // defense character (if any).
+  const targetedId = await resolveTargetId(db, { id: defender_character_id, gamertag: defender_gamertag });
+  if (!targetedId) {
     return c.json({ error: `No character found named "${defender_gamertag ?? ''}"` }, 404);
   }
+  const defenderId = await applyDefenseCharacter(db, targetedId);
 
   if (attackerChar.id === defenderId) {
     return c.json({ error: 'Cannot attack yourself' }, 400);
