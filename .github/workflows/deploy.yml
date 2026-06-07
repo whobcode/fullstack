@@ -38,8 +38,25 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
 
-      - name: Deploy to Cloudflare
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Deploy with retries: Cloudflare's route-assignment step intermittently
+      # returns "route with the same pattern already exists" (code 10020) even
+      # though hwmnbn.me/* is already this worker's route. The script upload
+      # itself succeeds; a retry clears the transient route error.
+      - name: Deploy to Cloudflare (with retry)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "::group::Deploy attempt $attempt"
+            if npx wrangler deploy; then
+              echo "::endgroup::"
+              echo "Deploy succeeded on attempt $attempt"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "Deploy attempt $attempt failed; retrying in 15s..."
+            sleep 15
+          done
+          echo "All deploy attempts failed"
+          exit 1
