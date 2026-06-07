@@ -46,8 +46,8 @@ const storm8 = new Hono<App>();
 // All routes require authentication
 storm8.use('*', authMiddleware);
 
-// Resolve which of the user's characters is acting. The Battle tab passes
-// ?character_id=...; we verify ownership and otherwise fall back to slot 1.
+// Resolve which of the user's characters is acting. An explicit ?character_id=
+// wins; otherwise we use the user's chosen active character; otherwise slot 1.
 // Returns null if a character_id was provided that the user doesn't own.
 async function actingCharId(db: D1Database, c: any, userId: string): Promise<string | null> {
   const requested = c.req.query('character_id');
@@ -57,6 +57,18 @@ async function actingCharId(db: D1Database, c: any, userId: string): Promise<str
       .bind(requested, userId)
       .first<{ id: string }>();
     return owned ? owned.id : null;
+  }
+  // Default to the user's active ("playing as") character if it's still theirs.
+  const u = await db
+    .prepare('SELECT active_character_id FROM users WHERE id = ?')
+    .bind(userId)
+    .first<{ active_character_id: string | null }>();
+  if (u?.active_character_id) {
+    const ok = await db
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .bind(u.active_character_id, userId)
+      .first<{ id: string }>();
+    if (ok) return ok.id;
   }
   const first = await db
     .prepare('SELECT id FROM characters WHERE user_id = ? ORDER BY slot_number LIMIT 1')

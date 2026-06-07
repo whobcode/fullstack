@@ -11,6 +11,7 @@ import { VoiceAssistant } from "./components/VoiceAssistant";
 import { AuthProvider } from "./lib/AuthContext";
 import { VoiceAssistantProvider } from "./lib/VoiceAssistantContext";
 import { BattleResultProvider } from "./lib/BattleResultContext";
+import { ActiveCharacterProvider } from "./lib/ActiveCharacterContext";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -39,6 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="bg-black text-shade-red-100">
         <AuthProvider>
+          <ActiveCharacterProvider>
           <BattleResultProvider>
             <VoiceAssistantProvider>
               <NavBar />
@@ -48,6 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <VoiceAssistant />
             </VoiceAssistantProvider>
           </BattleResultProvider>
+          </ActiveCharacterProvider>
         </AuthProvider>
         <ScrollRestoration />
         <Scripts />

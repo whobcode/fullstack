@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../lib/api";
+import { ProfileComments } from "../components/ProfileComments";
 
 type PublicChar = {
   gamertag: string;
@@ -96,6 +97,8 @@ export default function PublicProfilePage() {
         )}
         <p className="text-xs text-shade-red-500/70 mt-4 text-center">Combat stats are private — only the owner can see them.</p>
       </div>
+
+      {username && <ProfileComments name={username} />}
     </div>
   );
 }

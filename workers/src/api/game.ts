@@ -393,17 +393,29 @@ game.get('/leaderboard', async (c) => {
     return c.json({ data: rows.results || [] });
 });
 
+// Resolve a profile owner by account username OR a character gamertag, so
+// clicking any player name (which is usually a gamertag) lands on their profile.
+type ProfileUser = { id: string; username: string; shade_avatar_url: string | null; created_at: string };
+async function resolveProfileUser(db: D1Database, name: string): Promise<ProfileUser | null> {
+    const byName = await db
+        .prepare('SELECT id, username, shade_avatar_url, created_at FROM users WHERE username = ? COLLATE NOCASE')
+        .bind(name)
+        .first<ProfileUser>();
+    if (byName) return byName;
+    return db
+        .prepare(`SELECT u.id, u.username, u.shade_avatar_url, u.created_at
+                  FROM characters c JOIN users u ON u.id = c.user_id
+                  WHERE c.gamertag = ? COLLATE NOCASE`)
+        .bind(name)
+        .first<ProfileUser>();
+}
+
 // Public profile for any user: their characters with TROPHIES ONLY. Combat
 // stats (atk/def/spd/hp) are intentionally never exposed here — those are
 // private to the owner (see GET /game/profile for the owner's own full view).
-game.get('/profile/:username', async (c) => {
-    const username = c.req.param('username');
+game.get('/profile/:name', async (c) => {
     const db = c.env.DB;
-
-    const u = await db
-        .prepare('SELECT id, username, shade_avatar_url, created_at FROM users WHERE username = ? COLLATE NOCASE')
-        .bind(username)
-        .first<{ id: string; username: string; shade_avatar_url: string | null; created_at: string }>();
+    const u = await resolveProfileUser(db, c.req.param('name'));
     if (!u) {
         return c.json({ error: 'User not found' }, 404);
     }
@@ -424,6 +436,73 @@ game.get('/profile/:username', async (c) => {
             characters: characters.results || [],
         },
     });
+});
+
+// List comments on a profile (anyone can read).
+game.get('/profile/:name/comments', async (c) => {
+    const db = c.env.DB;
+    const u = await resolveProfileUser(db, c.req.param('name'));
+    if (!u) return c.json({ error: 'User not found' }, 404);
+
+    const comments = await db.prepare(`
+        SELECT pc.id, pc.body, pc.created_at, au.username AS author, pc.author_user_id
+        FROM profile_comments pc
+        JOIN users au ON au.id = pc.author_user_id
+        WHERE pc.profile_user_id = ?
+        ORDER BY pc.created_at DESC
+        LIMIT 100
+    `).bind(u.id).all();
+
+    return c.json({ data: comments.results || [] });
+});
+
+// Post a comment on a profile (including your own).
+game.post('/profile/:name/comments', zValidator('json', z.object({ body: z.string().min(1).max(500) })), async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+    const u = await resolveProfileUser(db, c.req.param('name'));
+    if (!u) return c.json({ error: 'User not found' }, 404);
+
+    const { body } = c.req.valid('json');
+    const id = crypto.randomUUID();
+    await db.prepare('INSERT INTO profile_comments (id, profile_user_id, author_user_id, body) VALUES (?, ?, ?, ?)')
+        .bind(id, u.id, user.id, body)
+        .run();
+
+    return c.json({ data: { id, body, author: user.username, author_user_id: user.id, created_at: new Date().toISOString() } }, 201);
+});
+
+// Delete a comment (the author, or the profile owner, may remove it).
+game.delete('/comments/:id', async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+    const id = c.req.param('id');
+
+    const row = await db.prepare('SELECT author_user_id, profile_user_id FROM profile_comments WHERE id = ?')
+        .bind(id)
+        .first<{ author_user_id: string; profile_user_id: string }>();
+    if (!row) return c.json({ error: 'Comment not found' }, 404);
+    if (row.author_user_id !== user.id && row.profile_user_id !== user.id) {
+        return c.json({ error: 'Not allowed' }, 403);
+    }
+
+    await db.prepare('DELETE FROM profile_comments WHERE id = ?').bind(id).run();
+    return c.json({ message: 'Comment deleted' });
+});
+
+// Set the character the user is "playing as" (defaults all game actions to it).
+game.post('/active-character', zValidator('json', z.object({ characterId: z.string().uuid() })), async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+    const { characterId } = c.req.valid('json');
+
+    const owned = await db.prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+        .bind(characterId, user.id)
+        .first();
+    if (!owned) return c.json({ error: 'Character not found or does not belong to you.' }, 404);
+
+    await db.prepare('UPDATE users SET active_character_id = ? WHERE id = ?').bind(characterId, user.id).run();
+    return c.json({ message: 'Active character updated', active_character_id: characterId });
 });
 
 // Get all user's characters

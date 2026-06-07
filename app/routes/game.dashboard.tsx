@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
+import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 import { SquarePayment } from '../components/SquarePayment';
 
 type SlotInfo = {
@@ -436,6 +437,7 @@ function PurchaseSlotModal({
 
 export default function GameDashboardPage() {
   const { user } = useAuth();
+  const { activeId, setActive } = useActiveCharacter();
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -451,8 +453,9 @@ export default function GameDashboardPage() {
       const res = await apiClient.get<{ data: SlotInfo }>('/game/slots');
       setSlotInfo(res.data);
 
-      // Auto-select first completed character
-      const completedChar = res.data.characters.find((c) => c.first_game_access_completed);
+      // Prefer the globally active character; else first completed character.
+      const activeChar = res.data.characters.find((c) => c.id === activeId && c.first_game_access_completed);
+      const completedChar = activeChar || res.data.characters.find((c) => c.first_game_access_completed);
       if (completedChar && !selectedCharacterId) {
         setSelectedCharacterId(completedChar.id);
       }
@@ -502,12 +505,13 @@ export default function GameDashboardPage() {
 
   const handleSelectCharacter = (id: string) => {
     const char = slotInfo?.characters.find((c) => c.id === id);
-    if (char && !char.first_game_access_completed) {
-      setSelectedCharacterId(id);
-      setView('setup');
-    } else {
-      setSelectedCharacterId(id);
+    setSelectedCharacterId(id);
+    // A completed character becomes the one you're "playing as" everywhere.
+    if (char && char.first_game_access_completed) {
+      setActive(id);
       setView('dashboard');
+    } else {
+      setView('setup');
     }
   };
 
