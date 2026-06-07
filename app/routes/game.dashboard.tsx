@@ -37,6 +37,9 @@ type Character = {
   mp: number;
   spd: number;
   unspent_stat_points: number;
+  current_health: number;
+  max_health: number;
+  unbanked_currency: number;
   wins: number;
   losses: number;
   kills: number;
@@ -547,6 +550,15 @@ export default function GameDashboardPage() {
     }
   };
 
+  const handleHeal = async (charId: string) => {
+    try {
+      await apiClient.post(`/storm8/hospital/heal?character_id=${encodeURIComponent(charId)}`, {});
+      await fetchCharacter(charId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to heal');
+    }
+  };
+
   const handleSetDefense = async (charId: string) => {
     if (!charId) return;
     try {
@@ -710,6 +722,39 @@ export default function GameDashboardPage() {
               onAllocationComplete={() => fetchCharacter(character.id)}
             />
           )}
+
+          {/* Hospital — heal battle health for currency */}
+          <div className="mt-6 p-5 rounded-xl bg-gradient-to-br from-emerald-950/40 to-shade-black-900 border border-emerald-800/40">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-emerald-300">🏥 Hospital</h2>
+              <span className="text-sm text-shade-red-200">
+                {(character.current_health ?? 0).toLocaleString()} / {(character.max_health ?? 0).toLocaleString()} HP
+              </span>
+            </div>
+            <div className="w-full bg-shade-black-900 rounded-full h-3 neon-border overflow-hidden mb-3">
+              <div
+                className="bg-emerald-500 h-3 rounded-full transition-all"
+                style={{ width: `${Math.max(0, Math.min(100, ((character.current_health ?? 0) / (character.max_health || 1)) * 100))}%` }}
+              />
+            </div>
+            {character.current_health >= character.max_health ? (
+              <p className="text-sm text-emerald-300">At full health. Health also regenerates over time.</p>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-shade-red-300">
+                  Full heal cost: <span className="text-shade-red-100 font-bold">{((character.max_health - character.current_health) * 10).toLocaleString()}</span> currency
+                  <span className="text-shade-red-400"> (you have {(character.unbanked_currency ?? 0).toLocaleString()})</span>
+                </span>
+                <button
+                  onClick={() => handleHeal(character.id)}
+                  className="px-4 py-2 rounded-lg font-bold bg-gradient-to-r from-emerald-700 to-emerald-500 text-white hover:from-emerald-600 hover:to-emerald-400 transition-all shadow-lg shadow-emerald-900/40"
+                >
+                  Heal to Full
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60 shadow-[0_0_25px_rgba(255,42,42,0.12)]">
               <div className="flex items-center justify-between mb-3">
