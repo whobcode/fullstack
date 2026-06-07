@@ -1,5 +1,6 @@
 import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
+import { applyResourceRegeneration } from "./regen";
 
 interface CharacterWithLedger {
     id: string;
@@ -72,6 +73,13 @@ export async function handleScheduled(env: Bindings) {
 
                 await db.batch(statements);
             }
+        }
+
+        // Tick health/stamina/energy regeneration for every character so it
+        // advances even while players are offline.
+        console.log('Cron job: regenerating resources');
+        for (const char of charactersToUpdate.results) {
+            await applyResourceRegeneration(db, char.id);
         }
     } catch (e) {
         console.error('Cron job error:', e);
