@@ -109,7 +109,7 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
 }
 
 export default function GamerProfilePage() {
-  const { isAuthenticated, refreshUser } = useAuth();
+  const { isAuthenticated, refreshUser, user } = useAuth();
   const [profile, setProfile] = useState<GamerProfile | null>(null);
   const { activeId, setActive } = useActiveCharacter();
   const [characters, setCharacters] = useState<GamerCharacter[]>([]);
@@ -186,6 +186,12 @@ export default function GamerProfilePage() {
           <p className="text-shade-red-300 text-sm mt-1">
             {completedChars.length} character{completedChars.length === 1 ? "" : "s"} • Top level {topLevel || "—"} • {totalWins.toLocaleString()} total wins
           </p>
+          {(() => {
+            const defender = characters.find((c) => c.id === user?.defense_character_id);
+            return defender ? (
+              <p className="text-sm text-sky-300 mt-1">🛡️ Defender: <span className="font-bold">{defender.gamertag}</span></p>
+            ) : null;
+          })()}
           {completedChars.length > 0 && (
             <div className="flex items-center gap-2 justify-center sm:justify-start mt-3">
               <span className="text-xs text-shade-red-300">Playing as:</span>
