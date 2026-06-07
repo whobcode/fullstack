@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from './middleware/auth';
 import { firstAccessSchema, customizeCharacterSchema } from '../shared/schemas/game';
 import { MAX_LEVEL, getTotalStatPointsForLevel, getAllLevelAchievementsUpTo, getXpForLevel } from '../core/leveling';
 import { BASE_STATS, CHARACTER_CLASSES } from '../core/classes';
+import { regenUserCharacters } from '../core/regen';
 
 type App = {
   Bindings: Bindings;
@@ -537,6 +538,9 @@ game.get('/my-characters', async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
 
+    // Bring health/stamina/energy current so the UI shows live values.
+    await regenUserCharacters(db, user.id);
+
     const characters = await db.prepare(`
         SELECT c.*, t.wins, t.losses, t.kills, t.deaths
         FROM characters c
@@ -553,6 +557,8 @@ game.get('/my-characters', async (c) => {
 game.get('/profile', async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
+
+    await regenUserCharacters(db, user.id);
 
     const profile = await db
         .prepare('SELECT id, username, avatar_url, shade_avatar_url, created_at FROM users WHERE id = ?')

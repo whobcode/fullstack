@@ -25,7 +25,6 @@ import {
   calculateUsableClanMembers,
   getClanBracket,
   areInSameBracket,
-  calculateRegeneration,
   canAttackByLevel,
   getAttackXpMultiplier,
   getBaseAttackXp,
@@ -33,6 +32,7 @@ import {
   type CharacterBattleStats,
 } from '../core/storm8-battle-engine';
 import { checkForLevelUp } from '../core/leveling';
+import { applyResourceRegeneration } from '../core/regen';
 
 type App = {
   Bindings: Bindings;
@@ -334,61 +334,8 @@ storm8.get('/abilities/owned', async (c) => {
 // RESOURCE REGENERATION HELPER
 // ============================================================================
 
-async function applyResourceRegeneration(db: D1Database, characterId: string): Promise<void> {
-  const char = await db
-    .prepare(`
-      SELECT
-        current_energy, max_energy, last_energy_regen,
-        current_stamina, max_stamina, last_stamina_regen
-      FROM characters WHERE id = ?
-    `)
-    .bind(characterId)
-    .first<{
-      current_energy: number;
-      max_energy: number;
-      last_energy_regen: string;
-      current_stamina: number;
-      max_stamina: number;
-      last_stamina_regen: string;
-    }>();
-
-  if (!char) return;
-
-  // Energy: 1 point per 5 minutes
-  const energyRegen = calculateRegeneration(
-    char.last_energy_regen,
-    char.current_energy,
-    char.max_energy,
-    5
-  );
-
-  // Stamina: 1 point per 3 minutes
-  const staminaRegen = calculateRegeneration(
-    char.last_stamina_regen,
-    char.current_stamina,
-    char.max_stamina,
-    3
-  );
-
-  await db
-    .prepare(`
-      UPDATE characters
-      SET
-        current_energy = ?,
-        last_energy_regen = ?,
-        current_stamina = ?,
-        last_stamina_regen = ?
-      WHERE id = ?
-    `)
-    .bind(
-      energyRegen.newAmount,
-      energyRegen.newTimestamp,
-      staminaRegen.newAmount,
-      staminaRegen.newTimestamp,
-      characterId
-    )
-    .run();
-}
+// applyResourceRegeneration now lives in core/regen.ts (energy + stamina + health),
+// shared with the cron and the read endpoints.
 
 // ============================================================================
 // BATTLE STATS HELPER
