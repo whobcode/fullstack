@@ -1,6 +1,7 @@
 import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
 import { applyResourceRegeneration } from "./regen";
+import { runBotAttacks } from "./bots";
 
 interface CharacterWithLedger {
     id: string;
@@ -8,6 +9,7 @@ interface CharacterWithLedger {
     level: number;
     created_at: string;
     last_updated: string | null;
+    username: string;
 }
 
 export async function handleScheduled(env: Bindings) {
@@ -18,8 +20,9 @@ export async function handleScheduled(env: Bindings) {
     try {
         // This query finds all characters and the timestamp of their last XP award.
         const charactersToUpdate = await db.prepare(`
-            SELECT c.id, c.xp, c.level, c.created_at, MAX(l.to_ts) as last_updated
+            SELECT c.id, c.xp, c.level, c.created_at, u.username, MAX(l.to_ts) as last_updated
             FROM characters c
+            JOIN users u ON u.id = c.user_id
             LEFT JOIN offline_xp_ledger l ON c.id = l.character_id
             GROUP BY c.id
         `).all<CharacterWithLedger>();
@@ -33,6 +36,9 @@ export async function handleScheduled(env: Bindings) {
         const dailyCap = parseInt(env.DAILY_XP_CAP, 10);
 
         for (const char of charactersToUpdate.results) {
+            // Bots stay at their seeded level (no offline XP), but still regen below.
+            if (char.username && char.username.startsWith('bot_')) continue;
+
             const lastUpdated = char.last_updated ? new Date(char.last_updated) : new Date(char.created_at);
             const hoursPassed = Math.min((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60), 24);
 
@@ -81,6 +87,10 @@ export async function handleScheduled(env: Bindings) {
         for (const char of charactersToUpdate.results) {
             await applyResourceRegeneration(db, char.id);
         }
+
+        // Keep the world alive: bots attack on their own each tick.
+        console.log('Cron job: running bot attacks');
+        await runBotAttacks(env);
     } catch (e) {
         console.error('Cron job error:', e);
     }
