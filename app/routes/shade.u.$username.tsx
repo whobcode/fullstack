@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../lib/api";
+import { useAuth } from "../lib/AuthContext";
+import { useBattleResult } from "../lib/BattleResultContext";
 import { ProfileComments } from "../components/ProfileComments";
 
 type PublicChar = {
@@ -14,6 +16,7 @@ type PublicChar = {
 };
 
 type PublicProfile = {
+  id: string;
   username: string;
   shade_avatar_url: string | null;
   created_at: string | null;
@@ -23,10 +26,13 @@ type PublicProfile = {
 // Public profile: trophies only. Combat stats are private to the owner.
 export default function PublicProfilePage() {
   const { username } = useParams();
+  const { user, isAuthenticated } = useAuth();
+  const { showBattle } = useBattleResult();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [characters, setCharacters] = useState<PublicChar[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attacking, setAttacking] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -43,6 +49,22 @@ export default function PublicProfilePage() {
   const avatar = profile.shade_avatar_url;
   const totalWins = characters.reduce((s, c) => s + (c.wins ?? 0), 0);
   const totalKills = characters.reduce((s, c) => s + (c.kills ?? 0), 0);
+  const isOwnProfile = isAuthenticated && user?.username?.toLowerCase() === profile.username?.toLowerCase();
+
+  const attack = async () => {
+    const target = characters[0]?.gamertag;
+    if (!target) return;
+    setAttacking(true);
+    setError(null);
+    try {
+      const res = await apiClient.post<{ data: any }>("/storm8/attack", { defender_gamertag: target });
+      showBattle(res.data);
+    } catch (e: any) {
+      setError(e?.message || "Attack failed");
+    } finally {
+      setAttacking(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -63,7 +85,25 @@ export default function PublicProfilePage() {
           {profile.defender_gamertag && (
             <p className="text-sm text-sky-300 mt-2">🛡️ Defender: <span className="font-bold">{profile.defender_gamertag}</span></p>
           )}
-          <Link to="/shade/leaderboard" className="text-xs text-shade-red-400 hover:text-shade-red-200 mt-3 inline-block">← Leaderboard</Link>
+          <div className="flex flex-wrap gap-2 justify-center sm:justify-start mt-3">
+            {isAuthenticated && !isOwnProfile && characters.length > 0 && (
+              <button
+                onClick={attack}
+                disabled={attacking}
+                className="px-4 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-shade-red-700 to-shade-red-500 hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:opacity-60"
+              >
+                {attacking ? "Attacking…" : "⚔ Attack"}
+              </button>
+            )}
+            <Link
+              to={`/u/${encodeURIComponent(profile.id)}`}
+              className="px-4 py-2 rounded-lg bg-shade-black-800 border border-social-green-600/50 text-social-green-300 hover:border-social-green-400 hover:text-social-green-200 transition-all text-sm"
+            >
+              Social profile
+            </Link>
+            <Link to="/shade/leaderboard" className="px-4 py-2 rounded-lg bg-shade-black-800 border border-shade-red-800/50 text-shade-red-300 hover:text-shade-red-100 transition-all text-sm">← Leaderboard</Link>
+          </div>
+          {error && <p className="text-shade-red-500 text-sm mt-2">{error}</p>}
         </div>
       </div>
 

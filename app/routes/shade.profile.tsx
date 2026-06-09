@@ -220,6 +220,12 @@ export default function GamerProfilePage() {
             >
               Dashboard
             </Link>
+            <Link
+              to="/profile/me"
+              className="text-xs px-3 py-1.5 bg-shade-black-800 border border-social-green-600/50 text-social-green-300 rounded hover:border-social-green-400 hover:text-social-green-200 transition-all"
+            >
+              Social profile
+            </Link>
           </div>
         </div>
       </div>
