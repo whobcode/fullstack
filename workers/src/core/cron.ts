@@ -9,7 +9,7 @@ interface CharacterWithLedger {
     level: number;
     created_at: string;
     last_updated: string | null;
-    username: string;
+    is_bot: number;
 }
 
 export async function handleScheduled(env: Bindings) {
@@ -20,7 +20,7 @@ export async function handleScheduled(env: Bindings) {
     try {
         // This query finds all characters and the timestamp of their last XP award.
         const charactersToUpdate = await db.prepare(`
-            SELECT c.id, c.xp, c.level, c.created_at, u.username, MAX(l.to_ts) as last_updated
+            SELECT c.id, c.xp, c.level, c.created_at, u.is_bot, MAX(l.to_ts) as last_updated
             FROM characters c
             JOIN users u ON u.id = c.user_id
             LEFT JOIN offline_xp_ledger l ON c.id = l.character_id
@@ -37,7 +37,7 @@ export async function handleScheduled(env: Bindings) {
 
         for (const char of charactersToUpdate.results) {
             // Bots stay at their seeded level (no offline XP), but still regen below.
-            if (char.username && char.username.startsWith('bot_')) continue;
+            if (char.is_bot) continue;
 
             const lastUpdated = char.last_updated ? new Date(char.last_updated) : new Date(char.created_at);
             const hoursPassed = Math.min((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60), 24);
