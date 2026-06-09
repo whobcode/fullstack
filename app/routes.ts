@@ -12,6 +12,7 @@ export default [
   route("groups", "routes/groups.tsx"),
   route("messages", "routes/messages.tsx"),
   route("profile/me", "routes/profile.me.tsx"),
+  route("u/:id", "routes/u.$id.tsx"),  // Public social profile
   route("settings", "routes/settings.tsx"),
 
   // Game Routes (under /shade prefix)

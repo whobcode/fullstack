@@ -441,6 +441,7 @@ game.get('/profile/:name', async (c) => {
     return c.json({
         data: {
             profile: {
+                id: u.id,
                 username: u.username,
                 shade_avatar_url: u.shade_avatar_url,
                 created_at: u.created_at,
