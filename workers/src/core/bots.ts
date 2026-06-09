@@ -17,7 +17,7 @@ export async function runBotAttacks(env: Bindings): Promise<void> {
     .prepare(`
       SELECT c.id, c.level
       FROM characters c JOIN users u ON u.id = c.user_id
-      WHERE u.username LIKE 'bot\\_%' ESCAPE '\\'
+      WHERE u.is_bot = 1
         AND c.current_health > 0 AND c.current_stamina >= 1
       ORDER BY RANDOM() LIMIT ?
     `)
