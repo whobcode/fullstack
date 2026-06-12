@@ -28,6 +28,13 @@ export type Bindings = {
   // Secrets
   GOOGLE_CLIENT_ID?: string;
 
+  // Social OAuth (authorization-code flow) — server-side client id + secret per
+  // provider. A provider's button only appears once both its id and secret are set.
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  DISCORD_CLIENT_ID?: string;
+  DISCORD_CLIENT_SECRET?: string;
+
   // Square Payment Integration
   SQUARE_ACCESS_TOKEN?: string;
   SQUARE_APPLICATION_ID?: string;
