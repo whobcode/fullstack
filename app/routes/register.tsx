@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
+import { OAuthButtons } from '../components/OAuthButtons';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
 
 export default function RegisterPage() {
@@ -101,6 +102,8 @@ export default function RegisterPage() {
                             onError={(err) => setError(err)}
                         />
                     </div>
+
+                    <OAuthButtons />
 
                     <div className="text-center pt-4 border-t border-gray-300 mt-4">
                         <Link to="/login" className="text-social-green-600 hover:underline font-medium">

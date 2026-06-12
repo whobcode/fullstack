@@ -1,16 +1,31 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
+import { OAuthButtons } from '../components/OAuthButtons';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
+
+// Friendly text for ?error=... codes returned by the OAuth redirect flow.
+const OAUTH_ERRORS: Record<string, string> = {
+    oauth_denied: 'Sign-in was cancelled.',
+    oauth_state: 'Sign-in session expired. Please try again.',
+    oauth_failed: 'Could not sign you in with that provider. Please try again.',
+    provider_unavailable: 'That sign-in provider is not available right now.',
+};
 
 export default function LoginPage() {
     const navigate = useNavigate();
     const { login } = useAuth();
+    const [searchParams] = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const code = searchParams.get('error');
+        if (code) setError(OAUTH_ERRORS[code] || 'Sign-in failed. Please try again.');
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,6 +110,8 @@ export default function LoginPage() {
                             onError={(err) => setError(err)}
                         />
                     </div>
+
+                    <OAuthButtons />
 
                     <div className="border-t border-gray-300 pt-4 mt-4">
                         <Link

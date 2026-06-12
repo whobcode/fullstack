@@ -32,6 +32,9 @@ function lazyRoute(
 // Core auth routes - always needed, load eagerly
 import authRoutes from './auth';
 import userRoutes from './users';
+// Social OAuth (GitHub/Discord redirect flow) - lazy loaded. Mounted before
+// `/auth` so /auth/oauth/* resolves to this router rather than the auth router.
+api.route('/auth/oauth', lazyRoute('/api/auth/oauth', () => import('./oauth')));
 api.route('/auth', authRoutes);
 api.route('/users', userRoutes);
 

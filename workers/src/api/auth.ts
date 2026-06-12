@@ -13,7 +13,7 @@ import { rollInitialCharacter, sanitizeGamertag } from '../core/classes';
 const auth = new Hono<{ Bindings: Bindings }>();
 
 // Build the INSERT for a brand-new, immediately-playable character (gamertag + class + base stats).
-async function buildInitialCharacter(db: D1Database, characterId: string, userId: string, seedUsername: string, founder: boolean) {
+export async function buildInitialCharacter(db: D1Database, characterId: string, userId: string, seedUsername: string, founder: boolean) {
   const gamertag = await generateUniqueGamertag(db, sanitizeGamertag(seedUsername));
   const c = rollInitialCharacter({ seed: userId, autoMax: founder });
   return db.prepare(
@@ -251,7 +251,7 @@ async function ensureUserFromGoogle(db: D1Database, profile: GoogleTokenPayload)
   };
 }
 
-async function generateUniqueUsername(db: D1Database, base: string): Promise<string> {
+export async function generateUniqueUsername(db: D1Database, base: string): Promise<string> {
   let candidate = base || 'player';
   let suffix = 0;
   const MAX_ATTEMPTS = 10000;
@@ -266,10 +266,10 @@ async function generateUniqueUsername(db: D1Database, base: string): Promise<str
 }
 
 // Special account usernames that get elevated privileges
-const SPECIAL_USERNAMES = ['trubone'];
+export const SPECIAL_USERNAMES = ['trubone'];
 
 // Helper to check and grant special account status
-async function checkAndGrantSpecialAccount(db: D1Database, userId: string, username: string): Promise<void> {
+export async function checkAndGrantSpecialAccount(db: D1Database, userId: string, username: string): Promise<void> {
   // Check if this is a special username
   if (!SPECIAL_USERNAMES.includes(username.toLowerCase())) {
     return;
