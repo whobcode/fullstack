@@ -7,15 +7,16 @@ This is a full-stack social platform with a dedicated RPG game section, built en
 This platform is designed as a comprehensive social network where users can manage profiles, interact with friends, and post content. Uniquely, every user account is automatically linked to an RPG character, which they can develop and use in a separate, dedicated game section of the application.
 
 - **Social Platform**: Handles user accounts, profiles, friends, posts, and groups.
-- **RPG Game Section**: A distinct area for character management, turn-based battles (asynchronous implemented), and progression.
+- **RPG Game Section** (`.shade`, routes under `/shade`): character management and an instantly-resolved PvP battle system (speed-based initiative & multi-hit, mitigation damage, kills/trophies, defense characters), plus autonomous bot opponents that keep the world active 24/7. See **[docs/GAME.md](docs/GAME.md)** for the full game systems.
 
 ## Tech Stack
 
 - **Backend**: Hono on Cloudflare Workers
   - **Database**: Cloudflare D1 for all relational data.
   - **Real-time**: Cloudflare Durable Objects (scaffolded for real-time battles).
-  - **Background Jobs**: Cloudflare Queues (scaffolded) and Cron Triggers (for offline XP).
-  - **Configuration**: Cloudflare KV (scaffolded).
+  - **Background Jobs**: Cron Triggers run every 15 min — offline XP, resource regeneration, and autonomous bot attacks (`workers/src/core/cron.ts`). Cloudflare Queues are scaffolded.
+  - **AI**: Workers AI powers speech-to-text (Whisper) and the in-game voice assistant / coach; Wit.ai for text-to-speech.
+  - **Storage**: Cloudflare KV (voice history) and R2 (avatars/media).
 - **Frontend**: React + Vite + React Router
   - SPA architecture with file-based routing.
   - Styled with Tailwind CSS.
