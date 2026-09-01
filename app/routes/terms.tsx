@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function TermsOfServicePage() {
     return (
-        <div className="min-h-screen bg-social-cream-100 py-12 px-4">
+        <div className="min-h-screen social-dark-bg py-12 px-4">
             <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-8">
                 <div className="mb-8">
                     <Link to="/" className="text-4xl font-bold text-social-green-600">me</Link>

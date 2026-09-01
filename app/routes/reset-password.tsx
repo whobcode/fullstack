@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
 
     if (!token) {
         return (
-            <div className="min-h-screen bg-social-cream-100 flex items-center justify-center py-12 px-4">
+            <div className="min-h-screen social-dark-bg flex items-center justify-center py-12 px-4">
                 <div className="w-full max-w-md">
                     <div className="text-center mb-8">
                         <Link to="/" className="text-6xl font-bold text-social-green-600">me</Link>
@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen bg-social-cream-100 flex items-center justify-center py-12 px-4">
+        <div className="min-h-screen social-dark-bg flex items-center justify-center py-12 px-4">
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">

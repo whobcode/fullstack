@@ -1,6 +1,7 @@
 export type Bindings = {
-  // D1 Database
+  // D1 Databases
   DB: D1Database;
+  HUES_DB: D1Database; // 8hues database, for user migration/sync
 
   // R2 Buckets
   MEDIA: R2Bucket;

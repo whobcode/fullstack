@@ -101,7 +101,7 @@ export default function GroupsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50 flex items-center justify-center">
+      <div className="min-h-screen social-dark-bg flex items-center justify-center">
         <div className="relative">
           <div className="w-16 h-16 border-4 border-social-green-200 rounded-full animate-spin border-t-social-green-600"></div>
         </div>
@@ -110,7 +110,7 @@ export default function GroupsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50/30 to-emerald-50/50">
+    <div className="min-h-screen social-dark-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <header className="relative overflow-hidden rounded-3xl social-panel p-8 lg:p-10">
           <div className="absolute inset-0 bg-gradient-to-br from-social-green-500/5 to-transparent"></div>

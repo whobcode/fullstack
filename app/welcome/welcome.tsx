@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 export function Welcome({ message }: { message: string }) {
   return (
-    <main className="min-h-screen bg-social-cream-100">
+    <main className="min-h-screen social-dark-bg">
       {/* Hero Section */}
       <div className="bg-social-green-600 py-8">
         <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-8">

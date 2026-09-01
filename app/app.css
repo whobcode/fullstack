@@ -79,51 +79,59 @@
   --color-social-gold-200: #E6D5A8;
   --color-social-gold-300: #D4B96D;
   --color-social-gold-400: #C9A227;
-  --color-social-gold-500: #B8860B;
-  --color-social-gold-600: #996515;
-  --color-social-gold-700: #7A5011;
+  --color-social-gold-500: #C9A227;
+  --color-social-gold-600: #D9B44A; /* brightened: used as text on the dark ground */
+  --color-social-gold-700: #A8801F;
   --color-social-gold-800: #5C3D0D;
   --color-social-gold-900: #3D2809;
   --color-social-gold-950: #1F1404;
 
-  /* Social Cream Scale - Clean Neutral Grays */
-  --color-social-cream-50: #FAFAFA;
-  --color-social-cream-100: #F5F5F5;
-  --color-social-cream-200: #ECECEC;
-  --color-social-cream-300: #E0E0E0;
-  --color-social-cream-400: #D0D0D0;
-  --color-social-cream-500: #BDBDBD;
-  --color-social-cream-600: #9E9E9E;
-  --color-social-cream-700: #757575;
-  --color-social-cream-800: #616161;
-  --color-social-cream-900: #424242;
-  --color-social-cream-950: #212121;
+  /* Social Cream Scale - Dark theme: low = near-black surfaces, high = light blue text.
+     The ramp is inverted from its original light-gray form so existing
+     bg-social-cream-* utilities render as dark surfaces and text-social-cream-*
+     utilities render as high-contrast light blue. */
+  --color-social-cream-50: #05070D;
+  --color-social-cream-100: #0A0E18;
+  --color-social-cream-200: #121826;
+  --color-social-cream-300: #1B2334;
+  --color-social-cream-400: #263047;
+  --color-social-cream-500: #8FB3D9;
+  --color-social-cream-600: #A8C6E4;
+  --color-social-cream-700: #C0D6EE;
+  --color-social-cream-800: #D6E6F6;
+  --color-social-cream-900: #E8F2FC;
+  --color-social-cream-950: #F4F9FF;
 
-  /* Social Green Scale - Professional Forest Green */
-  --color-social-green-50: #E8F5E9;
-  --color-social-green-100: #C8E6C9;
-  --color-social-green-200: #A5D6A7;
-  --color-social-green-300: #81C784;
-  --color-social-green-400: #66BB6A;
-  --color-social-green-500: #2E7D32;
-  --color-social-green-600: #1B5E20;
-  --color-social-green-700: #145214;
-  --color-social-green-800: #0D3D0D;
-  --color-social-green-900: #082608;
-  --color-social-green-950: #041504;
+  /* Social Green Scale - Dark theme: repurposed as the blue accent ramp. 50-200
+     are dark surfaces/borders; 300-700 are accent blues bright enough to read as
+     text on the dark ground while still working as button fills. */
+  --color-social-green-50: #071019;
+  --color-social-green-100: #0C1B29;
+  --color-social-green-200: #16293C;
+  --color-social-green-300: #9CC8EA;
+  --color-social-green-400: #6FB3E4;
+  --color-social-green-500: #4A9FE0;
+  --color-social-green-600: #3B93D9;
+  --color-social-green-700: #2E7FC4;
+  --color-social-green-800: #1F5E93;
+  --color-social-green-900: #14405F;
+  --color-social-green-950: #0A2131;
 
-  /* Social Forest Scale - Deep Charcoal Forest */
-  --color-social-forest-50: #E8F0EA;
-  --color-social-forest-100: #C5D9CA;
-  --color-social-forest-200: #9AB8A2;
-  --color-social-forest-300: #6E977A;
-  --color-social-forest-400: #4A7756;
-  --color-social-forest-500: #2C5836;
-  --color-social-forest-600: #1A3D22;
-  --color-social-forest-700: #0A2910;
-  --color-social-forest-800: #071D0B;
-  --color-social-forest-900: #051A08;
-  --color-social-forest-950: #020A03;
+  /* Social Forest Scale - Dark theme: this ramp is almost entirely text
+     (text-social-forest-700 is the primary body color), so 400-950 are light
+     blues for contrast against the dark ground. 50-300 stay dark for the few
+     surface uses. Gradient/background utilities on 600-900 are corrected below. */
+  --color-social-forest-50: #060A12;
+  --color-social-forest-100: #0B111C;
+  --color-social-forest-200: #131C2B;
+  --color-social-forest-300: #1D2A3E;
+  --color-social-forest-400: #7FA8D8;
+  --color-social-forest-500: #93B9E6;
+  --color-social-forest-600: #A9CCF2;
+  --color-social-forest-700: #C3DDFB;
+  --color-social-forest-800: #D8E9FE;
+  --color-social-forest-900: #E9F3FF;
+  --color-social-forest-950: #F5FAFF;
 }
 
 /* Neon Glow Animations */
@@ -671,4 +679,46 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-gray-mid);
   box-shadow: 0 0 5px var(--color-neon-red-glow);
+}
+
+/* ==========================================================================
+   Social side - dark theme
+   ========================================================================== */
+
+/* Page ground for the social routes: radial gradient fading to black. */
+.social-dark-bg {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    #141B2E 0%,
+    #0B0F1A 45%,
+    #05070D 75%,
+    #000000 100%
+  );
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* The forest and green ramps are read as text almost everywhere, so they were
+   re-pointed at light blues above. The handful of places that use them as a
+   surface or gradient stop need to stay dark - corrected here. */
+.bg-social-forest-600,
+.bg-social-forest-700 {
+  background-color: #0E1626;
+}
+
+.from-social-forest-600,
+.from-social-forest-700 {
+  --tw-gradient-from: #0E1626;
+}
+
+.to-social-forest-800,
+.to-social-forest-900 {
+  --tw-gradient-to: #05070D;
+}
+
+/* Green 500-700 stay as accent fills; ensure text on them is legible. */
+.bg-social-green-500,
+.bg-social-green-600,
+.bg-social-green-700 {
+  color: #F4F9FF;
 }

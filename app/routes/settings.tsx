@@ -196,7 +196,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-social-cream-100 via-social-cream-200 to-social-cream-300 py-6">
+    <div className="min-h-screen social-dark-bg py-6">
       <div className="max-w-2xl mx-auto px-4 space-y-6">
       {/* Header */}
       <header className="social-panel rounded-3xl p-6 shadow-xl">

@@ -164,7 +164,7 @@ export default function MyProfilePage() {
   const needsUsername = username.startsWith("g_") || username.startsWith("guser");
 
   return (
-    <div className="min-h-screen bg-social-cream-100">
+    <div className="min-h-screen social-dark-bg">
       {/* Hidden file inputs */}
       <input
         type="file"
