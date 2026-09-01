@@ -1,28 +1,48 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
+import CharacterCard from "../components/CharacterCard";
+
+type ProfileData = {
+  username: string;
+  avatar_url?: string;
+  bio?: string;
+  cover_photo_url?: string;
+};
 
 export default function MyProfilePage() {
   const { user, login } = useAuth();
   const [username, setUsername] = useState(user?.username ?? "");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Upload states
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // File input refs
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await apiClient.get<{ data: { username: string; avatar_url?: string; bio?: string } }>("/users/me");
+        const res = await apiClient.get<{ data: ProfileData }>("/users/me");
         setUsername(res.data.username);
         setAvatarUrl(res.data.avatar_url ?? "");
         setBio(res.data.bio ?? "");
+        setCoverPhotoUrl(res.data.cover_photo_url ?? "");
       } catch (err: any) {
         setError(err.message);
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,67 +50,335 @@ export default function MyProfilePage() {
     setStatus(null);
     setError(null);
     try {
-      await apiClient.put("/users/me", { username, bio, avatar_url: avatarUrl });
+      await apiClient.put("/users/me", { username, bio });
       if (user) {
         login({ ...user, username });
       }
       setStatus("Saved");
+      setIsEditing(false);
     } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const needsUsername = username.startsWith("fb_");
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Avatar must be less than 5MB');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => setAvatarPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload
+    setAvatarUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json() as { success?: boolean; url?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      setAvatarUrl(data.url || '');
+      setAvatarPreview(null);
+      setStatus('Avatar updated!');
+    } catch (err: any) {
+      setError(err.message);
+      setAvatarPreview(null);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Cover photo must be less than 10MB');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => setCoverPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload
+    setCoverUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload/cover', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json() as { success?: boolean; url?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      setCoverPhotoUrl(data.url || '');
+      setCoverPreview(null);
+      setStatus('Cover photo updated!');
+    } catch (err: any) {
+      setError(err.message);
+      setCoverPreview(null);
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+
+  const needsUsername = username.startsWith("g_") || username.startsWith("guser");
 
   return (
-    <div className="social-dark-bg py-6">
-      <div className="max-w-2xl mx-auto px-4 space-y-4">
-        <header className="rounded-3xl social-dark-card p-6 shadow-xl">
-          <p className="text-xs uppercase tracking-wide text-social-blue-400">Your Profile</p>
-          <h1 className="text-3xl font-bold text-social-blue-300">Edit Profile</h1>
-          {needsUsername && (
-            <p className="mt-2 text-sm text-social-orange-400">Pick a custom username to replace the temporary Facebook one.</p>
-          )}
-        </header>
+    <div className="min-h-screen bg-social-cream-100">
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={avatarInputRef}
+        onChange={handleAvatarUpload}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={coverInputRef}
+        onChange={handleCoverUpload}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl social-dark-card p-5 shadow">
-          <div>
-            <label className="block text-sm text-social-blue-400 mb-1">Username</label>
-            <input
-              className="w-full rounded-lg bg-black/50 border border-social-blue-600/30 text-social-blue-200 px-3 py-2 placeholder:text-social-blue-600 focus:border-social-blue-400 focus:outline-none"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-social-blue-400 mb-1">Avatar URL</label>
-            <input
-              className="w-full rounded-lg bg-black/50 border border-social-blue-600/30 text-social-blue-200 px-3 py-2 placeholder:text-social-blue-600 focus:border-social-blue-400 focus:outline-none"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-social-blue-400 mb-1">Bio</label>
-            <textarea
-              className="w-full rounded-lg bg-black/50 border border-social-blue-600/30 text-social-blue-200 px-3 py-2 placeholder:text-social-blue-600 focus:border-social-blue-400 focus:outline-none"
-              rows={3}
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell us about yourself..."
-            />
-          </div>
-          {error && <p className="text-sm text-social-orange-400">{error}</p>}
-          {status && <p className="text-sm text-social-blue-400">{status}</p>}
+      {/* Cover Photo Section */}
+      <div className="relative">
+        <div
+          className="h-64 md:h-80 w-full bg-gradient-to-r from-social-green-500 to-social-green-600 relative group"
+          style={(coverPreview || coverPhotoUrl) ? {
+            backgroundImage: `url(${coverPreview || coverPhotoUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : {}}
+        >
+          {!coverPhotoUrl && !coverPreview && (
+            <div className="absolute inset-0 flex items-center justify-center text-social-green-200">
+              <span className="text-lg">No cover photo</span>
+            </div>
+          )}
+
+          {/* Cover Upload Button */}
           <button
-            type="submit"
-            className="rounded-lg social-button px-4 py-2 font-semibold"
+            onClick={() => coverInputRef.current?.click()}
+            disabled={coverUploading}
+            className="absolute bottom-4 right-4 bg-black/50 hover:bg-black/70 text-white px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 opacity-0 group-hover:opacity-100"
           >
-            Save Profile
+            {coverUploading ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Uploading...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Edit Cover Photo
+              </>
+            )}
           </button>
-        </form>
+        </div>
+
+        {/* Profile Info Overlay */}
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="pt-6">
+            <CharacterCard userId={user?.id} />
+          </div>
+          <div className="relative -mt-20 flex flex-col md:flex-row items-center md:items-end gap-4">
+            {/* Profile Picture with Upload */}
+            <div className="relative group">
+              {(avatarPreview || avatarUrl) ? (
+                <img
+                  src={avatarPreview || avatarUrl}
+                  alt={username}
+                  className="w-40 h-40 rounded-full border-4 border-white shadow-lg object-cover bg-white"
+                />
+              ) : (
+                <div className="w-40 h-40 rounded-full border-4 border-white shadow-lg bg-social-green-100 flex items-center justify-center">
+                  <span className="text-5xl font-bold text-social-green-600">
+                    {username?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+
+              {/* Avatar Upload Button */}
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute bottom-2 right-2 bg-social-green-600 hover:bg-social-green-700 text-white p-2 rounded-full shadow-lg transition-all"
+              >
+                {avatarUploading ? (
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Name and Actions */}
+            <div className="flex-1 text-center md:text-left pb-4">
+              <h1 className="text-3xl font-bold text-social-forest-700">{username}</h1>
+            </div>
+
+            {/* Edit Button */}
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="bg-social-cream-200 hover:bg-social-cream-300 text-social-forest-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+              </svg>
+              Edit Profile
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Status/Error Messages */}
+      {(status || error) && (
+        <div className="max-w-4xl mx-auto px-4 mt-4">
+          {status && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">
+              {status}
+            </div>
+          )}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Profile Content */}
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Left Column - Intro */}
+          <div className="md:col-span-1 space-y-4">
+            <div className="bg-white rounded-lg shadow p-4">
+              <h2 className="text-xl font-bold text-social-forest-700 mb-3">Intro</h2>
+
+              {bio && (
+                <p className="text-social-forest-600 text-center mb-3">{bio}</p>
+              )}
+
+              {!bio && (
+                <p className="text-social-forest-400 text-center text-sm">Add a bio to tell people about yourself</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Edit Form or Posts */}
+          <div className="md:col-span-2">
+            {needsUsername && (
+              <div className="bg-social-gold-50 border border-social-gold-200 rounded-lg p-4 mb-4">
+                <p className="text-social-gold-800 font-medium">
+                  Choose a custom username to personalize your profile.
+                </p>
+              </div>
+            )}
+
+            {isEditing ? (
+              <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-4">
+                <h2 className="text-xl font-bold text-social-forest-700">Edit Profile</h2>
+
+                <div>
+                  <label className="block text-sm font-medium text-social-forest-600 mb-1">Username</label>
+                  <input
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-social-forest-600 mb-1">Bio</label>
+                  <textarea
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 bg-white text-social-forest-700 placeholder-gray-400"
+                    rows={3}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell us about yourself..."
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{bio.length}/160 characters</p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    className="bg-social-green-600 hover:bg-social-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="bg-gray-200 hover:bg-gray-300 text-social-forest-700 px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-social-forest-700 mb-4">Posts</h2>
+                <p className="text-social-forest-500 text-center py-8">No posts yet. Share something with your friends!</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

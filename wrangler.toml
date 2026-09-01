@@ -68,12 +68,6 @@ database_name = "social_rpg_db"
 database_id = "fa8ff2b3-6fc2-4ae7-bcd9-eaf5bb2ef6e6"
 migrations_dir = "migrations"
 
-# 8hues database - for user migration/sync
-[[d1_databases]]
-binding = "HUES_DB"
-database_name = "hue_green_db"
-database_id = "42c1a01b-3a92-445e-b7d2-2fedc5ee0060"
-
 # Durable Object Bindings
 # https://developers.cloudflare.com/workers/wrangler/configuration/#durable-objects
 [durable_objects]

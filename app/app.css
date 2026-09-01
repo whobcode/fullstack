@@ -535,30 +535,6 @@
   transform: scale(1.05);
 }
 
-/* Social Dark Theme - Radial Gradient */
-.social-dark-bg {
-  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1a 50%, #000000 100%);
-  min-height: 100vh;
-}
-
-.social-dark-card {
-  background: radial-gradient(ellipse at top, rgba(30, 30, 50, 0.8) 0%, rgba(15, 15, 26, 0.9) 100%);
-  border: 1px solid rgba(0, 191, 255, 0.3);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
-              inset 0 1px 0 rgba(0, 191, 255, 0.1);
-}
-
-.social-dark-card:hover {
-  border-color: rgba(0, 191, 255, 0.5);
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6),
-              0 0 15px rgba(0, 191, 255, 0.15);
-}
-
-.social-dark-card-subtle {
-  background: rgba(20, 20, 35, 0.6);
-  border: 1px solid rgba(0, 191, 255, 0.2);
-}
-
 /* Social Navigation */
 .social-nav {
   background: var(--color-social-cream-50);
