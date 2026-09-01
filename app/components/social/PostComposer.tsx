@@ -30,27 +30,27 @@ export function PostComposer({ onPostCreated }: Props) {
 
   if (!isAuthenticated) {
     return (
-      <div className="social-panel rounded-2xl p-6 text-center">
-        <p className="text-gray-500">Log in to share updates with your network.</p>
+      <div className="rounded-2xl social-dark-card p-4 text-sm text-social-blue-400">
+        Log in to share updates with your network.
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="social-panel rounded-2xl p-6">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl social-dark-card p-4">
       <textarea
-        className="w-full px-5 py-4 bg-gray-50/80 border-0 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-social-green-500/30 focus:bg-white transition-all duration-300 resize-none"
+        className="w-full rounded-xl bg-black/50 border border-social-blue-600/30 text-social-blue-200 px-3 py-2 text-sm placeholder:text-social-blue-600 focus:border-social-blue-400 focus:outline-none"
         rows={3}
         placeholder="What's on your mind?"
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
-      <div className="flex justify-end mt-4">
+      {error && <p className="text-xs text-social-orange-400">{error}</p>}
+      <div className="flex justify-end">
         <button
           type="submit"
           disabled={submitting}
-          className="social-button rounded-xl px-6 py-3 font-semibold disabled:opacity-50"
+          className="rounded-lg social-button px-4 py-2 text-sm font-semibold disabled:opacity-60"
         >
           {submitting ? "Posting..." : "Post"}
         </button>
