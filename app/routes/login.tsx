@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { OAuthButtons } from '../components/OAuthButtons';
 import { MagicLinkAuthCard } from '../components/MagicLinkAuthCard';
+import { PhoneAuthCard } from '../components/PhoneAuthCard';
 
 // Friendly text for ?error=... codes returned by the OAuth redirect flow.
 const OAUTH_ERRORS: Record<string, string> = {
@@ -52,11 +53,11 @@ export default function LoginPage() {
                 <div className="bg-white rounded-lg shadow-xl p-6 space-y-4">
                     <form onSubmit={handleSubmit} className="space-y-3">
                         <input
-                            type="email"
+                            type="text"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Email address"
-                            autoComplete="email"
+                            placeholder="Email or phone number"
+                            autoComplete="username"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-social-green-500 text-lg bg-white text-social-forest-700 placeholder-gray-400"
                             required
                         />
@@ -96,6 +97,12 @@ export default function LoginPage() {
                     <MagicLinkAuthCard
                         title="Sign in with Email"
                         description="No password needed - we'll email you a link"
+                    />
+
+                    <PhoneAuthCard
+                        onAuthenticated={({ needs_username_confirmation }) => {
+                            navigate(needs_username_confirmation ? '/profile/me' : '/feed');
+                        }}
                     />
 
                     <div className="flex justify-center">

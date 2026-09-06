@@ -46,6 +46,16 @@ export type Bindings = {
   RESEND_API_KEY?: string;
   APP_URL?: string;
 
+  // SMS (Twilio) - phone login. Phone auth is disabled unless all three are set.
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_FROM_NUMBER?: string;
+
+  // Server-side key for the contact-matching phone HMAC. Contact discovery is
+  // disabled unless this is set - see workers/src/lib/phone.ts for why an
+  // unkeyed hash would not be good enough.
+  PHONE_HASH_PEPPER?: string;
+
   // Wit.ai Voice Integration
   WIT_AI_TOKEN?: string;
 };

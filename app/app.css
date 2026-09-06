@@ -722,3 +722,63 @@ body {
 .bg-social-green-700 {
   color: #F4F9FF;
 }
+
+/* Inputs and cards written as bg-white predate the dark theme. Left alone they
+   render light-blue text on white, which is unreadable - inside a dark page
+   they become a dark surface instead. Scoped to .social-dark-bg so the game
+   routes, which keep their own theme, are untouched. */
+.social-dark-bg .bg-white {
+  background-color: var(--color-social-cream-200);
+}
+
+.social-dark-bg .bg-white::placeholder,
+.social-dark-bg .bg-white input::placeholder,
+.social-dark-bg .placeholder-gray-400::placeholder {
+  color: var(--color-social-forest-400);
+}
+
+/* Stock Tailwind grays are used throughout these pages for body text, cards and
+   borders. They were chosen against a light background, so on the dark ground
+   they range from low-contrast to invisible (text-gray-900 is near-black).
+   Remap them onto the same light-blue/dark-surface scale the social tokens use.
+   Scoped to .social-dark-bg, so the game routes are unaffected. */
+.social-dark-bg .text-gray-900,
+.social-dark-bg .text-gray-800,
+.social-dark-bg .text-gray-700 {
+  color: var(--color-social-forest-700);
+}
+
+.social-dark-bg .text-gray-600,
+.social-dark-bg .text-gray-500 {
+  color: var(--color-social-forest-500);
+}
+
+.social-dark-bg .text-gray-400,
+.social-dark-bg .text-gray-300 {
+  color: var(--color-social-forest-400);
+}
+
+.social-dark-bg .bg-gray-50,
+.social-dark-bg .bg-gray-100 {
+  background-color: var(--color-social-cream-200);
+}
+
+.social-dark-bg .bg-gray-200,
+.social-dark-bg .bg-gray-300 {
+  background-color: var(--color-social-cream-300);
+}
+
+.social-dark-bg .border-gray-100,
+.social-dark-bg .border-gray-200,
+.social-dark-bg .border-gray-300 {
+  border-color: var(--color-social-cream-400);
+}
+
+/* Translucent white overlays read as light smears on a dark ground. */
+.social-dark-bg .bg-white\/95 { background-color: rgb(18 24 38 / 0.95); }
+.social-dark-bg .bg-white\/90 { background-color: rgb(18 24 38 / 0.90); }
+.social-dark-bg .bg-white\/80 { background-color: rgb(18 24 38 / 0.80); }
+.social-dark-bg .bg-white\/60 { background-color: rgb(18 24 38 / 0.60); }
+.social-dark-bg .bg-white\/25 { background-color: rgb(255 255 255 / 0.06); }
+.social-dark-bg .bg-white\/15 { background-color: rgb(255 255 255 / 0.05); }
+.social-dark-bg .bg-white\/10 { background-color: rgb(255 255 255 / 0.04); }

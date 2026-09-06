@@ -14,8 +14,13 @@ export const registerSchema = z.object({
     .min(8, { message: 'Password must be at least 8 characters long' }),
 });
 
+// The `email` field carries either an email address or a phone number; the
+// handler decides which by looking for an "@". It keeps its original name so
+// that existing clients posting `{ email, password }` keep working.
 export const loginSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address' }),
+  email: z
+    .string()
+    .min(3, { message: 'Enter your email address or phone number' }),
   password: z.string().min(1, { message: 'Password is required' }),
 });
 

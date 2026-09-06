@@ -5,6 +5,14 @@ import type { Bindings } from '../bindings';
 import { authMiddleware } from './middleware/auth';
 import type { AuthenticatedUser } from './middleware/auth';
 import { updateProfileSchema } from '../shared/schemas/profile';
+import {
+  contactMatchSchema,
+  locationUpdateSchema,
+  discoverySettingsSchema,
+  dismissSuggestionSchema,
+} from '../shared/schemas/phone';
+import { normalizePhone, hashPhone } from '../lib/phone';
+import { encodeGeohash, GEOHASH_PRECISION } from '../lib/geo';
 
 // Best-effort delete of an R2 object given its public URL (avatars/covers).
 async function deleteMediaByUrl(env: Bindings, url: string | null | undefined): Promise<void> {
@@ -159,29 +167,268 @@ users.get('/search', authMiddleware, async (c) => {
   return c.json({ data: results.results });
 });
 
-// GET /api/users/recommendations - Get friend recommendations
+// GET /api/users/recommendations - Ranked friend suggestions.
+//
+// Signals, strongest first: someone already in the caller's matched contacts,
+// then shared friends, then the same coarse location cell. Each suggestion
+// carries the reason it surfaced so the UI can say why, rather than presenting
+// an unexplained list of strangers.
 users.get('/recommendations', authMiddleware, async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  // Get users that aren't already friends/pending (random selection)
-  const results = await db.prepare(`
-    SELECT u.id, u.username, u.avatar_url
-    FROM users u
-    WHERE u.id != ?
-      AND u.id NOT IN (
-        SELECT CASE
-          WHEN f.requester_id = ? THEN f.addressee_id
-          ELSE f.requester_id
-        END
+  try {
+    const results = await db.prepare(`
+      WITH me AS (
+        SELECT location_geohash, discoverable_by_location
+        FROM users WHERE id = ?1
+      ),
+      my_friends AS (
+        SELECT CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END AS friend_id
         FROM friends f
-        WHERE f.requester_id = ? OR f.addressee_id = ?
+        WHERE (f.requester_id = ?1 OR f.addressee_id = ?1) AND f.status = 'accepted'
+      ),
+      excluded AS (
+        SELECT CASE WHEN f.requester_id = ?1 THEN f.addressee_id ELSE f.requester_id END AS id
+        FROM friends f WHERE f.requester_id = ?1 OR f.addressee_id = ?1
+        UNION SELECT suggested_user_id FROM suggestion_dismissals WHERE user_id = ?1
+        UNION SELECT ?1
+      ),
+      mutuals AS (
+        SELECT CASE WHEN f2.requester_id = mf.friend_id THEN f2.addressee_id ELSE f2.requester_id END AS id,
+               COUNT(*) AS mutual_count
+        FROM my_friends mf
+        JOIN friends f2
+          ON (f2.requester_id = mf.friend_id OR f2.addressee_id = mf.friend_id)
+         AND f2.status = 'accepted'
+        GROUP BY id
       )
-    ORDER BY RANDOM()
-    LIMIT 6
-  `).bind(user.id, user.id, user.id, user.id).all();
+      SELECT
+        u.id,
+        u.username,
+        u.avatar_url,
+        CASE WHEN cm.matched_user_id IS NOT NULL THEN 1 ELSE 0 END AS from_contacts,
+        COALESCE(mu.mutual_count, 0) AS mutual_friends,
+        CASE
+          WHEN u.discoverable_by_location = 1
+           AND me.location_geohash IS NOT NULL
+           AND u.location_geohash = me.location_geohash
+          THEN 1 ELSE 0
+        END AS nearby
+      FROM users u
+      CROSS JOIN me
+      LEFT JOIN contact_matches cm ON cm.user_id = ?1 AND cm.matched_user_id = u.id
+      LEFT JOIN mutuals mu ON mu.id = u.id
+      WHERE u.id NOT IN (SELECT id FROM excluded)
+        AND COALESCE(u.is_bot, 0) = 0
+      ORDER BY from_contacts DESC, mutual_friends DESC, nearby DESC, RANDOM()
+      LIMIT 12
+    `).bind(user.id).all<{
+      id: string;
+      username: string;
+      avatar_url: string | null;
+      from_contacts: number;
+      mutual_friends: number;
+      nearby: number;
+    }>();
 
-  return c.json({ data: results.results });
+    const data = (results.results ?? []).map(r => ({
+      id: r.id,
+      username: r.username,
+      avatar_url: r.avatar_url,
+      from_contacts: Boolean(r.from_contacts),
+      mutual_friends: r.mutual_friends,
+      nearby: Boolean(r.nearby),
+      reason: r.from_contacts
+        ? 'In your contacts'
+        : r.mutual_friends > 0
+          ? `${r.mutual_friends} mutual friend${r.mutual_friends === 1 ? '' : 's'}`
+          : r.nearby
+            ? 'Near you'
+            : 'Suggested for you',
+    }));
+
+    return c.json({ data });
+  } catch (error) {
+    console.error('Recommendations error:', error);
+    return c.json({ error: 'Failed to load suggestions' }, 500);
+  }
+});
+
+// POST /api/users/contacts/match - Find which of the caller's contacts are here.
+//
+// The uploaded numbers are normalized, hashed with the server-side pepper and
+// matched in-request. Only the resulting edges are stored: the address book
+// itself is never written to the database. Users who have turned off phone
+// discovery are excluded from matching entirely.
+users.post('/contacts/match', authMiddleware, zValidator('json', contactMatchSchema), async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+  const pepper = c.env.PHONE_HASH_PEPPER;
+
+  if (!pepper) {
+    console.error('PHONE_HASH_PEPPER not configured');
+    return c.json({ error: 'Contact discovery not configured' }, 503);
+  }
+
+  const { phones } = c.req.valid('json');
+
+  try {
+    const hashes = new Set<string>();
+    for (const raw of phones) {
+      const e164 = normalizePhone(raw);
+      if (e164) hashes.add(await hashPhone(e164, pepper));
+    }
+
+    if (hashes.size === 0) {
+      return c.json({ data: [], matched: 0 });
+    }
+
+    // Chunked so the SQL variable count stays sane on large address books.
+    const CHUNK = 100;
+    const list = [...hashes];
+    const matches: { id: string; username: string; avatar_url: string | null }[] = [];
+
+    for (let i = 0; i < list.length; i += CHUNK) {
+      const chunk = list.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => '?').join(',');
+      const found = await db
+        .prepare(`SELECT id, username, avatar_url FROM users
+                  WHERE phone_hash IN (${placeholders})
+                    AND discoverable_by_phone = 1
+                    AND id != ?`)
+        .bind(...chunk, user.id)
+        .all<{ id: string; username: string; avatar_url: string | null }>();
+      if (found.results) matches.push(...found.results);
+    }
+
+    if (matches.length > 0) {
+      const CONTACT_CHUNK = 50;
+      for (let i = 0; i < matches.length; i += CONTACT_CHUNK) {
+        await db.batch(
+          matches.slice(i, i + CONTACT_CHUNK).map(m =>
+            db
+              .prepare('INSERT OR IGNORE INTO contact_matches (user_id, matched_user_id) VALUES (?, ?)')
+              .bind(user.id, m.id)
+          )
+        );
+      }
+    }
+
+    return c.json({ data: matches, matched: matches.length });
+  } catch (error) {
+    console.error('Contact match error:', error);
+    return c.json({ error: 'Failed to match contacts' }, 500);
+  }
+});
+
+// PUT /api/users/me/location - Record a coarse location for "near you".
+// Only the geohash cell is kept; the coordinates themselves are discarded.
+users.put('/me/location', authMiddleware, zValidator('json', locationUpdateSchema), async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+  const { latitude, longitude } = c.req.valid('json');
+
+  try {
+    const geohash = encodeGeohash(latitude, longitude, GEOHASH_PRECISION.METRO);
+
+    await db
+      .prepare(`UPDATE users
+                SET location_geohash = ?, location_updated_at = CURRENT_TIMESTAMP,
+                    discoverable_by_location = 1
+                WHERE id = ?`)
+      .bind(geohash, user.id)
+      .run();
+
+    return c.json({ message: 'Location updated' });
+  } catch (error) {
+    console.error('Location update error:', error);
+    return c.json({ error: 'Failed to update location' }, 500);
+  }
+});
+
+// DELETE /api/users/me/location - Stop sharing location and forget the cell.
+users.delete('/me/location', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  await db
+    .prepare(`UPDATE users
+              SET location_geohash = NULL, location_updated_at = NULL,
+                  discoverable_by_location = 0
+              WHERE id = ?`)
+    .bind(user.id)
+    .run();
+
+  return c.json({ message: 'Location sharing turned off' });
+});
+
+// GET/PUT /api/users/me/discovery - Read and change the discovery toggles.
+users.get('/me/discovery', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const row = await db
+    .prepare(`SELECT phone, phone_verified, discoverable_by_phone, discoverable_by_location
+              FROM users WHERE id = ?`)
+    .bind(user.id)
+    .first<{ phone: string | null; phone_verified: number; discoverable_by_phone: number; discoverable_by_location: number }>();
+
+  return c.json({
+    data: {
+      phone: row?.phone ?? null,
+      phone_verified: Boolean(row?.phone_verified),
+      discoverable_by_phone: Boolean(row?.discoverable_by_phone),
+      discoverable_by_location: Boolean(row?.discoverable_by_location),
+    },
+  });
+});
+
+users.put('/me/discovery', authMiddleware, zValidator('json', discoverySettingsSchema), async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+  const { discoverable_by_phone, discoverable_by_location } = c.req.valid('json');
+
+  const sets: string[] = [];
+  const values: (number | string)[] = [];
+
+  if (discoverable_by_phone !== undefined) {
+    sets.push('discoverable_by_phone = ?');
+    values.push(discoverable_by_phone ? 1 : 0);
+  }
+  if (discoverable_by_location !== undefined) {
+    sets.push('discoverable_by_location = ?');
+    values.push(discoverable_by_location ? 1 : 0);
+    // Turning location discovery off should also drop the stored cell.
+    if (!discoverable_by_location) {
+      sets.push('location_geohash = NULL', 'location_updated_at = NULL');
+    }
+  }
+
+  if (sets.length === 0) {
+    return c.json({ message: 'Nothing to update' });
+  }
+
+  await db
+    .prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`)
+    .bind(...values, user.id)
+    .run();
+
+  return c.json({ message: 'Discovery settings updated' });
+});
+
+// POST /api/users/suggestions/dismiss - Stop suggesting someone.
+users.post('/suggestions/dismiss', authMiddleware, zValidator('json', dismissSuggestionSchema), async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+  const { userId } = c.req.valid('json');
+
+  await db
+    .prepare('INSERT OR IGNORE INTO suggestion_dismissals (user_id, suggested_user_id) VALUES (?, ?)')
+    .bind(user.id, userId)
+    .run();
+
+  return c.json({ message: 'Suggestion dismissed' });
 });
 
 // GET /api/users/:id/profile - Get a public user profile

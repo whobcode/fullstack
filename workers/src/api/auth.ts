@@ -6,6 +6,9 @@ import { loginSchema, registerSchema } from '../shared/schemas/auth';
 import { googleAuthSchema } from '../shared/schemas/google';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
 import { passwordResetRequestSchema, passwordResetSchema, passwordChangeSchema } from '../shared/schemas/password-reset';
+import { phoneCodeRequestSchema, phoneCodeVerifySchema } from '../shared/schemas/phone';
+import { normalizePhone, hashPhone, generateOtp, maskPhone } from '../lib/phone';
+import { sendSms, isSmsConfigured } from '../lib/sms';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
 import { rollInitialCharacter, sanitizeGamertag } from '../core/classes';
@@ -90,18 +93,28 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
 });
 
 auth.post('/login', zValidator('json', loginSchema), async (c) => {
-    const { email, password } = c.req.valid('json');
+    const { email: identifier, password } = c.req.valid('json');
     const db = c.env.DB;
 
     try {
+        // The identifier is an email address or a phone number. Anything with
+        // an "@" is treated as an email; everything else is normalized to E.164
+        // and matched against the phone column.
+        const isEmail = identifier.includes('@');
+        const phone = isEmail ? null : normalizePhone(identifier);
+
+        if (!isEmail && !phone) {
+            return c.json({ error: 'Invalid credentials' }, 401);
+        }
+
         const userQuery = await db
             .prepare(`
                 SELECT u.id, u.email, u.username, u.password_hash, c.id as characterId
                 FROM users u
                 LEFT JOIN characters c ON u.id = c.user_id
-                WHERE u.email = ?
+                WHERE ${isEmail ? 'u.email = ?' : 'u.phone = ? AND u.phone_verified = TRUE'}
             `)
-            .bind(email)
+            .bind(isEmail ? identifier : phone)
             .first<{ id: string; email: string; username: string; password_hash: string; characterId: string }>();
 
         if (!userQuery || !userQuery.password_hash) {
@@ -693,6 +706,189 @@ auth.post('/password/change', authMiddleware, zValidator('json', passwordChangeS
     });
   } catch (error) {
     console.error('Password change error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Phone login - request a one-time code.
+//
+// Always answers the same way whether or not the number belongs to an account,
+// so this endpoint cannot be used to test which phone numbers are registered.
+auth.post('/phone/request', zValidator('json', phoneCodeRequestSchema), async (c) => {
+  const { phone: rawPhone } = c.req.valid('json');
+  const db = c.env.DB;
+
+  const smsConfig = {
+    accountSid: c.env.TWILIO_ACCOUNT_SID,
+    authToken: c.env.TWILIO_AUTH_TOKEN,
+    fromNumber: c.env.TWILIO_FROM_NUMBER,
+  };
+
+  if (!isSmsConfigured(smsConfig)) {
+    console.error('Twilio credentials not configured');
+    return c.json({ error: 'SMS service not configured' }, 503);
+  }
+
+  const phone = normalizePhone(rawPhone);
+  if (!phone) {
+    return c.json({ error: 'Enter a valid phone number' }, 400);
+  }
+
+  try {
+    // One live code per number, and clear out anything expired while we are here.
+    await db
+      .prepare('DELETE FROM phone_verification_codes WHERE phone = ? OR expires_at < CURRENT_TIMESTAMP')
+      .bind(phone)
+      .run();
+
+    const code = generateOtp(6);
+    const codeHash = await hashToken(code + ':' + phone);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    await db
+      .prepare('INSERT INTO phone_verification_codes (id, phone, code_hash, expires_at) VALUES (?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), phone, codeHash, expiresAt)
+      .run();
+
+    const sent = await sendSms(smsConfig, phone, `${code} is your code. It expires in 10 minutes.`);
+    if (!sent.ok) {
+      return c.json({ error: sent.error }, sent.status as 502 | 503);
+    }
+
+    return c.json({ message: `Code sent to ${maskPhone(phone)}`, phone });
+  } catch (error) {
+    console.error('Phone code request error:', error);
+    return c.json({ error: 'An internal error occurred' }, 500);
+  }
+});
+
+// Phone login - verify the code and sign in, creating the account on first use.
+auth.post('/phone/verify', zValidator('json', phoneCodeVerifySchema), async (c) => {
+  const { phone: rawPhone, code } = c.req.valid('json');
+  const db = c.env.DB;
+
+  const phone = normalizePhone(rawPhone);
+  if (!phone) {
+    return c.json({ error: 'Invalid code' }, 401);
+  }
+
+  const MAX_ATTEMPTS = 5;
+
+  try {
+    const record = await db
+      .prepare(`SELECT id, code_hash, attempts FROM phone_verification_codes
+                WHERE phone = ? AND expires_at > CURRENT_TIMESTAMP`)
+      .bind(phone)
+      .first<{ id: string; code_hash: string; attempts: number }>();
+
+    if (!record) {
+      return c.json({ error: 'Invalid code' }, 401);
+    }
+
+    // A 6-digit code is only safe with an attempt ceiling.
+    if (record.attempts >= MAX_ATTEMPTS) {
+      await db.prepare('DELETE FROM phone_verification_codes WHERE id = ?').bind(record.id).run();
+      return c.json({ error: 'Too many attempts. Request a new code.' }, 429);
+    }
+
+    const codeHash = await hashToken(code + ':' + phone);
+    if (codeHash !== record.code_hash) {
+      await db
+        .prepare('UPDATE phone_verification_codes SET attempts = attempts + 1 WHERE id = ?')
+        .bind(record.id)
+        .run();
+      return c.json({ error: 'Invalid code' }, 401);
+    }
+
+    // Code is good and single-use.
+    await db.prepare('DELETE FROM phone_verification_codes WHERE id = ?').bind(record.id).run();
+
+    const pepper = c.env.PHONE_HASH_PEPPER;
+
+    // If the caller is already signed in, this is "add my phone number to my
+    // account", not "sign in" - attach it rather than creating a second account.
+    const sessionCookie = getCookie(c, 'session_token');
+    if (sessionCookie) {
+      const session = await db
+        .prepare('SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > CURRENT_TIMESTAMP')
+        .bind(await hashToken(sessionCookie))
+        .first<{ user_id: string }>();
+
+      if (session) {
+        const takenBy = await db
+          .prepare('SELECT id FROM users WHERE phone = ? AND id != ?')
+          .bind(phone, session.user_id)
+          .first();
+        if (takenBy) {
+          return c.json({ error: 'That number is already on another account' }, 409);
+        }
+
+        const phoneHash = pepper ? await hashPhone(phone, pepper) : null;
+        await db
+          .prepare('UPDATE users SET phone = ?, phone_verified = TRUE, phone_hash = ? WHERE id = ?')
+          .bind(phone, phoneHash, session.user_id)
+          .run();
+
+        const me = await db
+          .prepare(`SELECT u.id, u.email, u.username, c.id as characterId
+                    FROM users u LEFT JOIN characters c ON c.user_id = u.id
+                    WHERE u.id = ?`)
+          .bind(session.user_id)
+          .first<{ id: string; email: string; username: string; characterId: string | null }>();
+
+        return c.json({ data: { ...me, phone, needs_username_confirmation: false } });
+      }
+    }
+
+    const existing = await db
+      .prepare(`SELECT u.id, u.email, u.username, c.id as characterId
+                FROM users u
+                LEFT JOIN characters c ON c.user_id = u.id
+                WHERE u.phone = ?`)
+      .bind(phone)
+      .first<{ id: string; email: string; username: string; characterId: string | null }>();
+
+    let userId: string;
+    let userData: { id: string; email: string; username: string; characterId: string | null; needs_username_confirmation: boolean };
+
+    if (existing) {
+      userId = existing.id;
+      // Reaching here proves control of the number.
+      await db.prepare('UPDATE users SET phone_verified = TRUE WHERE id = ?').bind(userId).run();
+      userData = { ...existing, needs_username_confirmation: existing.username.startsWith('user') };
+    } else {
+      // First sign-in from this number: create the account the same way the
+      // OAuth paths do, with a generated username the user is asked to confirm.
+      userId = crypto.randomUUID();
+      const characterId = crypto.randomUUID();
+      const username = await generateUniqueUsername(db, 'user' + phone.slice(-4));
+      const email = `${username}@phone.local`;
+      const phoneHash = pepper ? await hashPhone(phone, pepper) : null;
+
+      const characterStmt = await buildInitialCharacter(db, characterId, userId, username, false);
+      await db.batch([
+        db.prepare(`INSERT INTO users (id, email, username, phone, phone_verified, phone_hash)
+                    VALUES (?, ?, ?, ?, TRUE, ?)`)
+          .bind(userId, email, username, phone, phoneHash),
+        characterStmt,
+        db.prepare('INSERT INTO trophies (character_id) VALUES (?)').bind(characterId),
+      ]);
+
+      userData = { id: userId, email, username, characterId, needs_username_confirmation: true };
+    }
+
+    const sessionToken = await createSession(db, userId);
+    setCookie(c, 'session_token', sessionToken, {
+      httpOnly: true,
+      secure: c.req.url.startsWith('https://'),
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return c.json({ data: userData });
+  } catch (error) {
+    console.error('Phone verify error:', error);
     return c.json({ error: 'An internal error occurred' }, 500);
   }
 });

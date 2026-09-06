@@ -1,7 +1,96 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { apiClient } from "../lib/api";
+
+type DiscoverySettings = {
+  phone: string | null;
+  phone_verified: boolean;
+  discoverable_by_phone: boolean;
+  discoverable_by_location: boolean;
+};
+
+/** Controls who can find this account by phone number or approximate location. */
+function DiscoverySettingsSection() {
+  const [settings, setSettings] = useState<DiscoverySettings | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get<{ data: DiscoverySettings }>("/users/me/discovery")
+      .then((res) => setSettings(res.data))
+      .catch(() => setError("Could not load discovery settings"));
+  }, []);
+
+  const update = async (key: keyof DiscoverySettings, value: boolean) => {
+    if (!settings) return;
+    const previous = settings;
+
+    setSettings({ ...settings, [key]: value });
+    setSaving(key);
+    setError(null);
+
+    try {
+      await apiClient.put("/users/me/discovery", { [key]: value });
+    } catch {
+      setSettings(previous); // Roll the toggle back if the save failed.
+      setError("Could not save that change");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (!settings) {
+    return <p className="text-sm text-social-forest-500">{error ?? "Loading…"}</p>;
+  }
+
+  const toggles: { key: keyof DiscoverySettings; label: string; hint: string }[] = [
+    {
+      key: "discoverable_by_phone",
+      label: "Let people find me by phone number",
+      hint: settings.phone_verified
+        ? "People who have your number in their contacts can be suggested you."
+        : "Add and verify a phone number to use this.",
+    },
+    {
+      key: "discoverable_by_location",
+      label: "Suggest me to people nearby",
+      hint: "Uses a rough area only — never your exact location.",
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {toggles.map(({ key, label, hint }) => (
+        <div key={key} className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-social-forest-700">{label}</p>
+            <p className="text-xs text-social-forest-400 mt-0.5">{hint}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(settings[key])}
+            aria-label={label}
+            disabled={saving === key}
+            onClick={() => update(key, !settings[key])}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+              settings[key] ? "bg-social-green-600" : "bg-social-cream-400"
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform mt-0.5 ${
+                settings[key] ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
+      ))}
+      {error && <p className="text-xs text-social-orange-700">{error}</p>}
+    </div>
+  );
+}
 
 function DeleteAccountSection() {
   const { logout } = useAuth();
@@ -254,7 +343,8 @@ export default function SettingsPage() {
       {/* Privacy */}
       <section className="social-panel rounded-2xl p-5 shadow">
         <h2 className="text-xl font-semibold text-social-forest-700 mb-4">Privacy</h2>
-        <div className="space-y-3 text-sm text-social-forest-500">
+        <DiscoverySettingsSection />
+        <div className="space-y-3 text-sm text-social-forest-500 mt-5 pt-5 border-t border-social-cream-400">
           <p>Your data is handled according to our privacy policy.</p>
           <Link to="/privacy" className="text-social-green-600 hover:underline">View Privacy Policy</Link>
         </div>

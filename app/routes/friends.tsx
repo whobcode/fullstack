@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { apiClient } from "../lib/api";
+import { FindFriendsPanel } from "../components/FindFriendsPanel";
 
 type FriendData = {
   id: string;
@@ -15,6 +16,10 @@ type UserRecommendation = {
   id: string;
   username: string;
   avatar_url: string | null;
+  /** Why this person surfaced, e.g. "In your contacts" or "3 mutual friends". */
+  reason?: string;
+  from_contacts?: boolean;
+  nearby?: boolean;
 };
 
 export default function FriendsPage() {
@@ -38,6 +43,25 @@ export default function FriendsPage() {
       console.error("Failed to fetch friends data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Re-pull just the suggestions after a contact match or location update.
+  const refreshRecommendations = async () => {
+    try {
+      const res = await apiClient.get<{ data: UserRecommendation[] }>("/users/recommendations");
+      setRecommendations(res.data);
+    } catch (err) {
+      console.error("Failed to refresh recommendations:", err);
+    }
+  };
+
+  const dismissSuggestion = async (userId: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== userId));
+    try {
+      await apiClient.post("/users/suggestions/dismiss", { userId });
+    } catch (err) {
+      console.error("Failed to dismiss suggestion:", err);
     }
   };
 
@@ -202,6 +226,8 @@ export default function FriendsPage() {
               )}
             </div>
 
+            <FindFriendsPanel onDiscovered={refreshRecommendations} />
+
             {/* Recommendations */}
             <div className="social-panel rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
@@ -233,6 +259,13 @@ export default function FriendsPage() {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 truncate">{rec.username}</p>
+                          {rec.reason && (
+                            <p className="text-xs text-social-forest-400 truncate mt-0.5">
+                              {rec.from_contacts && <span aria-hidden="true">📇 </span>}
+                              {rec.nearby && !rec.from_contacts && <span aria-hidden="true">📍 </span>}
+                              {rec.reason}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="mt-4 flex gap-2">
@@ -246,6 +279,14 @@ export default function FriendsPage() {
                         <Link to={`/profile/${rec.id}`} className="social-button-outline rounded-xl px-4 py-2.5 text-sm">
                           View
                         </Link>
+                        <button
+                          onClick={() => dismissSuggestion(rec.id)}
+                          aria-label={`Dismiss ${rec.username}`}
+                          title="Not interested"
+                          className="social-button-outline rounded-xl px-3 py-2.5 text-sm"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
                   ))}
