@@ -250,8 +250,38 @@ users.get('/recommendations', authMiddleware, async (c) => {
 
     return c.json({ data });
   } catch (error) {
-    console.error('Recommendations error:', error);
-    return c.json({ error: 'Failed to load suggestions' }, 500);
+    // Deploys and D1 migrations are applied by separate steps, so a release can
+    // briefly run this code against a database that predates migration 0018.
+    // Fall back to the plain suggestion list rather than failing the page.
+    console.error('Ranked recommendations unavailable, falling back:', error);
+
+    try {
+      const fallback = await db.prepare(`
+        SELECT u.id, u.username, u.avatar_url
+        FROM users u
+        WHERE u.id != ?
+          AND u.id NOT IN (
+            SELECT CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
+            FROM friends f
+            WHERE f.requester_id = ? OR f.addressee_id = ?
+          )
+        ORDER BY RANDOM()
+        LIMIT 6
+      `).bind(user.id, user.id, user.id, user.id).all<{ id: string; username: string; avatar_url: string | null }>();
+
+      return c.json({
+        data: (fallback.results ?? []).map(r => ({
+          ...r,
+          from_contacts: false,
+          mutual_friends: 0,
+          nearby: false,
+          reason: 'Suggested for you',
+        })),
+      });
+    } catch (fallbackError) {
+      console.error('Recommendations error:', fallbackError);
+      return c.json({ error: 'Failed to load suggestions' }, 500);
+    }
   }
 });
 
@@ -368,11 +398,18 @@ users.get('/me/discovery', authMiddleware, async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
 
-  const row = await db
-    .prepare(`SELECT phone, phone_verified, discoverable_by_phone, discoverable_by_location
-              FROM users WHERE id = ?`)
-    .bind(user.id)
-    .first<{ phone: string | null; phone_verified: number; discoverable_by_phone: number; discoverable_by_location: number }>();
+  let row: { phone: string | null; phone_verified: number; discoverable_by_phone: number; discoverable_by_location: number } | null = null;
+
+  try {
+    row = await db
+      .prepare(`SELECT phone, phone_verified, discoverable_by_phone, discoverable_by_location
+                FROM users WHERE id = ?`)
+      .bind(user.id)
+      .first<{ phone: string | null; phone_verified: number; discoverable_by_phone: number; discoverable_by_location: number }>();
+  } catch (error) {
+    // Columns land with migration 0018; report everything off until then.
+    console.error('Discovery columns unavailable:', error);
+  }
 
   return c.json({
     data: {

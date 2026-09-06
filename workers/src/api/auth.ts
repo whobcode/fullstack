@@ -107,15 +107,26 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
             return c.json({ error: 'Invalid credentials' }, 401);
         }
 
-        const userQuery = await db
-            .prepare(`
-                SELECT u.id, u.email, u.username, u.password_hash, c.id as characterId
-                FROM users u
-                LEFT JOIN characters c ON u.id = c.user_id
-                WHERE ${isEmail ? 'u.email = ?' : 'u.phone = ? AND u.phone_verified = TRUE'}
-            `)
-            .bind(isEmail ? identifier : phone)
-            .first<{ id: string; email: string; username: string; password_hash: string; characterId: string }>();
+        let userQuery: { id: string; email: string; username: string; password_hash: string; characterId: string } | null = null;
+
+        try {
+            userQuery = await db
+                .prepare(`
+                    SELECT u.id, u.email, u.username, u.password_hash, c.id as characterId
+                    FROM users u
+                    LEFT JOIN characters c ON u.id = c.user_id
+                    WHERE ${isEmail ? 'u.email = ?' : 'u.phone = ? AND u.phone_verified = TRUE'}
+                `)
+                .bind(isEmail ? identifier : phone)
+                .first<{ id: string; email: string; username: string; password_hash: string; characterId: string }>();
+        } catch (lookupError) {
+            // The phone columns arrive with migration 0018. If this release is
+            // running ahead of it, treat a phone identifier as simply unknown
+            // rather than surfacing a 500 on the login form.
+            if (isEmail) throw lookupError;
+            console.error('Phone lookup unavailable (migration 0018 not applied?):', lookupError);
+            return c.json({ error: 'Invalid credentials' }, 401);
+        }
 
         if (!userQuery || !userQuery.password_hash) {
             return c.json({ error: 'Invalid credentials' }, 401);

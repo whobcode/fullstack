@@ -33,20 +33,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
-        env:
-          NODE_OPTIONS: '--max-old-space-size=4096'
-
       # Migrations run before the deploy, never after: the new worker code is
       # written against the new schema, so deploying first would leave live
       # requests hitting columns that do not exist yet. Failing here stops the
       # job and leaves the current worker serving.
+      #
+      # This must also run before the build, and with an explicit --config.
+      # `npm run build` writes .wrangler/deploy/config.json, which redirects
+      # wrangler to build/server/wrangler.json; migrations_dir then resolves
+      # relative to build/server/, where there are no migration files, and
+      # wrangler cheerfully reports "No migrations to apply!" and exits 0.
       - name: Apply D1 migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler d1 migrations apply social_rpg_db --remote
+        run: npx wrangler d1 migrations apply social_rpg_db --remote --config wrangler.toml
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       # Deploy with retries: Cloudflare's route-assignment step intermittently
       # returns "route with the same pattern already exists" (code 10020) even
