@@ -41,6 +41,39 @@ export function normalizePhone(input: string): string | null {
   return `+${digits}`;
 }
 
+/**
+ * Computes the keyed hash used for contact matching.
+ *
+ * This is an HMAC rather than a plain digest on purpose. There are only about
+ * 10^10 possible North American numbers, so a plain SHA-256 phone "hash" can be
+ * reversed by exhaustive search almost instantly -- publishing one is
+ * equivalent to publishing the number. Keying it with a server-side secret
+ * means the stored values are useless to anyone who does not also hold the
+ * pepper.
+ *
+ * Note what this does and does not buy: it protects against a database leak,
+ * not against the server itself, which necessarily can compute matches. That
+ * is the same trust model Facebook, Telegram and Snapchat use for contact
+ * discovery.
+ */
+export async function hashPhone(e164: string, pepper: string): Promise<string> {
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(pepper),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(e164));
+
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 /** Generates a numeric one-time code of the given length. */
 export function generateOtp(length = 6): string {
   const digits = new Uint8Array(length);
