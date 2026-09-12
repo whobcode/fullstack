@@ -11,7 +11,7 @@ import {
   discoverySettingsSchema,
   dismissSuggestionSchema,
 } from '../shared/schemas/phone';
-import { normalizePhone, hashPhone } from '../lib/phone';
+import { normalizePhone } from '../lib/phone';
 import { encodeGeohash, GEOHASH_PRECISION } from '../lib/geo';
 
 // Best-effort delete of an R2 object given its public URL (avatars/covers).
@@ -287,36 +287,30 @@ users.get('/recommendations', authMiddleware, async (c) => {
 
 // POST /api/users/contacts/match - Find which of the caller's contacts are here.
 //
-// The uploaded numbers are normalized, hashed with the server-side pepper and
-// matched in-request. Only the resulting edges are stored: the address book
-// itself is never written to the database. Users who have turned off phone
-// discovery are excluded from matching entirely.
+// The uploaded numbers are normalized to E.164 and matched in-request against
+// users.phone. Only the resulting edges are stored: the address book itself is
+// never written to the database. Users who have turned off phone discovery are
+// excluded from matching entirely.
 users.post('/contacts/match', authMiddleware, zValidator('json', contactMatchSchema), async (c) => {
   const user = c.get('user');
   const db = c.env.DB;
-  const pepper = c.env.PHONE_HASH_PEPPER;
-
-  if (!pepper) {
-    console.error('PHONE_HASH_PEPPER not configured');
-    return c.json({ error: 'Contact discovery not configured' }, 503);
-  }
 
   const { phones } = c.req.valid('json');
 
   try {
-    const hashes = new Set<string>();
+    const numbers = new Set<string>();
     for (const raw of phones) {
       const e164 = normalizePhone(raw);
-      if (e164) hashes.add(await hashPhone(e164, pepper));
+      if (e164) numbers.add(e164);
     }
 
-    if (hashes.size === 0) {
+    if (numbers.size === 0) {
       return c.json({ data: [], matched: 0 });
     }
 
     // Chunked so the SQL variable count stays sane on large address books.
     const CHUNK = 100;
-    const list = [...hashes];
+    const list = [...numbers];
     const matches: { id: string; username: string; avatar_url: string | null }[] = [];
 
     for (let i = 0; i < list.length; i += CHUNK) {
@@ -324,7 +318,8 @@ users.post('/contacts/match', authMiddleware, zValidator('json', contactMatchSch
       const placeholders = chunk.map(() => '?').join(',');
       const found = await db
         .prepare(`SELECT id, username, avatar_url FROM users
-                  WHERE phone_hash IN (${placeholders})
+                  WHERE phone IN (${placeholders})
+                    AND phone_verified = TRUE
                     AND discoverable_by_phone = 1
                     AND id != ?`)
         .bind(...chunk, user.id)

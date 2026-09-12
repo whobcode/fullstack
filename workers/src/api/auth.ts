@@ -7,7 +7,7 @@ import { googleAuthSchema } from '../shared/schemas/google';
 import { magicLinkRequestSchema, magicLinkVerifySchema } from '../shared/schemas/magic-link';
 import { passwordResetRequestSchema, passwordResetSchema, passwordChangeSchema } from '../shared/schemas/password-reset';
 import { phoneCodeRequestSchema, phoneCodeVerifySchema } from '../shared/schemas/phone';
-import { normalizePhone, hashPhone, generateOtp, maskPhone } from '../lib/phone';
+import { normalizePhone, generateOtp, maskPhone } from '../lib/phone';
 import { sendSms, isSmsConfigured } from '../lib/sms';
 import { hashPassword, verifyPassword } from '../lib/auth';
 import { createSession } from '../lib/session';
@@ -814,8 +814,6 @@ auth.post('/phone/verify', zValidator('json', phoneCodeVerifySchema), async (c) 
     // Code is good and single-use.
     await db.prepare('DELETE FROM phone_verification_codes WHERE id = ?').bind(record.id).run();
 
-    const pepper = c.env.PHONE_HASH_PEPPER;
-
     // If the caller is already signed in, this is "add my phone number to my
     // account", not "sign in" - attach it rather than creating a second account.
     const sessionCookie = getCookie(c, 'session_token');
@@ -834,10 +832,9 @@ auth.post('/phone/verify', zValidator('json', phoneCodeVerifySchema), async (c) 
           return c.json({ error: 'That number is already on another account' }, 409);
         }
 
-        const phoneHash = pepper ? await hashPhone(phone, pepper) : null;
         await db
-          .prepare('UPDATE users SET phone = ?, phone_verified = TRUE, phone_hash = ? WHERE id = ?')
-          .bind(phone, phoneHash, session.user_id)
+          .prepare('UPDATE users SET phone = ?, phone_verified = TRUE WHERE id = ?')
+          .bind(phone, session.user_id)
           .run();
 
         const me = await db
@@ -874,13 +871,12 @@ auth.post('/phone/verify', zValidator('json', phoneCodeVerifySchema), async (c) 
       const characterId = crypto.randomUUID();
       const username = await generateUniqueUsername(db, 'user' + phone.slice(-4));
       const email = `${username}@phone.local`;
-      const phoneHash = pepper ? await hashPhone(phone, pepper) : null;
 
       const characterStmt = await buildInitialCharacter(db, characterId, userId, username, false);
       await db.batch([
-        db.prepare(`INSERT INTO users (id, email, username, phone, phone_verified, phone_hash)
-                    VALUES (?, ?, ?, ?, TRUE, ?)`)
-          .bind(userId, email, username, phone, phoneHash),
+        db.prepare(`INSERT INTO users (id, email, username, phone, phone_verified)
+                    VALUES (?, ?, ?, ?, TRUE)`)
+          .bind(userId, email, username, phone),
         characterStmt,
         db.prepare('INSERT INTO trophies (character_id) VALUES (?)').bind(characterId),
       ]);
