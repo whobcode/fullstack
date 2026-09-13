@@ -171,10 +171,23 @@ player with several characters no longer shares one wall across all of them.
 
 ## Bots (the world runs 24/7)
 
-275 bot accounts span **levels 1–275** with all points allocated, seeded with the
+299 bot accounts span **levels 1–299** with all points allocated, seeded with the
 real per-point rules and class-biased splits. They are flagged with
 `users.is_bot = 1` (their account username equals their gamertag — no "bot" shown
 publicly).
+
+Bots at **levels 276–299** additionally hold the twelve abilities of the line
+matching their class (Phoenix for attack classes, Dragon for defence, Kies for
+health), maxed at ten copies — exactly the 12-slot cap. Their stat points were
+placed by running the battle formula itself (`scripts/optimize_bots.py` mirrors
+`storm8-battle-engine.ts`) and searching allocations against the strongest
+existing characters, scoring each candidate both attacking and defending.
+
+> The unconstrained optimum is **100% speed for every class**. Ability attack
+> is already lethal, so the only thing points can still buy is striking first,
+> and speed grants both initiative and up to five hits. The seeded bots reserve
+> 60% for their class's own stat so the ladder is not uniform — but the
+> underlying dominance is a live balance issue, not a quirk of the seeding.
 
 The scheduled (cron) job (`workers/src/core/cron.ts`, every 15 min) does three
 things:
