@@ -644,8 +644,13 @@ async function applyDefenseCharacter(db: D1Database, targetId: string): Promise<
     .bind(owner.user_id)
     .first<{ defense_character_id: string | null }>();
   if (u?.defense_character_id && u.defense_character_id !== targetId) {
+    // The defender only stands in while they are still up. Once they are at 0
+    // health the attack falls through to whoever was actually targeted --
+    // otherwise a downed defender would shield the whole account, since the
+    // attack would be redirected onto them and then refused as "already
+    // defeated", making every character on the account unattackable.
     const dc = await db
-      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ? AND current_health > 0')
       .bind(u.defense_character_id, owner.user_id)
       .first<{ id: string }>();
     if (dc) return dc.id;

@@ -77,8 +77,10 @@ times its computed attack, health and defence
 so multiplying it would hand anyone with a level-300 character a permanent
 five-hit first strike against everyone else.
 
-The bonus is derived from the current roster rather than stored, so it appears
-the moment a character reaches 300. ATK and DEF get it at battle time; health
+The bonus is **capped at the character slot maximum** — every slot filled with
+a level-300 character is the ceiling, currently **+700% (an 8× multiplier)**
+across 7 slots. It is derived from the current roster rather than stored, so it
+appears the moment a character reaches 300. ATK and DEF get it at battle time; health
 carries it in `max_health`, which is recomputed during regeneration (on read
 and by the 15-minute cron) so it converges without every level-up path needing
 to know about it.
@@ -101,7 +103,11 @@ to know about it.
 
 ### Active vs defense character
 - **Active ("playing as")** — `users.active_character_id`; the character that acts when *you* attack/build. Set via `POST /api/game/active-character`; the server defaults all game actions to it.
-- **Defense character** — `users.defense_character_id`; when someone attacks you, this character answers regardless of which of yours was targeted. Set via `POST /api/game/defense-character`.
+- **Defense character** — `users.defense_character_id`; when someone attacks
+  you, this character answers regardless of which of yours was targeted — but
+  **only while they are still standing**. Once the defender is at 0 HP the
+  attack falls through to whoever was actually targeted, so a downed defender
+  cannot shield the whole account. Set via `POST /api/game/defense-character`.
 
 ### Recovery
 - **Passive regen** (`workers/src/core/regen.ts`): HP **2%/min**, stamina **1/3 min**, energy **1/5 min**. Applied on read and by the cron.

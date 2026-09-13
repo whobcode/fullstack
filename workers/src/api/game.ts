@@ -393,7 +393,11 @@ game.get('/characters', async (c) => {
                ON d.id = u.defense_character_id AND d.user_id = u.id
         WHERE c.first_game_access_completed = TRUE
           AND c.user_id != ?
-          AND COALESCE(d.current_health, c.current_health) > 0
+          -- Attackable if the defender can stand in, or -- once the defender
+          -- is down -- if the listed character is still up themselves. Mirrors
+          -- applyDefenseCharacter, which only redirects while the defender has
+          -- health and otherwise lets the attack through to the real target.
+          AND (COALESCE(d.current_health, 0) > 0 OR c.current_health > 0)
         ORDER BY RANDOM()
         LIMIT 60
     `).bind(user.id).all();
