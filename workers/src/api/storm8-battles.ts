@@ -1139,8 +1139,22 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
         .bind(now, attackerStats.id, hitlist_id),
       db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency + ? WHERE id = ?')
         .bind(hitlist.bounty_amount, attackerStats.id),
+    );
+  }
+
+  // Trophies for every outcome, not only kills. A hitlist attack that did not
+  // land the kill still has a winner and a loser, and previously recorded
+  // nothing for either side. Mirrors the normal attack flow; attacker_killed
+  // cannot happen here because an ambush gets no counterattack.
+  if (result.defender_killed) {
+    statements.push(
       bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
-      bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 })
+      bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 }),
+    );
+  } else {
+    statements.push(
+      bumpTrophies(db, attackerStats.id, result.attacker_won ? { wins: 1 } : { losses: 1 }),
+      bumpTrophies(db, defenderStats.id, result.attacker_won ? { losses: 1 } : { wins: 1 }),
     );
   }
 

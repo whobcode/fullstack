@@ -986,6 +986,7 @@ game.post('/character/respec', zValidator('json', respecSchema), async (c) => {
 
 import { createBattleSchema, submitTurnSchema } from '../shared/schemas/game';
 import { resolveTurn } from '../core/battle-engine';
+import { bumpTrophies } from '../core/battle';
 import type { ClassMods, CharacterStats } from '../core/battle-engine';
 import { checkForLevelUp } from '../core/leveling';
 
@@ -996,7 +997,23 @@ game.post('/battles', zValidator('json', createBattleSchema), async (c) => {
     const db = c.env.DB;
 
     const charQuery = 'SELECT id, hp, atk, def, class, xp, level FROM characters WHERE';
-    const attackerChar = await db.prepare(`${charQuery} user_id = ?`).bind(user.id).first<CharacterRow>();
+    // The character the player is acting as, not whichever row comes back
+    // first: picking arbitrarily credited the win and the kill to the wrong
+    // character on a multi-slot account.
+    const acting = await db
+        .prepare(`
+            SELECT COALESCE(
+                (SELECT c.id FROM characters c
+                  JOIN users u ON u.active_character_id = c.id
+                 WHERE u.id = ?1),
+                (SELECT id FROM characters WHERE user_id = ?1 ORDER BY slot_number LIMIT 1)
+            ) AS id
+        `)
+        .bind(user.id)
+        .first<{ id: string | null }>();
+    const attackerChar = acting?.id
+        ? await db.prepare(`${charQuery} id = ?`).bind(acting.id).first<CharacterRow>()
+        : null;
     if (!attackerChar) {
         return c.json({ error: 'Attacker character not found.' }, 404);
     }
@@ -1031,20 +1048,19 @@ game.post('/battles', zValidator('json', createBattleSchema), async (c) => {
             .bind(turnId, battleId, 1, attackerChar.id, 'attack', turnResult.damage, defenderHpAfter),
         // Update defender's HP
         db.prepare('UPDATE characters SET hp = ? WHERE id = ?').bind(defenderHpAfter, defenderChar.id),
-        // Update trophies (win/loss)
-        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
-            .bind(turnResult.attackerWins ? 1 : 0, turnResult.attackerWins ? 0 : 1, attackerChar.id),
-        db.prepare('UPDATE trophies SET wins = wins + ?, losses = losses + ? WHERE character_id = ?')
-            .bind(turnResult.defenderWins ? 1 : 0, turnResult.defenderWins ? 0 : 1, defenderChar.id),
+        // Win/loss for both sides, upserted: a plain UPDATE silently records
+        // nothing when the trophies row is missing.
+        bumpTrophies(db, attackerChar.id, turnResult.attackerWins ? { wins: 1 } : { losses: 1 }),
+        bumpTrophies(db, defenderChar.id, turnResult.defenderWins ? { wins: 1 } : { losses: 1 }),
     ];
 
     // Handle kill
     if (turnResult.killed) {
         const winXp = parseInt(c.env.WIN_XP_AWARD, 10);
         statements.push(
-            // Update trophies (kill/death)
-            db.prepare('UPDATE trophies SET kills = kills + 1 WHERE character_id = ?').bind(attackerChar.id),
-            db.prepare('UPDATE trophies SET deaths = deaths + 1 WHERE character_id = ?').bind(defenderChar.id),
+            // Kill/death, upserted for the same reason.
+            bumpTrophies(db, attackerChar.id, { kills: 1 }),
+            bumpTrophies(db, defenderChar.id, { deaths: 1 }),
             // Award XP to winner
             db.prepare('UPDATE characters SET xp = xp + ? WHERE id = ?').bind(winXp, attackerChar.id),
         );
