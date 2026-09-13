@@ -7,9 +7,10 @@ way into everything per-character. Clicking a slot opens
 `/shade/character/:id` — that character's sheet, where skill points are spent
 and where its own battle feed and comment wall live. `/shade/store` sells
 abilities and potions. `/shade/battle` is targets only: bounties on top marked
-with a skull and the amount, then everyone attackable. Skill allocation and the
-ability shop used to sit in the battle tab and no longer do; `/shade/players`
-redirects to `/shade/battle`.
+with a skull and the amount, then everyone attackable. `/shade/players` is the
+directory — everyone in the game, searchable, linking to profiles rather than
+offering attacks. Skill allocation and the ability shop used to sit in the
+battle tab and no longer do.
 Every account is linked to characters that fight other players (and bots) in an
 asynchronous, instantly-resolved battle system. This document describes the
 current systems and the source of truth for each.
@@ -191,4 +192,6 @@ All under `/api`. Game/battle routes require auth.
 | POST | `/game/active-character`, `/game/defense-character` | Set playing-as / defender |
 | GET | `/game/profile/:name`, `/game/profile/:name/comments` | Public profile + comments |
 | GET | `/game/leaderboard` | Rankings |
+| GET | `/game/directory` | Browse/search every player (`q`, `sort`, `limit`, `offset`) |
+| GET | `/game/characters` | Attackable targets only — filtered and backfilled, for the battle tab |
 | GET | `/users/:id/profile` | Public social profile |

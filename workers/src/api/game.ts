@@ -400,6 +400,71 @@ game.get('/characters', async (c) => {
     return c.json({ data: characters.results });
 });
 
+/**
+ * Browse every player in the game.
+ *
+ * Distinct from GET /characters, which is the battle tab's target list: that
+ * one filters to who you can actually attack and backfills the gaps. This is a
+ * directory — everyone is listed, defeated or not, searchable, and it links to
+ * profiles rather than offering attacks.
+ *
+ * Trophies only, like every other public view; combat stats stay private.
+ */
+game.get('/directory', async (c) => {
+    const db = c.env.DB;
+    const q = (c.req.query('q') || '').trim();
+    const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || '40', 10) || 40));
+    const offset = Math.max(0, parseInt(c.req.query('offset') || '0', 10) || 0);
+    const sort = c.req.query('sort') === 'name' ? 'name' : 'level';
+
+    // Matched against gamertag or the owner's username so either finds a player.
+    const where = q
+        ? `AND (c.gamertag LIKE ?2 COLLATE NOCASE OR u.username LIKE ?2 COLLATE NOCASE)`
+        : '';
+    const order = sort === 'name'
+        ? 'c.gamertag COLLATE NOCASE ASC'
+        : 'c.level DESC, wins DESC, kills DESC';
+
+    const sql = `
+        SELECT c.id, c.gamertag, c.class, c.level, u.username AS owner, u.id AS owner_id,
+               COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
+               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths,
+               COALESCE(t.globals,0) AS globals,
+               c.globalled_until,
+               c.shade_avatar_url,
+               (c.current_health <= 0) AS defeated
+        FROM characters c
+        JOIN users u ON u.id = c.user_id
+        LEFT JOIN trophies t ON t.character_id = c.id
+        WHERE c.first_game_access_completed = TRUE ${where}
+        ORDER BY ${order}
+        LIMIT ?1 OFFSET ${offset}
+    `;
+
+    const stmt = q
+        ? db.prepare(sql).bind(limit + 1, `%${q}%`)
+        : db.prepare(sql).bind(limit + 1);
+    const rows = await stmt.all();
+
+    // One row over the limit tells us whether another page exists, without a
+    // second COUNT query over the whole table.
+    const results = rows.results || [];
+    const hasMore = results.length > limit;
+
+    const total = await db
+        .prepare('SELECT COUNT(*) AS n FROM characters WHERE first_game_access_completed = TRUE')
+        .first<{ n: number }>();
+
+    return c.json({
+        data: {
+            players: hasMore ? results.slice(0, limit) : results,
+            has_more: hasMore,
+            next_offset: offset + limit,
+            total: total?.n ?? 0,
+        },
+    });
+});
+
 // Global leaderboard: top fighters by level, then wins, then kills.
 // Public — trophies only, never any private stats. `owner` links to the profile.
 game.get('/leaderboard', async (c) => {
