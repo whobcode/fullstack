@@ -868,7 +868,7 @@ game.delete('/character/:id', async (c) => {
 });
 
 import { allocatePointsSchema, respecSchema } from '../shared/schemas/game';
-import { STAMINA_BONUS_SUBQUERY } from '../core/abilities';
+import { STAMINA_BONUS_SUBQUERY, statGainFromPoints, PCT_PER_STAT_POINT } from '../core/abilities';
 
 // Allocate stat points
 game.post('/character/allocate-points', zValidator('json', allocatePointsSchema), async (c) => {
@@ -896,13 +896,16 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
     // Per-point gains:
     //   HP  = +100 each
     //   SPD = +2 each
-    //   ATK/DEF = +1% of the class BASE stat each (100 points = +100% = +base)
+    //   ATK/DEF = +10% of the class BASE stat each (10 points = +100% = +base)
     const base = BASE_STATS[character.class] ?? BASE_STATS.phoenix;
     const HP_PER_POINT = 100;
     const SPD_PER_POINT = 2;
     const hpGain = pointsToAllocate.hp * HP_PER_POINT;
-    const atkGain = Math.round((pointsToAllocate.atk * base.atk) / 100);
-    const defGain = Math.round((pointsToAllocate.def * base.def) / 100);
+    // PCT_PER_STAT_POINT of the class base per point (raised from 1% to 10%),
+    // the same rate ability attack/defence converts at, so a point bought with
+    // currency and a point earned by levelling are worth the same.
+    const atkGain = statGainFromPoints(pointsToAllocate.atk, base.atk);
+    const defGain = statGainFromPoints(pointsToAllocate.def, base.def);
     await db.prepare(`
         UPDATE characters
         SET

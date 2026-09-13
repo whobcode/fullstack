@@ -45,8 +45,21 @@ level** (`getTotalStatPointsForLevel`). Spend them on the dashboard. Per point
 |---|---|
 | **HP** | **+100** max health (the battle health pool) |
 | **SPD** | **+2** speed |
-| **ATK** | **+1% of the class BASE attack** (100 points = +100% = double base) |
-| **DEF** | **+1% of the class BASE defense** |
+| **ATK** | **+10% of the class BASE attack** (10 points = +100% = double base) |
+| **DEF** | **+10% of the class BASE defense** |
+
+**Abilities grant stat points.** An ability's `attack_value` and `defense_value`
+count as that many points in ATK/DEF — +5 attack held ×10 is 50 points — so a
+point earned by levelling and a point bought in the store are worth the same.
+Because a stat point was never clan-multiplied, **equipment is no longer
+multiplied by clan size**: `equipment_attack`/`equipment_defense` are 0 and the
+"best per category" rule no longer applies, replaced by a straight
+`quantity × value` sum across everything owned.
+
+Speed is excluded — ability speed already adds flat to the stat, which is what
+converting would have produced, only at double the rate. Health is excluded
+too: every health ability is flat or a percentage, and both modify the pool
+rather than granting points.
 
 Because ATK/DEF scale off **base**, your starting class shapes which stats are
 efficient. **Respec** (`POST /api/game/character/respec`) refunds the full

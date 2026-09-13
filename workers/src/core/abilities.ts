@@ -173,3 +173,42 @@ export const EQUIPMENT_SPEED_SUBQUERY = `
     WHERE ca.character_id = characters.id AND a.kind = 'equipment'
   ), 0)
 `;
+
+// ---------------------------------------------------------------------------
+// Ability stat points
+//
+// An ability's attack_value and defense_value are counted as skill points in
+// that stat rather than as equipment: +5 attack on an ability held x10 is 50
+// points in ATK. They therefore stop being multiplied by clan size, because a
+// stat point never was.
+//
+// Speed is deliberately excluded — it already adds flat to the stat, which is
+// the behaviour converting would have produced, only at double the rate.
+// Health is excluded too: every health ability is flat or percentage, and both
+// modify the pool rather than granting points.
+// ---------------------------------------------------------------------------
+
+/** One stat point is this percentage of the class base value. */
+export const PCT_PER_STAT_POINT = 10;
+
+/** Stat gain from `points` points, against a class base value. */
+export function statGainFromPoints(points: number, base: number): number {
+  return Math.round((points * base * PCT_PER_STAT_POINT) / 100);
+}
+
+/** Attack/defence points a character's equipment grants, as one scalar each. */
+export const ABILITY_ATTACK_POINTS_SUBQUERY = `
+  COALESCE((
+    SELECT SUM(ca.quantity * a.attack_value)
+    FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+    WHERE ca.character_id = characters.id AND a.kind = 'equipment'
+  ), 0)
+`;
+
+export const ABILITY_DEFENSE_POINTS_SUBQUERY = `
+  COALESCE((
+    SELECT SUM(ca.quantity * a.defense_value)
+    FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+    WHERE ca.character_id = characters.id AND a.kind = 'equipment'
+  ), 0)
+`;

@@ -36,7 +36,7 @@ import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
 import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
-import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, maxHealthExpr, type AbilityRow } from '../core/abilities';
+import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, maxHealthExpr, statGainFromPoints, type AbilityRow } from '../core/abilities';
 import { BASE_STATS } from '../core/classes';
 import {
   canList,
@@ -425,13 +425,15 @@ async function statsBreakdownFor(db: D1Database, ch: any) {
       SELECT
         COALESCE(SUM(ca.quantity * a.hp_value), 0)  AS hp_flat,
         COALESCE(SUM(ca.quantity * a.hp_pct), 0)    AS hp_pct,
-        COALESCE(SUM(ca.quantity * a.spd_value), 0) AS spd
+        COALESCE(SUM(ca.quantity * a.spd_value), 0) AS spd,
+        COALESCE(SUM(ca.quantity * a.attack_value), 0)  AS atk_points,
+        COALESCE(SUM(ca.quantity * a.defense_value), 0) AS def_points
       FROM character_abilities ca
       JOIN abilities a ON a.id = ca.ability_id
       WHERE ca.character_id = ? AND a.kind = 'equipment'
     `)
     .bind(ch.id)
-    .first<{ hp_flat: number; hp_pct: number; spd: number }>();
+    .first<{ hp_flat: number; hp_pct: number; spd: number; atk_points: number; def_points: number }>();
 
   const hpFromSkill = (ch.health_skill_points || 0) * 100;
   const hpFlat = abilityTotals?.hp_flat ?? 0;
@@ -449,8 +451,10 @@ async function statsBreakdownFor(db: D1Database, ch: any) {
     clan_multiplier: clan,
     stats: [
       row('HP',  base.hp,  hpFromSkill, hpFlat + hpFromPct),
-      row('ATK', base.atk, (ch.atk || 0) - base.atk, (stats?.equipment_attack ?? 0) * clan),
-      row('DEF', base.def, (ch.def || 0) - base.def, (stats?.equipment_defense ?? 0) * clan),
+      // Ability attack/defence are stat points, so their contribution is the
+      // gain those points buy — not a clan-multiplied equipment term.
+      row('ATK', base.atk, (ch.atk || 0) - base.atk, statGainFromPoints(abilityTotals?.atk_points ?? 0, base.atk)),
+      row('DEF', base.def, (ch.def || 0) - base.def, statGainFromPoints(abilityTotals?.def_points ?? 0, base.def)),
       row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0),
     ],
     // What the battle engine actually fights with, after the Storm8 formula.

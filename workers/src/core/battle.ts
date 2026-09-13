@@ -1,4 +1,6 @@
 import { calculateUsableClanMembers, type CharacterBattleStats } from './storm8-battle-engine';
+import { BASE_STATS } from './classes';
+import { statGainFromPoints } from './abilities';
 
 // Build a character's full battle stats (core + skill points + equipment + clan).
 // Shared by the live attack endpoints and the autonomous bot loop.
@@ -17,7 +19,20 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
           SELECT SUM(ca.quantity * a.spd_value)
           FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
           WHERE ca.character_id = c.id AND a.kind = 'equipment'
-        ), 0) AS equipment_speed
+        ), 0) AS equipment_speed,
+        -- Attack and defence from abilities count as stat POINTS, not as
+        -- equipment, so they are summed straight (quantity x value) rather than
+        -- taking the best per category, and they are not clan-multiplied.
+        COALESCE((
+          SELECT SUM(ca.quantity * a.attack_value)
+          FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+          WHERE ca.character_id = c.id AND a.kind = 'equipment'
+        ), 0) AS ability_attack_points,
+        COALESCE((
+          SELECT SUM(ca.quantity * a.defense_value)
+          FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+          WHERE ca.character_id = c.id AND a.kind = 'equipment'
+        ), 0) AS ability_defense_points
       FROM characters c
       WHERE c.id = ?
     `)
@@ -37,6 +52,8 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
       current_stamina: number;
       unbanked_currency: number;
       equipment_speed: number;
+      ability_attack_points: number;
+      ability_defense_points: number;
     }>();
 
   if (!char) return null;
@@ -58,15 +75,24 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
     .bind(characterId)
     .all();
 
-  const equipment_attack = (attackAbilities.results || []).reduce((sum: number, a: any) => sum + (a.attack_value || 0), 0);
-  const equipment_defense = (defenseAbilities.results || []).reduce((sum: number, a: any) => sum + (a.defense_value || 0), 0);
+  // Retained for reference only. Attack and defence from abilities are stat
+  // points now, so they must not also be counted as clan-multiplied equipment
+  // — that would pay them twice.
+  void attackAbilities;
+  void defenseAbilities;
+  const equipment_attack = 0;
+  const equipment_defense = 0;
+
+  const base = BASE_STATS[char.class as keyof typeof BASE_STATS] ?? BASE_STATS.phoenix;
+  const abilityAttack = statGainFromPoints(char.ability_attack_points || 0, base.atk);
+  const abilityDefense = statGainFromPoints(char.ability_defense_points || 0, base.def);
 
   return {
     id: char.id,
     level: char.level,
     char_class: char.class,
-    attack: char.atk || 0,
-    defense: char.def || 0,
+    attack: (char.atk || 0) + abilityAttack,
+    defense: (char.def || 0) + abilityDefense,
     speed: (char.spd || 0) + (char.equipment_speed || 0),
     attack_skill_points: char.attack_skill_points,
     defense_skill_points: char.defense_skill_points,
