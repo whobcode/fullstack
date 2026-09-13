@@ -81,7 +81,10 @@ export function canPurchase(ability: AbilityRow, owned: number, level: number, c
 }
 
 /**
- * Stamina regeneration bonus a character has bought, as a percentage.
+ * Stamina regeneration bonus, as a percentage.
+ *
+ * Account-wide: utility abilities are shared by all of a player's characters,
+ * so this sums across every character the owner has rather than just this one.
  *
  * Kept as one scalar subquery so callers that already read the character can
  * fold it into their existing SELECT rather than making a second round trip —
@@ -92,7 +95,10 @@ export const STAMINA_REGEN_PCT_SUBQUERY = `
     SELECT SUM(ca.quantity * a.stamina_regen_pct)
     FROM character_abilities ca
     JOIN abilities a ON a.id = ca.ability_id
-    WHERE ca.character_id = characters.id
+    WHERE a.kind = 'utility'
+      AND ca.character_id IN (
+        SELECT c2.id FROM characters c2 WHERE c2.user_id = characters.user_id
+      )
   ), 0)
 `;
 
@@ -108,13 +114,22 @@ export function staminaRegenMinutes(baseMinutes: number, bonusPct: number): numb
   return Math.max(1 / 6, baseMinutes / multiplier);
 }
 
-/** Extra max stamina from owned utility abilities, for recomputing the cap. */
+/**
+ * Extra max stamina from owned utility abilities.
+ *
+ * Utilities are account-wide: a Stamina Stone bought by one character counts
+ * for every character the player owns. Equipment and health abilities stay
+ * per character — only this kind is shared.
+ */
 export const STAMINA_BONUS_SUBQUERY = `
   COALESCE((
     SELECT SUM(ca.quantity * a.stamina_bonus)
     FROM character_abilities ca
     JOIN abilities a ON a.id = ca.ability_id
-    WHERE ca.character_id = characters.id
+    WHERE a.kind = 'utility'
+      AND ca.character_id IN (
+        SELECT c2.id FROM characters c2 WHERE c2.user_id = characters.user_id
+      )
   ), 0)
 `;
 

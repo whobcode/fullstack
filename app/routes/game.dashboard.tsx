@@ -22,6 +22,8 @@ type CharacterSlot = {
   class: string | null;
   level: number;
   first_game_access_completed: boolean;
+  unspent_stat_points?: number;
+  shade_avatar_url?: string | null;
 };
 
 type Character = {
@@ -100,6 +102,18 @@ function CharacterSlotSelector({
             <div className="text-sm text-shade-red-300">
               {char.class ? `${char.class} Lv.${char.level}` : 'Incomplete'}
             </div>
+            {char.first_game_access_completed && (
+              <Link
+                to={`/shade/character/${char.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 inline-block text-[10px] text-sky-300 hover:text-sky-200 hover:underline"
+              >
+                open sheet →
+              </Link>
+            )}
+            {(char.unspent_stat_points ?? 0) > 0 && (
+              <div className="mt-1 text-[10px] text-amber-300">{char.unspent_stat_points} unspent</div>
+            )}
           </>
         ) : isAvailable ? (
           <div className="text-shade-red-400 text-sm">+ Create New</div>
@@ -114,8 +128,16 @@ function CharacterSlotSelector({
 
   return (
     <div className="mb-6">
-      <h2 className="text-lg font-bold neon-text mb-3">Character Slots</h2>
-      <div className="grid grid-cols-7 gap-2">{slots}</div>
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <h2 className="text-lg font-bold neon-text">Character Slots</h2>
+        <Link
+          to="/shade/store"
+          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-shade-black-800 border border-amber-700/50 text-amber-300 hover:bg-amber-900/30 transition-all"
+        >
+          🛒 Store
+        </Link>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">{slots}</div>
     </div>
   );
 }

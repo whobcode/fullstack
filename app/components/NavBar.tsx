@@ -38,7 +38,7 @@ export function NavBar() {
       { to: '/shade/dashboard', label: 'Dashboard' },
       { to: '/shade/profile', label: 'Profile' },
       { to: '/shade/battle', label: 'Battle' },
-      { to: '/shade/players', label: 'Find Players' },
+      { to: '/shade/store', label: 'Store' },
       { to: '/shade/leaderboard', label: 'Leaderboard' },
     ];
 

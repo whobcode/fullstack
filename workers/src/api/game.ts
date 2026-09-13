@@ -109,7 +109,7 @@ game.get('/slots', async (c) => {
   const db = c.env.DB;
 
   const availableSlots = await getAvailableSlots(db, user.id);
-  const characters = await db.prepare('SELECT id, slot_number, gamertag, class, level, first_game_access_completed FROM characters WHERE user_id = ? ORDER BY slot_number').bind(user.id).all();
+  const characters = await db.prepare('SELECT id, slot_number, gamertag, class, level, first_game_access_completed, unspent_stat_points, shade_avatar_url FROM characters WHERE user_id = ? ORDER BY slot_number').bind(user.id).all();
 
   const specialAccount = await getSpecialAccount(db, user.id);
 

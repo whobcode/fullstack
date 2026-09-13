@@ -23,7 +23,9 @@ export default [
     route("shade/profile", "routes/shade.profile.tsx"),
     route("shade/u/:username", "routes/shade.u.$username.tsx"),  // Public profile (trophies only)
     route("shade/battle", "routes/game.storm8.tsx"),
-    route("shade/players", "routes/game.players.tsx"),
+    route("shade/character/:id", "routes/shade.character.$id.tsx"),  // Owner's character sheet
+    route("shade/store", "routes/shade.store.tsx"),                  // Abilities + potions
+    route("shade/players", "routes/game.players.tsx"),               // Legacy -> battle
     route("shade/battles/:id", "routes/battles.$id.tsx"),
     route("shade/leaderboard", "routes/game.leaderboard.tsx"),
   ]),

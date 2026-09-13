@@ -47,23 +47,61 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Persist a generated avatar to R2 and save its URL on the user. Returns the
-// public URL, or undefined if persistence failed (generation still succeeds).
+/**
+ * Persist a generated avatar to R2 and save its URL.
+ *
+ * The avatar belongs to a character, not the account: a player with several
+ * characters used to share one, so generating a new one silently replaced the
+ * previous character's. `characterId` is the character being played as; the
+ * account-level column is kept in step as the fallback for characters that
+ * have not generated one yet.
+ *
+ * Returns the public URL, or undefined if persistence failed (generation still
+ * succeeds and the caller can show the inline preview).
+ */
 async function persistShadeAvatar(
   env: Bindings,
   userId: string,
   bytes: Uint8Array,
+  characterId?: string | null,
 ): Promise<string | undefined> {
   try {
     const key = `shade-avatars/${userId}/${Date.now()}.png`;
     await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: 'image/png' } });
     const url = `${SHADE_IMAGE_BASE}/${key}`;
-    await env.DB.prepare('UPDATE users SET shade_avatar_url = ? WHERE id = ?').bind(url, userId).run();
+
+    const writes = [
+      env.DB.prepare('UPDATE users SET shade_avatar_url = ? WHERE id = ?').bind(url, userId),
+    ];
+    if (characterId) {
+      writes.push(
+        env.DB.prepare('UPDATE characters SET shade_avatar_url = ? WHERE id = ? AND user_id = ?')
+          .bind(url, characterId, userId),
+      );
+    }
+    await env.DB.batch(writes);
     return url;
   } catch (err: any) {
     console.warn('Failed to persist shade avatar:', err?.message || err);
     return undefined;
   }
+}
+
+/** The character an avatar request should attach to: ?character_id=, else active. */
+async function avatarCharacterId(env: Bindings, c: any, userId: string): Promise<string | null> {
+  const requested = c.req.query('character_id');
+  if (requested) {
+    const owned = await env.DB
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .bind(requested, userId)
+      .first<{ id: string }>();
+    if (owned) return owned.id;
+  }
+  const u = await env.DB
+    .prepare('SELECT active_character_id FROM users WHERE id = ?')
+    .bind(userId)
+    .first<{ active_character_id: string | null }>();
+  return u?.active_character_id ?? null;
 }
 
 // Generate a shade-themed avatar (text-to-image), persist it, and return both
@@ -85,7 +123,9 @@ ai.post('/shade-avatar', authMiddleware, async (c) => {
 
     if (result instanceof ReadableStream) {
       const bytes = await streamToBytes(result);
-      const url = userId ? await persistShadeAvatar(c.env, userId, bytes) : undefined;
+      const url = userId
+        ? await persistShadeAvatar(c.env, userId, bytes, await avatarCharacterId(c.env, c, userId))
+        : undefined;
       return c.json({
         image: `data:image/png;base64,${bytesToBase64(bytes)}`,
         url,
@@ -128,7 +168,9 @@ ai.post('/generate-shade-avatar', authMiddleware, async (c) => {
 
     if (result instanceof ReadableStream) {
       const bytes = await streamToBytes(result);
-      const url = userId ? await persistShadeAvatar(c.env, userId, bytes) : undefined;
+      const url = userId
+        ? await persistShadeAvatar(c.env, userId, bytes, await avatarCharacterId(c.env, c, userId))
+        : undefined;
       return c.json({
         image: `data:image/png;base64,${bytesToBase64(bytes)}`,
         url,

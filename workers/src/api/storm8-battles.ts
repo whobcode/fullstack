@@ -29,6 +29,8 @@ import {
   getAttackXpMultiplier,
   getBaseAttackXp,
   getLevelBracket,
+  calculateAttackPower,
+  calculateDefensePower,
 } from '../core/storm8-battle-engine';
 import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
@@ -398,6 +400,77 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
         : null,
     },
     message: `${ability.name} purchased (${owned + 1}/${ability.max_quantity})`,
+  });
+});
+
+/**
+ * Where every stat number comes from, split three ways.
+ *
+ * The character sheet shows base, what skill points added, and what abilities
+ * add, each in its own colour, so a player can see which part of a stat they
+ * actually control. Derived rather than stored: characters.atk/def/spd/hp hold
+ * the running total, so the allocated share is total minus class base.
+ */
+storm8.get('/stats-breakdown', async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const charId = await actingCharId(db, c, user.id);
+  if (!charId) return c.json({ error: 'Character not found' }, 404);
+
+  const ch = await db
+    .prepare('SELECT id, class, level, atk, def, spd, max_health, max_stamina, health_skill_points, attack_skill_points, defense_skill_points FROM characters WHERE id = ? AND user_id = ?')
+    .bind(charId, user.id)
+    .first<any>();
+  if (!ch) return c.json({ error: 'Character not found' }, 404);
+
+  const base = BASE_STATS[ch.class as keyof typeof BASE_STATS] ?? BASE_STATS.phoenix;
+  const stats = await getCharacterBattleStats(db, ch.id);
+
+  // Equipment is wielded by you and each usable clan member; solo players still
+  // get it once, which is why the multiplier is floored at 1.
+  const clan = Math.max(1, stats?.usable_clan_members ?? 1);
+
+  // Health and speed from abilities, summed straight from what is owned.
+  const abilityTotals = await db
+    .prepare(`
+      SELECT
+        COALESCE(SUM(ca.quantity * a.hp_value), 0)  AS hp_flat,
+        COALESCE(SUM(ca.quantity * a.hp_pct), 0)    AS hp_pct,
+        COALESCE(SUM(ca.quantity * a.spd_value), 0) AS spd
+      FROM character_abilities ca
+      JOIN abilities a ON a.id = ca.ability_id
+      WHERE ca.character_id = ? AND a.kind = 'equipment'
+    `)
+    .bind(ch.id)
+    .first<{ hp_flat: number; hp_pct: number; spd: number }>();
+
+  const hpFromSkill = (ch.health_skill_points || 0) * 100;
+  const hpFlat = abilityTotals?.hp_flat ?? 0;
+  const hpPct = abilityTotals?.hp_pct ?? 0;
+  // max_health already includes both; report the percentage share as the
+  // difference so the three parts add up to what the character actually has.
+  const hpFromPct = Math.max(0, (ch.max_health || 0) - (base.hp + hpFromSkill + hpFlat));
+
+  const row = (label: string, baseVal: number, allocated: number, ability: number) => ({
+    label, base: baseVal, allocated, ability, total: baseVal + allocated + ability,
+  });
+
+  return c.json({
+    data: {
+      character_id: ch.id,
+      level: ch.level,
+      clan_multiplier: clan,
+      stats: [
+        row('HP',  base.hp,  hpFromSkill, hpFlat + hpFromPct),
+        row('ATK', base.atk, (ch.atk || 0) - base.atk, (stats?.equipment_attack ?? 0) * clan),
+        row('DEF', base.def, (ch.def || 0) - base.def, (stats?.equipment_defense ?? 0) * clan),
+        row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0),
+      ],
+      // What the battle engine actually fights with, after the Storm8 formula.
+      attack_power: stats ? calculateAttackPower(stats) : 0,
+      defense_power: stats ? calculateDefensePower(stats) : 0,
+    },
   });
 });
 

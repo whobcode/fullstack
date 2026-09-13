@@ -1,6 +1,15 @@
 # .shade — Game Systems
 
 The `.shade` RPG is the game section of the platform (routes under `/shade`).
+
+**Screens.** `/shade/dashboard` is the hub: character slots, currency, and the
+way into everything per-character. Clicking a slot opens
+`/shade/character/:id` — that character's sheet, where skill points are spent
+and where its own battle feed and comment wall live. `/shade/store` sells
+abilities and potions. `/shade/battle` is targets only: bounties on top marked
+with a skull and the amount, then everyone attackable. Skill allocation and the
+ability shop used to sit in the battle tab and no longer do; `/shade/players`
+redirects to `/shade/battle`.
 Every account is linked to characters that fight other players (and bots) in an
 asynchronous, instantly-resolved battle system. This document describes the
 current systems and the source of truth for each.

@@ -1,129 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { HpBar } from '../components/BattleArena';
 import { useBattleResult } from '../lib/BattleResultContext';
 import { useActiveCharacter } from '../lib/ActiveCharacterContext';
+import { HitlistButton } from '../components/HitlistButton';
 
-// Append the acting character to a storm8 API path so the server acts on the
-// character selected in the Battle tab (not just slot 1).
+// Every game action defaults to the active character; passing character_id
+// lets a page act as a specific one instead.
 function withChar(path: string, characterId?: string | null) {
   if (!characterId) return path;
   return `${path}${path.includes('?') ? '&' : '?'}character_id=${encodeURIComponent(characterId)}`;
 }
 
-// Skill Allocation Interface
-function SkillAllocation({ character, onUpdate }: { character: any; onUpdate: () => void }) {
-  const [skills, setSkills] = useState({
-    attack: 0,
-    defense: 0,
-    health: 0,
-    energy: 0,
-    stamina: 0,
-  });
-  const [error, setError] = useState<string | null>(null);
-
-  // Skill points draw from the SAME unspent pool as the Dashboard stats — show
-  // the real number so it matches what the server will actually accept.
-  const availablePoints = character.unspent_stat_points ?? 0;
-
-  const totalAllocated = Object.values(skills).reduce((sum, p) => sum + p, 0);
-  const remaining = availablePoints - totalAllocated;
-
-  const handleSkillChange = (skill: keyof typeof skills, value: number) => {
-    const newValue = Math.max(0, value);
-    setSkills(prev => {
-      const currentTotal = Object.values(prev).reduce((sum, p) => sum + p, 0) - prev[skill];
-      if (currentTotal + newValue > availablePoints) {
-        return prev;
-      }
-      return { ...prev, [skill]: newValue };
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (totalAllocated === 0) {
-      setError('Allocate at least one skill point');
-      return;
-    }
-    try {
-      await apiClient.post(withChar('/storm8/skills/allocate', character?.id), skills);
-      setSkills({ attack: 0, defense: 0, health: 0, energy: 0, stamina: 0 });
-      onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Failed to allocate skills');
-    }
-  };
-
-
-  return (
-    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
-      <h2 className="text-2xl font-bold mb-4 neon-text">Skill Allocation</h2>
-      <p className="text-xs text-shade-red-300 mb-3 bg-shade-black-800 p-2 rounded neon-border">
-        These spend the <span className="text-shade-red-100">same unspent points</span> as the Dashboard.
-        Spend them here for <span className="text-shade-red-100">bonus</span> attack/defense/HP, or on the
-        Dashboard for your core ATK/DEF/SPD/HP. Battles use both.
-      </p>
-      <p className="text-shade-red-200 mb-4">
-        Unspent Points: <span className="text-shade-red-600 font-bold text-xl">{remaining}</span>
-        {availablePoints === 0 && (
-          <span className="text-xs text-shade-red-400 block">You've spent all your points. Earn more by leveling up.</span>
-        )}
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {Object.entries(skills).map(([skill, value]) => (
-          <div key={skill} className="neon-border rounded p-3">
-            <div className="flex items-center justify-between mb-2">
-              <label className="capitalize font-semibold text-lg text-shade-red-100">{skill}</label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSkillChange(skill as keyof typeof skills, value - 1)}
-                  className="px-3 py-1 bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow transition-all rounded"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={value}
-                  onChange={e => handleSkillChange(skill as keyof typeof skills, parseInt(e.target.value) || 0)}
-                  className="w-20 text-center p-2 rounded bg-shade-black-600 neon-border text-shade-red-100"
-                  min="0"
-                  max={availablePoints}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSkillChange(skill as keyof typeof skills, value + 1)}
-                  className="px-3 py-1 bg-shade-black-900 neon-border text-shade-red-600 hover:neon-glow transition-all rounded"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <p className="text-sm text-shade-red-400 mt-1">
-              Current: {character[`${skill}_skill_points`] || 0} → New: {(character[`${skill}_skill_points`] || 0) + value}
-            </p>
-          </div>
-        ))}
-
-        {error && <p className="text-shade-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={totalAllocated === 0}
-          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:bg-shade-black-600 disabled:text-shade-red-300 p-3 rounded font-bold"
-        >
-          Allocate {totalAllocated} Point{totalAllocated !== 1 ? 's' : ''}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-// Clan Management UI
 function ClanManagement({ characterId, onUpdate }: { characterId?: string | null; onUpdate: () => void }) {
   const [clanData, setClanData] = useState<any>(null);
   const [recruitCount, setRecruitCount] = useState(1);
@@ -214,160 +103,6 @@ function ClanManagement({ characterId, onUpdate }: { characterId?: string | null
 }
 
 // Ability Shop UI
-function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => void }) {
-  const characterLevel = character?.level ?? 0;
-  const [abilities, setAbilities] = useState<any[]>([]);
-  const [ownedAbilities, setOwnedAbilities] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'shop' | 'owned'>('shop');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchAbilities = async () => {
-    try {
-      const [shopRes, ownedRes] = await Promise.all([
-        apiClient.get<{ data: any[] }>(withChar('/storm8/abilities', character?.id)),
-        apiClient.get<{ data: any[] }>(withChar('/storm8/abilities/owned', character?.id)),
-      ]);
-      setAbilities(shopRes.data || []);
-      setOwnedAbilities(ownedRes.data || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAbilities();
-  }, []);
-
-  const handlePurchase = async (abilityId: string) => {
-    setError(null);
-    try {
-      await apiClient.post(withChar('/storm8/abilities/purchase', character?.id), { ability_id: abilityId });
-      fetchAbilities();
-      onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Failed to purchase ability');
-    }
-  };
-
-  if (loading) return <div>Loading abilities...</div>;
-
-  return (
-    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
-      <h2 className="text-2xl font-bold mb-4 neon-text">Ability Shop</h2>
-
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setActiveTab('shop')}
-          className={`flex-1 p-2 rounded transition-all ${activeTab === 'shop' ? 'bg-shade-black-900 neon-border text-shade-red-600 neon-glow' : 'bg-shade-black-600 neon-border text-shade-red-300 hover:neon-glow'}`}
-        >
-          Shop
-        </button>
-        <button
-          onClick={() => setActiveTab('owned')}
-          className={`flex-1 p-2 rounded transition-all ${activeTab === 'owned' ? 'bg-shade-black-900 neon-border text-shade-red-600 neon-glow' : 'bg-shade-black-600 neon-border text-shade-red-300 hover:neon-glow'}`}
-        >
-          Owned ({ownedAbilities.length})
-        </button>
-      </div>
-
-      {error && <p className="text-shade-red-600 mb-4">{error}</p>}
-
-      {activeTab === 'shop' ? (
-        <div className="space-y-3">
-          {abilities.length === 0 ? (
-            <p className="text-shade-red-300">No abilities available at your level</p>
-          ) : (
-            abilities.map(ability => (
-              <div key={ability.id} className="rounded-lg p-4 bg-gradient-to-br from-shade-black-800 to-shade-black-900 border border-shade-red-800/50 hover:border-shade-red-600/70 transition-all">
-                <div className="flex justify-between items-start mb-2 gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-lg text-shade-red-100">{ability.name}</h3>
-                    <p className="text-sm text-shade-red-300">
-                      {ability.kind === 'utility' ? 'utility' : ability.category}
-                      {ability.max_quantity > 1 && (
-                        <span className="text-shade-ash"> · {ability.owned ?? 0}/{ability.max_quantity} owned</span>
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handlePurchase(ability.id)}
-                    disabled={ability.at_max || !ability.unlocked}
-                    title={
-                      ability.at_max
-                        ? 'You hold the maximum'
-                        : !ability.unlocked
-                          ? `Needs level ${ability.required_level}`
-                          : undefined
-                    }
-                    className="shrink-0 bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 px-4 py-2 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {ability.at_max
-                      ? 'Maxed'
-                      : !ability.unlocked
-                        ? `Lv.${ability.required_level}`
-                        : `Buy ${Number(ability.cost).toLocaleString()}`}
-                  </button>
-                </div>
-                {(ability.stamina_bonus > 0 || ability.stamina_regen_pct > 0) && (
-                  <p className="text-xs text-amber-300 mb-2">
-                    +{ability.stamina_bonus} max stamina · +{ability.stamina_regen_pct}% stamina regen
-                    {ability.level_step > 0 && (
-                      <span className="text-shade-ash"> · each copy needs {ability.level_step} more levels</span>
-                    )}
-                  </p>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_value}
-                  </div>
-                  <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_value}
-                  </div>
-                </div>
-                {ability.description && (
-                  <p className="text-xs text-shade-red-300 mt-2">{ability.description}</p>
-                )}
-                <p className="text-xs text-shade-red-400 mt-2">
-                  Requires level {ability.level_requirement}
-                  {characterLevel >= ability.level_requirement
-                    ? <span className="text-green-500"> — ✓ you qualify</span>
-                    : <span className="text-shade-red-600"> — locked (you are {characterLevel})</span>}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {ownedAbilities.length === 0 ? (
-            <p className="text-shade-red-300">You don't own any abilities yet</p>
-          ) : (
-            ownedAbilities.map((ability, idx) => (
-              <div key={idx} className="rounded-lg p-4 bg-gradient-to-br from-shade-black-800 to-shade-black-900 border border-shade-red-800/50 hover:border-shade-red-600/70 transition-all">
-                <h3 className="font-bold text-shade-red-100">{ability.name}</h3>
-                <p className="text-sm text-shade-red-300 mb-2">{ability.category}</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-600">ATK:</span> +{ability.attack_value}
-                  </div>
-                  <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
-                    <span className="text-shade-red-400">DEF:</span> +{ability.defense_value}
-                  </div>
-                </div>
-                <p className="text-xs text-shade-red-600 mt-2">✓ Owned (Qty: {ability.quantity || 1})</p>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Shows the stats that actually drive combat, so it's clear what matters.
 function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => void }) {
   const cur = character.current_health ?? 0;
   const max = character.max_health ?? 1;
@@ -420,367 +155,131 @@ function BattleStats({ character, onUpdate }: { character: any; onUpdate: () => 
 }
 
 // Attack interface — the resolved battle pops up in the global arena overlay.
-function AttackInterface({ character, onUpdate }: { character: any; onUpdate: () => void }) {
-  const { showBattle } = useBattleResult();
-  const [targetName, setTargetName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [attacking, setAttacking] = useState(false);
-  const [targets, setTargets] = useState<any[]>([]);
-
-  // Load attackable players so the user can pick a target by name.
-  useEffect(() => {
-    apiClient.get<{ data: any[] }>('/game/characters')
-      .then(r => setTargets(r.data || []))
-      .catch(() => {});
-  }, []);
-
-  const handleAttack = async () => {
-    setError(null);
-    if (!targetName.trim()) {
-      setError('Choose a target');
-      return;
-    }
-    setAttacking(true);
-    try {
-      const res = await apiClient.post<{ data: any }>(withChar('/storm8/attack', character?.id), { defender_gamertag: targetName.trim() });
-      showBattle(res.data);
-      onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Attack failed');
-    } finally {
-      setAttacking(false);
-    }
-  };
-
-  return (
-    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
-      <h2 className="text-2xl font-bold mb-4 neon-text">Attack</h2>
-
-      <div className="bg-shade-black-600 neon-border p-4 rounded mb-4">
-        <div className="flex justify-between items-center">
-          <span className="text-shade-red-200">Stamina</span>
-          <span className="text-2xl font-bold text-shade-red-600">
-            {character.current_stamina} / {character.max_stamina}
-          </span>
-        </div>
-        <div className="w-full bg-shade-black-900 rounded-full h-3 mt-2 neon-border">
-          <div
-            className="bg-shade-red-600 h-3 rounded-full transition-all neon-glow"
-            style={{ width: `${(character.current_stamina / character.max_stamina) * 100}%` }}
-          />
-        </div>
-        <p className="text-xs text-shade-red-300 mt-2">Regenerates 1 per 3 minutes</p>
-      </div>
-
-      <div className="space-y-3">
-        {targets.length > 0 && (
-          <select
-            value={targetName}
-            onChange={e => setTargetName(e.target.value)}
-            className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100"
-          >
-            <option value="">— Choose a target —</option>
-            {targets.map(t => (
-              <option key={t.id} value={t.gamertag}>
-                {t.gamertag} (Lv.{t.level} {t.class})
-              </option>
-            ))}
-          </select>
-        )}
-        <input
-          type="text"
-          value={targetName}
-          onChange={e => setTargetName(e.target.value)}
-          placeholder={targets.length > 0 ? '…or type a character name' : 'Enter a character name'}
-          className="w-full p-3 rounded bg-shade-black-600 neon-border text-shade-red-100 placeholder-shade-red-400"
-        />
-
-        <button
-          onClick={handleAttack}
-          disabled={character.current_stamina < 1 || attacking || !targetName.trim()}
-          className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white p-3 rounded-lg font-bold text-lg shadow-lg shadow-shade-red-900/40 hover:from-shade-red-600 hover:to-shade-red-400 transition-all disabled:from-shade-black-700 disabled:to-shade-black-700 disabled:text-shade-red-400 disabled:shadow-none"
-        >
-          {attacking ? 'Attacking…' : '⚔️ ATTACK (Costs 1 Stamina)'}
-        </button>
-
-        {error && <p className="text-shade-red-600">{error}</p>}
-      </div>
-    </div>
-  );
-}
 
 /**
- * How close a target is to being globalled — 200 listings in 24h, no more than
- * 25 of them from any one player.
+ * The battle tab: who you can hit, right now.
+ *
+ * Hitlisted targets sit at the top, marked with a skull and the bounty on
+ * their head, then everyone else worth attacking. Defeated characters are
+ * filtered out server-side and the slot is backfilled, so the list is always
+ * actionable rather than half full of targets that would refuse the attack.
  */
-function GlobalMeter({ status }: { status: any }) {
-  const pct = Math.min(100, Math.round((status.listed_count / status.max_listings) * 100));
-
-  return (
-    <div className="mt-3 p-3 rounded bg-shade-black-900 border border-shade-red-800/40">
-      <div className="flex items-center justify-between text-xs mb-1">
-        <span className="text-shade-red-200 font-bold">
-          {status.is_globalled ? '★ Globalled' : 'Hitlist saturation'}
-        </span>
-        <span className="text-shade-ash">
-          {status.listed_count} / {status.max_listings} listings
-        </span>
-      </div>
-
-      <div className="h-2 rounded-full bg-shade-black-700 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${
-            status.is_globalled
-              ? 'bg-gradient-to-r from-amber-500 to-amber-300'
-              : 'bg-gradient-to-r from-shade-red-700 to-shade-red-500'
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
-      <p className="text-[11px] text-shade-ash mt-2">
-        {status.is_globalled ? (
-          <>Cannot be listed again until {new Date(status.globalled_until).toLocaleString()}.</>
-        ) : (
-          <>
-            {status.distinct_posters} player{status.distinct_posters === 1 ? '' : 's'} so far ·{' '}
-            {status.listings_remaining} listing{status.listings_remaining === 1 ? '' : 's'} left before they global
-          </>
-        )}
-      </p>
-    </div>
-  );
-}
-
-// Hitlist Browser
-function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () => void }) {
+function TargetList({ character, onUpdate }: { character: any; onUpdate: () => void }) {
   const { showBattle } = useBattleResult();
-  const [hitlist, setHitlist] = useState<any[]>([]);
+  const [bounties, setBounties] = useState<any[]>([]);
+  const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [postTarget, setPostTarget] = useState('');
-  const [bountyAmount, setBountyAmount] = useState(1000);
-  // Saturation for the name being typed: how close they are to globalled.
-  const [targetStatus, setTargetStatus] = useState<any>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
-  const fetchHitlist = async () => {
+  const load = useCallback(async () => {
     try {
-      const res = await apiClient.get<{ data: any[] }>('/storm8/hitlist/active');
-      setHitlist(res.data || []);
-    } catch (err: any) {
-      setError(err.message);
+      const [h, p] = await Promise.all([
+        apiClient.get<{ data: any[] }>('/storm8/hitlist/active'),
+        apiClient.get<{ data: any[] }>('/game/characters'),
+      ]);
+      setBounties(h.data || []);
+      setPlayers((p.data || []).filter((x) => x.id !== character?.id));
+    } catch (e: any) {
+      setError(e?.message || 'Could not load targets');
     } finally {
       setLoading(false);
     }
-  };
+  }, [character?.id]);
 
-  useEffect(() => {
-    fetchHitlist();
-  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const name = postTarget.trim();
-    if (!name) {
-      setTargetStatus(null);
-      return;
-    }
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      try {
-        const res = await apiClient.get<{ data: any }>(`/storm8/hitlist/status/${encodeURIComponent(name)}`);
-        if (!cancelled) setTargetStatus(res.data);
-      } catch {
-        if (!cancelled) setTargetStatus(null);
-      }
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [postTarget]);
-
-  const handlePostHitlist = async () => {
-    setError(null);
-    if (!postTarget.trim()) {
-      setError('Enter a target character name');
-      return;
-    }
+  const strike = async (path: string, body: any, key: string) => {
+    setBusy(key); setError(null);
     try {
-      const res = await apiClient.post<{ data: any }>(withChar('/storm8/hitlist/post', character?.id), {
-        target_gamertag: postTarget.trim(),
-        bounty_amount: bountyAmount,
-      });
-      const d = res.data;
-      setNotice(
-        d?.globalled
-          ? `GLOBALLED — ${postTarget.trim()} hit ${d.globalled.listed_count} listings from ${d.globalled.distinct_posters} players. They cannot be listed again for 24h.`
-          : `Bounty posted. ${d?.listings_remaining_from_you ?? 0} more allowed on this target from this character today.`,
-      );
-      setPostTarget('');
-      fetchHitlist();
-      onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Failed to post hitlist');
-    }
-  };
-
-  const handleHitlistAttack = async (hitlistId: string) => {
-    setError(null);
-    try {
-      const res = await apiClient.post<{ data: any }>(withChar('/storm8/hitlist/attack', character?.id), { hitlist_id: hitlistId });
+      const res = await apiClient.post<{ data: any }>(withChar(path, character?.id), body);
       showBattle(res.data);
-      fetchHitlist();
-      onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Hitlist attack failed');
-    }
-  };
-
-  if (loading) return <div>Loading hitlist...</div>;
-
-  return (
-    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
-      <h2 className="text-2xl font-bold mb-4 neon-text">Hitlist</h2>
-
-      <div className="bg-shade-black-600 neon-border p-4 rounded mb-4">
-        <h3 className="font-bold mb-3 text-shade-red-100">Post a Bounty</h3>
-        <div className="space-y-2">
-          <input
-            type="text"
-            value={postTarget}
-            onChange={e => setPostTarget(e.target.value)}
-            placeholder="Target character name"
-            className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 placeholder-shade-red-400"
-          />
-          <input
-            type="number"
-            value={bountyAmount}
-            onChange={e => setBountyAmount(Math.max(100, parseInt(e.target.value) || 100))}
-            placeholder="Bounty amount"
-            className="w-full p-2 rounded bg-shade-black-900 neon-border text-shade-red-100 placeholder-shade-red-400"
-            min="100"
-          />
-          <button
-            onClick={handlePostHitlist}
-            disabled={!!targetStatus?.is_globalled}
-            className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:opacity-50 p-2 rounded font-bold"
-          >
-            {targetStatus?.is_globalled ? 'Target is globalled' : `Post Bounty (${bountyAmount} currency)`}
-          </button>
-        </div>
-
-        {targetStatus && <GlobalMeter status={targetStatus} />}
-
-        <p className="text-[11px] text-shade-ash mt-3">
-          A character can be listed 200 times a day, and you can only place 25 of
-          those — it takes at least 8 players to global someone. You cannot
-          collect a bounty with the character that posted it.
-        </p>
-      </div>
-
-      {notice && <p className="text-amber-300 text-sm mb-4">{notice}</p>}
-      {error && <p className="text-shade-red-600 mb-4">{error}</p>}
-
-      <div className="space-y-3">
-        <h3 className="font-bold text-shade-red-100">Active Bounties</h3>
-        {hitlist.length === 0 ? (
-          <p className="text-shade-red-300">No active bounties</p>
-        ) : (
-          hitlist.map(hit => (
-            <div key={hit.id} className="neon-border rounded p-4 bg-shade-red-900 bg-opacity-20 hover:neon-glow transition-all">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-bold text-shade-red-100">Target: {hit.target_gamertag || hit.target_character_id}</p>
-                  <p className="text-sm text-shade-red-300">Posted by: {hit.poster_gamertag}</p>
-                  <p className="text-sm text-shade-red-400">Current HP: {hit.target_current_health}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-shade-red-600">{hit.bounty_amount}</p>
-                  <p className="text-xs text-shade-red-300">bounty</p>
-                </div>
-              </div>
-              <button
-                onClick={() => handleHitlistAttack(hit.id)}
-                disabled={character.current_stamina < 1 || hit.posted_by_character_id === character.id}
-                title={hit.posted_by_character_id === character.id ? 'Hunt your own bounty with a different character' : undefined}
-                className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:bg-shade-black-600 disabled:text-shade-red-300 p-2 rounded font-bold"
-              >
-                {hit.posted_by_character_id === character.id ? 'Your bounty — switch character' : 'Attack (1 Stamina)'}
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Battle Feed Display
-function BattleFeed({ characterId }: { characterId?: string | null }) {
-  const [feed, setFeed] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchFeed = async () => {
-    try {
-      const res = await apiClient.get<{ data: any[] }>(withChar('/storm8/feed', characterId));
-      setFeed(res.data || []);
-    } catch (err) {
-      console.error('Failed to fetch battle feed', err);
+      await Promise.all([load(), Promise.resolve(onUpdate())]);
+    } catch (e: any) {
+      setError(e?.message || 'Attack failed');
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   };
 
-  useEffect(() => {
-    fetchFeed();
-  }, []);
-
-  if (loading) return <div>Loading battle feed...</div>;
+  const noStamina = (character?.current_stamina ?? 0) < 1;
 
   return (
-    <div className="rounded-xl p-6 mb-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50 shadow-[0_0_20px_rgba(255,42,42,0.10)]">
-      <h2 className="text-2xl font-bold mb-4 neon-text">Battle Feed</h2>
+    <div className="rounded-xl p-5 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/50">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap mb-3">
+        <h2 className="text-xl font-bold neon-text">Targets</h2>
+        <span className="text-[11px] text-shade-ash">
+          {noStamina ? 'Out of stamina — regenerates 1 per 3 min' : `${character?.current_stamina ?? 0} stamina`}
+        </span>
+      </div>
 
-      <div className="space-y-2">
-        {feed.length === 0 ? (
-          <p className="text-shade-red-300">No recent battles</p>
-        ) : (
-          feed.map((battle, idx) => (
-            <div
-              key={idx}
-              className={`p-3 rounded neon-border transition-all ${
-                battle.attacker_won
-                  ? 'bg-shade-red-900 bg-opacity-20 hover:neon-glow'
-                  : 'bg-shade-red-900 bg-opacity-20 hover:neon-glow'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-bold text-shade-red-100">
-                    {battle.attacker_won ? '✓ Victory' : '✗ Defeat'} vs{' '}
-                    <Link to={`/shade/u/${encodeURIComponent(battle.defender_gamertag)}`} className="hover:underline">{battle.defender_gamertag}</Link>
-                  </p>
-                  <p className="text-sm text-shade-red-300">
-                    Damage: {battle.damage_dealt} | Stolen: {battle.currency_stolen}
-                  </p>
+      {error && <p className="text-shade-red-500 text-sm mb-2">{error}</p>}
+      {loading && <p className="text-shade-red-400 text-sm">Loading…</p>}
+
+      {/* Bounties first — the skull and the number are the whole point. */}
+      {bounties.length > 0 && (
+        <div className="space-y-2 mb-4">
+          {bounties.map((b) => {
+            const own = b.posted_by_character_id === character?.id;
+            return (
+              <div key={b.id} className="rounded-lg p-3 bg-amber-950/25 border border-amber-700/50">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="font-bold text-shade-red-100 truncate">
+                      <span className="mr-1" aria-hidden="true">💀</span>
+                      {b.target_gamertag}
+                      {b.target_level ? <span className="text-shade-ash font-normal"> · Lv.{b.target_level}</span> : null}
+                    </p>
+                    <p className="text-[11px] text-shade-ash">posted by {b.poster_gamertag ?? 'unknown'}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-amber-300 font-bold">{Number(b.bounty_amount).toLocaleString()}</span>
+                    <button
+                      onClick={() => strike('/storm8/hitlist/attack', { hitlist_id: b.id }, b.id)}
+                      disabled={busy === b.id || noStamina || own}
+                      title={own ? 'You posted this bounty — hunt it with a different character' : undefined}
+                      className="px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-amber-700 to-amber-500 text-white disabled:opacity-40"
+                    >
+                      {own ? 'Yours' : 'Claim'}
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs text-shade-red-400">
-                  {new Date(battle.created_at).toLocaleString()}
-                </span>
               </div>
-              {battle.defender_killed && (
-                <p className="text-sm text-shade-red-600 mt-2">💀 KILLED</p>
-              )}
-            </div>
-          ))
+            );
+          })}
+        </div>
+      )}
+
+      {/* Then everyone else. */}
+      <div className="space-y-2">
+        {!loading && players.length === 0 && (
+          <p className="text-shade-red-300 text-sm">No one is attackable right now.</p>
         )}
+        {players.map((p) => (
+          <div key={p.id} className="rounded-lg p-3 bg-shade-black-950/60 border border-white/10">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Link to={`/shade/u/${encodeURIComponent(p.gamertag)}`} className="min-w-0 group">
+                <p className="font-bold text-shade-red-100 truncate group-hover:underline">{p.gamertag}</p>
+                <p className="text-[11px] text-shade-ash capitalize">{p.class} · Lv.{p.level}</p>
+              </Link>
+              <div className="flex items-center gap-2 shrink-0">
+                <HitlistButton gamertag={p.gamertag} onPosted={load} compact />
+                <button
+                  onClick={() => strike('/storm8/attack', { defender_character_id: p.id }, p.id)}
+                  disabled={busy === p.id || noStamina}
+                  className="px-3 py-1.5 rounded-lg text-sm font-bold bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white disabled:opacity-40"
+                >
+                  Attack
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// Main Storm8 Page
 export default function Storm8Page() {
   const { characters, activeId, activeCharacter, setActive, refresh, loading } = useActiveCharacter();
 
@@ -790,10 +289,9 @@ export default function Storm8Page() {
   const character = activeCharacter;
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="p-4 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">⚔ Battle Arena</h1>
-        {/* Playing-as selector: shared everywhere via the active character. */}
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">⚔ Battle</h1>
         <div className="flex items-center gap-2">
           <span className="text-sm text-shade-red-300">Playing as:</span>
           <select
@@ -810,22 +308,11 @@ export default function Storm8Page() {
         </div>
       </div>
 
-      {/* Keyed by activeId so panels refetch when you switch characters */}
-      <div className="grid md:grid-cols-2 gap-6" key={activeId}>
-        {/* Left Column */}
-        <div>
-          <SkillAllocation character={character} onUpdate={refresh} />
-          <ClanManagement characterId={character.id} onUpdate={refresh} />
-          <AbilityShop character={character} onUpdate={refresh} />
-        </div>
-
-        {/* Right Column */}
-        <div>
-          <BattleStats character={character} onUpdate={refresh} />
-          <AttackInterface character={character} onUpdate={refresh} />
-          <HitlistBrowser character={character} onUpdate={refresh} />
-          <BattleFeed characterId={character.id} />
-        </div>
+      {/* Skill points and the store moved to the dashboard; this tab is targets. */}
+      <div className="space-y-6" key={activeId}>
+        <BattleStats character={character} onUpdate={refresh} />
+        <TargetList character={character} onUpdate={refresh} />
+        <ClanManagement characterId={character.id} onUpdate={refresh} />
       </div>
     </div>
   );
