@@ -227,6 +227,15 @@ things:
    random living target **at their level or higher** (punching up/sideways,
    honoring defense characters), resolving full battles. Keeps the leaderboard
    and feeds alive while players are offline.
+4. **`runBotHitlistClaims`**: bots hunt open bounties. A hunter is never the
+   target, never whoever posted it, and never on the target's account.
+5. **`runBotBounties`**: bots put bounties up on **players and other bots
+   alike**, under the same limits a player faces (`canList`), and a bot's
+   posting can be the listing that globals someone.
+
+Claims go through the same `performHitlistAttack` the player endpoint uses, so
+the two cannot drift — the earlier bug where hitlist fights recorded trophies
+only on a kill came from exactly that kind of duplication.
 
 ## Key game API endpoints
 

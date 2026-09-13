@@ -38,6 +38,7 @@ import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
 import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
 import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, maxHealthExpr, statGainFromPoints, type AbilityRow } from '../core/abilities';
 import { maxLevelMultiplier } from '../core/max-level-bonus';
+import { performHitlistAttack } from '../core/hitlist-claim';
 import { BASE_STATS } from '../core/classes';
 import {
   canList,
@@ -1105,72 +1106,14 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     return c.json({ error: 'Insufficient stamina' }, 400);
   }
 
-  // Resolved exactly like a normal attack: the target strikes back. Hitlist
-  // fights used to be one-sided ambushes, which made claiming a bounty
-  // risk-free and meant the attacker could never lose.
-  const seed = crypto.randomUUID();
-  const result = resolveBattle(attackerStats, defenderStats, seed, {});
-
-  const now = new Date().toISOString();
-  const statements = [
-    // Consume stamina
-    db.prepare('UPDATE characters SET current_stamina = current_stamina - 1 WHERE id = ?')
-      .bind(attackerStats.id),
-
-    // Update defender health
-    db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
-      .bind(result.defender_health_after, defenderStats.id),
-
-    // And the attacker's: the target counterattacks now, so damage taken has
-    // to persist or hunting a bounty would be free.
-    db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
-      .bind(result.attacker_health_after, attackerStats.id),
-
-    // Log hitlist attack
-    db.prepare('INSERT INTO hitlist_attacks (hitlist_id, attacker_character_id, damage_dealt, target_killed) VALUES (?, ?, ?, ?)')
-      .bind(hitlist_id, attackerStats.id, result.damage_dealt, result.defender_killed),
-
-    // Both characters' feeds; hitlist attacks were previously missing from
-    // these entirely, leaving no trace on either wall.
-    db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(attackerStats.id, null, attackerStats.id, defenderStats.id, result.attacker_won, result.damage_dealt, result.currency_stolen),
-    db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(defenderStats.id, null, attackerStats.id, defenderStats.id, result.attacker_won, result.damage_dealt, result.currency_stolen),
-  ];
-
-  // Handle kill - award bounty and update hitlist. The target stays at 0 health
-  // (defeated/unattackable) until they heal, rather than respawning instantly.
-  if (result.defender_killed) {
-    statements.push(
-      db.prepare('UPDATE hitlist SET state = \'claimed\', claimed_at = ?, claimed_by_character_id = ? WHERE id = ?')
-        .bind(now, attackerStats.id, hitlist_id),
-      db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency + ? WHERE id = ?')
-        .bind(hitlist.bounty_amount, attackerStats.id),
-    );
-  }
-
-  // Trophies for every outcome, not only kills. A hitlist attack that did not
-  // land the kill still has a winner and a loser, and previously recorded
-  // nothing for either side.
-  if (result.defender_killed) {
-    statements.push(
-      bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
-      bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 }),
-    );
-  } else if (result.attacker_killed) {
-    // Possible now that the target counterattacks: hunting a bounty can kill you.
-    statements.push(
-      bumpTrophies(db, defenderStats.id, { kills: 1, wins: 1 }),
-      bumpTrophies(db, attackerStats.id, { deaths: 1, losses: 1 }),
-    );
-  } else {
-    statements.push(
-      bumpTrophies(db, attackerStats.id, result.attacker_won ? { wins: 1 } : { losses: 1 }),
-      bumpTrophies(db, defenderStats.id, result.attacker_won ? { losses: 1 } : { wins: 1 }),
-    );
-  }
-
-  await db.batch(statements);
+  // One shared implementation with the bot loop, so the two cannot drift —
+  // which is how this path ended up recording trophies only on kills.
+  const result = await performHitlistAttack(
+    db,
+    { id: hitlist_id, bounty_amount: hitlist.bounty_amount },
+    attackerStats,
+    defenderStats,
+  );
 
   const names = await db
     .prepare('SELECT id, gamertag FROM characters WHERE id IN (?, ?)')

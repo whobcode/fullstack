@@ -1,10 +1,22 @@
 import type { Bindings } from '../bindings';
 import { resolveBattle } from './storm8-battle-engine';
 import { getCharacterBattleStats, bumpTrophies } from './battle';
+import { performHitlistAttack } from './hitlist-claim';
+import { canList, recordGlobalIfSaturated } from './hitlist';
 
 // How many bot attacks to run per cron tick (keeps the game "alive" 24/7 while
 // bounding DB growth).
 const ATTACKS_PER_TICK = 15;
+
+// Bounties claimed and posted per tick. Deliberately smaller than the attack
+// batch: a claim is worth real currency and a posting spends it, so the world
+// should churn rather than drain.
+const HITLIST_CLAIMS_PER_TICK = 5;
+const BOUNTIES_POSTED_PER_TICK = 3;
+
+// What a bot puts on someone's head. The server floor is 1000.
+const BOT_BOUNTY_MIN = 1000;
+const BOT_BOUNTY_MAX = 5000;
 
 // Pick a batch of bots and have each attack a real opponent, resolving the
 // battle exactly like a player attack (initiative, multi-hit, counter, kills,
@@ -56,8 +68,10 @@ async function botAttackOnce(db: D1Database, attackerId: string, attackerLevel: 
     .bind(target.user_id)
     .first<{ defense_character_id: string | null }>();
   if (owner?.defense_character_id) {
+    // Only while they are still up — a downed defender lets the attack through
+    // to the real target, same rule as applyDefenseCharacter.
     const dc = await db
-      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ? AND current_health > 0')
       .bind(owner.defense_character_id, target.user_id)
       .first<{ id: string }>();
     if (dc) defenderId = dc.id;
@@ -111,4 +125,110 @@ async function botAttackOnce(db: D1Database, attackerId: string, attackerLevel: 
   );
 
   await db.batch(statements);
+}
+
+
+// ---------------------------------------------------------------------------
+// Hitlist
+//
+// Bots both hunt bounties and post them, against players and other bots alike,
+// so the hitlist is not something only a human ever touches.
+// ---------------------------------------------------------------------------
+
+/** Bots claim bounties: pick open ones and send a bot after the target. */
+export async function runBotHitlistClaims(env: Bindings): Promise<void> {
+  const db = env.DB;
+
+  const bounties = await db
+    .prepare(`
+      SELECT h.id, h.bounty_amount, h.target_character_id, h.posted_by_character_id, t.user_id AS target_user_id
+      FROM hitlist h
+      JOIN characters t ON t.id = h.target_character_id
+      WHERE h.state = 'active' AND t.current_health > 0
+      ORDER BY RANDOM() LIMIT ?
+    `)
+    .bind(HITLIST_CLAIMS_PER_TICK)
+    .all<{ id: string; bounty_amount: number; target_character_id: string; posted_by_character_id: string; target_user_id: string }>();
+
+  for (const b of bounties.results || []) {
+    try {
+      // A hunter that is not the target, not whoever posted it, and not on the
+      // target's own account.
+      const hunter = await db
+        .prepare(`
+          SELECT c.id FROM characters c JOIN users u ON u.id = c.user_id
+          WHERE u.is_bot = 1
+            AND c.current_health > 0 AND c.current_stamina >= 1
+            AND c.id != ?1 AND c.id != ?2 AND c.user_id != ?3
+          ORDER BY RANDOM() LIMIT 1
+        `)
+        .bind(b.target_character_id, b.posted_by_character_id, b.target_user_id)
+        .first<{ id: string }>();
+      if (!hunter) continue;
+
+      const attacker = await getCharacterBattleStats(db, hunter.id);
+      const defender = await getCharacterBattleStats(db, b.target_character_id);
+      if (!attacker || !defender) continue;
+      if (attacker.current_health <= 0 || defender.current_health <= 0 || attacker.current_stamina < 1) continue;
+
+      await performHitlistAttack(db, { id: b.id, bounty_amount: b.bounty_amount }, attacker, defender);
+    } catch (e) {
+      console.error('Bot hitlist claim failed:', e);
+    }
+  }
+}
+
+/** Bots post bounties on whoever is worth hunting — players and bots alike. */
+export async function runBotBounties(env: Bindings): Promise<void> {
+  const db = env.DB;
+
+  // Bots with enough on hand to cover the floor.
+  const posters = await db
+    .prepare(`
+      SELECT c.id, c.user_id, c.unbanked_currency
+      FROM characters c JOIN users u ON u.id = c.user_id
+      WHERE u.is_bot = 1 AND c.unbanked_currency >= ?
+      ORDER BY RANDOM() LIMIT ?
+    `)
+    .bind(BOT_BOUNTY_MIN, BOUNTIES_POSTED_PER_TICK)
+    .all<{ id: string; user_id: string; unbanked_currency: number }>();
+
+  for (const poster of posters.results || []) {
+    try {
+      // Any character but their own, bot or player. Globalled targets are
+      // excluded here rather than waiting for canList to refuse them.
+      const target = await db
+        .prepare(`
+          SELECT c.id FROM characters c
+          WHERE c.first_game_access_completed = 1
+            AND c.user_id != ?
+            AND (c.globalled_until IS NULL OR c.globalled_until <= ?)
+          ORDER BY RANDOM() LIMIT 1
+        `)
+        .bind(poster.user_id, new Date().toISOString())
+        .first<{ id: string }>();
+      if (!target) continue;
+
+      // The same limits a player faces: 25 per poster per target, 200 total.
+      const check = await canList(db, poster.id, target.id);
+      if (!check.ok) continue;
+
+      const amount = Math.min(
+        poster.unbanked_currency,
+        BOT_BOUNTY_MIN + Math.floor(Math.random() * (BOT_BOUNTY_MAX - BOT_BOUNTY_MIN + 1)),
+      );
+
+      await db.batch([
+        db.prepare('INSERT INTO hitlist (id, target_character_id, posted_by_character_id, bounty_amount) VALUES (?, ?, ?, ?)')
+          .bind(crypto.randomUUID(), target.id, poster.id, amount),
+        db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ? WHERE id = ?')
+          .bind(amount, poster.id),
+      ]);
+
+      // A bot posting can be the listing that globals someone.
+      await recordGlobalIfSaturated(db, target.id);
+    } catch (e) {
+      console.error('Bot bounty posting failed:', e);
+    }
+  }
 }

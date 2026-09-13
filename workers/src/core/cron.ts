@@ -1,7 +1,7 @@
 import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
 import { applyResourceRegeneration } from "./regen";
-import { runBotAttacks } from "./bots";
+import { runBotAttacks, runBotHitlistClaims, runBotBounties } from "./bots";
 
 interface CharacterWithLedger {
     id: string;
@@ -91,6 +91,10 @@ export async function handleScheduled(env: Bindings) {
         // Keep the world alive: bots attack on their own each tick.
         console.log('Cron job: running bot attacks');
         await runBotAttacks(env);
+        // Bots work the hitlist too: they hunt open bounties and put new ones up
+        // on players and bots alike, so it is not a board only humans touch.
+        await runBotHitlistClaims(env);
+        await runBotBounties(env);
     } catch (e) {
         console.error('Cron job error:', e);
     }
