@@ -5,6 +5,7 @@ import { useActiveCharacter } from "../lib/ActiveCharacterContext";
 import { CharacterFeed } from "../components/CharacterFeed";
 import { ProfileComments } from "../components/ProfileComments";
 import { ClanPanel } from "../components/ClanPanel";
+import { Breadcrumb } from "../components/Breadcrumb";
 
 type StatRow = { label: string; base: number; allocated: number; ability: number; total: number };
 type Breakdown = {
@@ -94,8 +95,8 @@ export default function CharacterDetailPage() {
   if (!character) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <p className="text-shade-red-300">Character not found.</p>
-        <Link to="/shade/dashboard" className="text-shade-red-400 hover:underline text-sm">← Dashboard</Link>
+        <Breadcrumb items={[{ label: "Dashboard", to: "/shade/dashboard" }, { label: "Character" }]} />
+        <p className="text-shade-red-300 mt-2">Character not found.</p>
       </div>
     );
   }
@@ -110,7 +111,8 @@ export default function CharacterDetailPage() {
 
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-6">
-      <Link to="/shade/dashboard" className="text-sm text-shade-red-400 hover:text-shade-red-100">← Dashboard</Link>
+      {/* Your own character: the dashboard is where you came from. */}
+      <Breadcrumb items={[{ label: "Dashboard", to: "/shade/dashboard" }, { label: character.gamertag || "Character" }]} />
 
       {/* Identity beside the numbers, as one unit. */}
       <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">

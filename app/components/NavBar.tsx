@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
+import { useActiveCharacter } from "../lib/ActiveCharacterContext";
 import { useEffect, useState } from "react";
 
 export function NavBar() {
@@ -8,6 +9,7 @@ export function NavBar() {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { activeId } = useActiveCharacter();
 
   // Close the game menu on Escape, and whenever the route changes.
   useEffect(() => setMenuOpen(false), [location.pathname]);
@@ -34,11 +36,26 @@ export function NavBar() {
   // phone screen and the right-hand items were pushed off. The panel closes on
   // navigation, on Escape, and on a click outside it.
   if (isShadeRoute) {
+    // Dashboard leads, then the things you do from it. The exception is when
+    // you are looking at someone else's character or profile: there the
+    // character you are viewing is the context, so it moves to the top and the
+    // dashboard becomes the way back.
+    const viewingSomeoneElse =
+      location.pathname.startsWith('/shade/u/') || location.pathname.startsWith('/u/');
+
+    const characterLink = {
+      to: activeId ? `/shade/character/${activeId}` : '/shade/dashboard',
+      label: 'Character',
+    };
+
     const gameLinks = [
+      ...(viewingSomeoneElse ? [characterLink] : []),
       { to: '/shade/dashboard', label: 'Dashboard' },
-      { to: '/shade/profile', label: 'Profile' },
-      { to: '/shade/battle', label: 'Battle' },
       { to: '/shade/store', label: 'Store' },
+      { to: '/shade/battle', label: 'Battle' },
+      { to: '/shade/players', label: 'Players' },
+      ...(viewingSomeoneElse ? [] : [characterLink]),
+      { to: '/shade/profile', label: 'Profile' },
       { to: '/shade/leaderboard', label: 'Leaderboard' },
     ];
 

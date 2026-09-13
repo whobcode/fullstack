@@ -6,6 +6,7 @@ import { useBattleResult } from "../lib/BattleResultContext";
 import { ProfileComments } from "../components/ProfileComments";
 import { CharacterFeed } from "../components/CharacterFeed";
 import { HitlistButton } from "../components/HitlistButton";
+import { Breadcrumb } from "../components/Breadcrumb";
 
 type PublicChar = {
   gamertag: string;
@@ -83,6 +84,10 @@ export default function PublicProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
+      {/* Someone else's character leads, because it is what you navigated to;
+          the dashboard trails as the way back to your own. */}
+      <Breadcrumb items={[{ label: profile.username }, { label: "Dashboard", to: "/shade/dashboard" }]} />
+
       {/* Header */}
       <div className="p-6 rounded-xl flex flex-col sm:flex-row items-center gap-6 bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">
         <div className="w-24 h-24 rounded-full overflow-hidden silhouette-avatar breathing-glow flex items-center justify-center shrink-0">

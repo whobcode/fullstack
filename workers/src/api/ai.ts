@@ -21,11 +21,20 @@ const CLASS_PROMPTS: Record<string, string> = {
   dphoenix: `dark phoenix wreathed in black fire, charred crimson feathers, ash and embers, menacing silhouette, ${SHADE_LOOK}`,
   dragon:   `armored dragon head in profile, scaled hide, glowing red eyes, coiled and watchful, ${SHADE_LOOK}`,
   ddragon:  `dark dragon shrouded in shadow, obsidian scales, smouldering red eyes, malevolent presence, ${SHADE_LOOK}`,
+  // Kies has two readings and no settled answer, so it gets both: each
+  // generation picks one at even odds, which also gives kies players more
+  // variety than the single-prompt classes.
   kies:     `humanoid spirit figure, translucent flowing form, faintly glowing outline, serene and otherworldly, ${SHADE_LOOK}`,
 };
 
+/** The other half of the kies coin flip. */
+const KIES_SHADY = `shady spirit, wraith-like humanoid shrouded in drifting shadow, half-dissolved form, faint red glow beneath the hood of darkness, ${SHADE_LOOK}`;
+
 /** Prompt for a class, falling back to the generic shade look. */
 function promptForClass(cls?: string | null): string {
+  if (cls === 'kies') {
+    return Math.random() < 0.5 ? CLASS_PROMPTS.kies : KIES_SHADY;
+  }
   if (cls && CLASS_PROMPTS[cls]) return CLASS_PROMPTS[cls];
   return shadePrompts[Math.floor(Math.random() * shadePrompts.length)];
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../lib/api";
 import { useActiveCharacter } from "../lib/ActiveCharacterContext";
+import { Breadcrumb } from "../components/Breadcrumb";
 
 type Ability = {
   id: string;
@@ -129,7 +130,7 @@ export default function StorePage() {
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Link to="/shade/dashboard" className="text-sm text-shade-red-400 hover:text-shade-red-100">← Dashboard</Link>
+        <Breadcrumb items={[{ label: "Dashboard", to: "/shade/dashboard" }, { label: "Store" }]} />
         <span className="text-sm text-amber-300 font-bold">{held.toLocaleString()} <span className="text-shade-ash font-normal">on hand</span></span>
       </div>
 
