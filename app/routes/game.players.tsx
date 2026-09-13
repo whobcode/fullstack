@@ -134,9 +134,26 @@ export default function PlayersDirectoryPage() {
               </p>
             </div>
 
-            <div className="text-right shrink-0 text-[11px] leading-tight">
-              <div className="text-emerald-300">{p.wins.toLocaleString()}W</div>
-              <div className="text-fuchsia-300">{p.kills.toLocaleString()}K</div>
+            {/* All four, like the leaderboard and the profile. Showing only
+                wins and kills made a character that had just lost look
+                untouched. */}
+            <div className="shrink-0 grid grid-cols-4 gap-2 text-center text-[11px] leading-tight">
+              <div>
+                <div className="font-bold text-emerald-300">{p.wins.toLocaleString()}</div>
+                <div className="text-shade-ash-dim">W</div>
+              </div>
+              <div>
+                <div className="font-bold text-shade-red-300">{p.losses.toLocaleString()}</div>
+                <div className="text-shade-ash-dim">L</div>
+              </div>
+              <div>
+                <div className="font-bold text-fuchsia-300">{p.kills.toLocaleString()}</div>
+                <div className="text-shade-ash-dim">K</div>
+              </div>
+              <div>
+                <div className="font-bold text-sky-300">{p.deaths.toLocaleString()}</div>
+                <div className="text-shade-ash-dim">D</div>
+              </div>
             </div>
           </Link>
         ))}
