@@ -33,6 +33,14 @@ import {
 import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
+import {
+  canList,
+  getGlobalStatus,
+  recordGlobalIfSaturated,
+  MAX_LISTINGS_PER_TARGET,
+  MAX_LISTINGS_PER_POSTER,
+  MIN_POSTERS_TO_GLOBAL,
+} from '../core/hitlist';
 
 type App = {
   Bindings: Bindings;
@@ -653,6 +661,13 @@ storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => 
     return c.json({ error: 'Insufficient currency' }, 400);
   }
 
+  // Listing limits: 25 bounties from any one poster, 200 total per target per
+  // rolling 24h. Hitting 200 globals the target (see core/hitlist.ts).
+  const check = await canList(db, char.id, targetId);
+  if (!check.ok) {
+    return c.json({ error: check.error, global_status: check.status }, 429);
+  }
+
   // Create hitlist entry and deduct bounty
   const hitlistId = crypto.randomUUID();
   await db.batch([
@@ -662,15 +677,67 @@ storm8.post('/hitlist/post', zValidator('json', postBountySchema), async (c) => 
       .bind(bounty_amount, char.id),
   ]);
 
-  return c.json({ data: { hitlist_id: hitlistId } });
+  // Did that listing max them out?
+  const globalled = await recordGlobalIfSaturated(db, targetId);
+  const status = await getGlobalStatus(db, targetId);
+
+  return c.json({
+    data: {
+      hitlist_id: hitlistId,
+      listings_from_you: check.from_this_poster + 1,
+      listings_remaining_from_you: MAX_LISTINGS_PER_POSTER - (check.from_this_poster + 1),
+      global_status: status,
+      globalled,
+    },
+  });
+});
+
+// Hitlist saturation for one character: how close they are to being globalled.
+storm8.get('/hitlist/status/:gamertag', async (c) => {
+  const db = c.env.DB;
+  const targetId = await resolveTargetId(db, { gamertag: c.req.param('gamertag') });
+  if (!targetId) return c.json({ error: 'Character not found' }, 404);
+
+  const status = await getGlobalStatus(db, targetId);
+  const history = await db
+    .prepare(`
+      -- globalled_at defaults to CURRENT_TIMESTAMP (SQLite format); normalise
+      -- to ISO so the browser does not read it as local time.
+      SELECT listed_count, distinct_posters, cooldown_until,
+             strftime('%Y-%m-%dT%H:%M:%SZ', globalled_at) AS globalled_at
+      FROM character_globals
+      WHERE character_id = ?
+      ORDER BY globalled_at DESC
+      LIMIT 10
+    `)
+    .bind(targetId)
+    .all();
+
+  return c.json({
+    data: {
+      ...status,
+      max_listings: MAX_LISTINGS_PER_TARGET,
+      max_per_poster: MAX_LISTINGS_PER_POSTER,
+      min_posters_to_global: MIN_POSTERS_TO_GLOBAL,
+      history: history.results || [],
+    },
+  });
 });
 
 storm8.get('/hitlist/active', async (c) => {
   const db = c.env.DB;
 
+  // `poster_gamertag` and `target_current_health` are what the UI reads; they
+  // were never selected, so both rendered blank.
   const hitlists = await db
     .prepare(`
-      SELECT h.*, c.gamertag as target_gamertag, c2.gamertag as posted_by_gamertag
+      SELECT h.*,
+             c.gamertag AS target_gamertag,
+             c.current_health AS target_current_health,
+             c.level AS target_level,
+             c.globalled_until AS target_globalled_until,
+             c2.gamertag AS poster_gamertag,
+             c2.gamertag AS posted_by_gamertag
       FROM hitlist h
       JOIN characters c ON h.target_character_id = c.id
       JOIN characters c2 ON h.posted_by_character_id = c2.id
@@ -716,20 +783,19 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     return c.json({ error: 'Cannot attack yourself on hitlist' }, 400);
   }
 
-  // Check daily limit (25 attacks per day per hitlist)
-  const today = new Date().toISOString().split('T')[0];
-  const attackCount = await db
-    .prepare(`
-      SELECT COUNT(*) as count
-      FROM hitlist_attacks
-      WHERE hitlist_id = ? AND attacker_character_id = ? AND DATE(attacked_at) = ?
-    `)
-    .bind(hitlist_id, attackerChar.id, today)
-    .first<{ count: number }>();
-
-  if ((attackCount?.count || 0) >= 25) {
-    return c.json({ error: 'Daily hitlist attack limit reached (25)' }, 400);
+  // You cannot collect on a bounty you placed with the character that placed
+  // it — post on one character, hunt with another.
+  if (hitlist.posted_by_character_id === attackerChar.id) {
+    return c.json(
+      { error: 'This character posted the bounty. Attack it with a different character.' },
+      400,
+    );
   }
+
+  // No per-day attack cap: stamina is the only limiter. Each attack costs 1
+  // stamina (regen is 1 per 3 min), so how often you can hunt a bounty is
+  // bounded by your stamina pool rather than a daily counter.
+  // hitlist_attacks is still written, as history rather than a quota.
 
   // Apply regeneration and get stats
   await applyResourceRegeneration(db, attackerChar.id);
@@ -771,6 +837,13 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     // Log hitlist attack
     db.prepare('INSERT INTO hitlist_attacks (hitlist_id, attacker_character_id, damage_dealt, target_killed) VALUES (?, ?, ?, ?)')
       .bind(hitlist_id, attackerStats.id, result.damage_dealt, result.defender_killed),
+
+    // Both characters' feeds. Hitlist attacks were previously missing from
+    // these, so an ambush left no trace on either wall.
+    db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(attackerStats.id, null, attackerStats.id, defenderStats.id, result.attacker_won, result.damage_dealt, result.currency_stolen),
+    db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(defenderStats.id, null, attackerStats.id, defenderStats.id, result.attacker_won, result.damage_dealt, result.currency_stolen),
   ];
 
   // Handle kill - award bounty and update hitlist. The target stays at 0 health

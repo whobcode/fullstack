@@ -79,21 +79,23 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
 export function bumpTrophies(
   db: D1Database,
   characterId: string,
-  delta: { wins?: number; losses?: number; kills?: number; deaths?: number },
+  delta: { wins?: number; losses?: number; kills?: number; deaths?: number; globals?: number },
 ) {
   const w = delta.wins ?? 0;
   const l = delta.losses ?? 0;
   const k = delta.kills ?? 0;
   const d = delta.deaths ?? 0;
+  const g = delta.globals ?? 0;
   return db
     .prepare(`
-      INSERT INTO trophies (character_id, wins, losses, kills, deaths)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO trophies (character_id, wins, losses, kills, deaths, globals)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(character_id) DO UPDATE SET
         wins = wins + excluded.wins,
         losses = losses + excluded.losses,
         kills = kills + excluded.kills,
-        deaths = deaths + excluded.deaths
+        deaths = deaths + excluded.deaths,
+        globals = globals + excluded.globals
     `)
-    .bind(characterId, w, l, k, d);
+    .bind(characterId, w, l, k, d, g);
 }

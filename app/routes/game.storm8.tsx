@@ -484,6 +484,49 @@ function AttackInterface({ character, onUpdate }: { character: any; onUpdate: ()
   );
 }
 
+/**
+ * How close a target is to being globalled — 200 listings in 24h, no more than
+ * 25 of them from any one player.
+ */
+function GlobalMeter({ status }: { status: any }) {
+  const pct = Math.min(100, Math.round((status.listed_count / status.max_listings) * 100));
+
+  return (
+    <div className="mt-3 p-3 rounded bg-shade-black-900 border border-shade-red-800/40">
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-shade-red-200 font-bold">
+          {status.is_globalled ? '★ Globalled' : 'Hitlist saturation'}
+        </span>
+        <span className="text-shade-ash">
+          {status.listed_count} / {status.max_listings} listings
+        </span>
+      </div>
+
+      <div className="h-2 rounded-full bg-shade-black-700 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${
+            status.is_globalled
+              ? 'bg-gradient-to-r from-amber-500 to-amber-300'
+              : 'bg-gradient-to-r from-shade-red-700 to-shade-red-500'
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      <p className="text-[11px] text-shade-ash mt-2">
+        {status.is_globalled ? (
+          <>Cannot be listed again until {new Date(status.globalled_until).toLocaleString()}.</>
+        ) : (
+          <>
+            {status.distinct_posters} player{status.distinct_posters === 1 ? '' : 's'} so far ·{' '}
+            {status.listings_remaining} listing{status.listings_remaining === 1 ? '' : 's'} left before they global
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
 // Hitlist Browser
 function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () => void }) {
   const { showBattle } = useBattleResult();
@@ -492,6 +535,9 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
   const [error, setError] = useState<string | null>(null);
   const [postTarget, setPostTarget] = useState('');
   const [bountyAmount, setBountyAmount] = useState(1000);
+  // Saturation for the name being typed: how close they are to globalled.
+  const [targetStatus, setTargetStatus] = useState<any>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchHitlist = async () => {
     try {
@@ -508,6 +554,27 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
     fetchHitlist();
   }, []);
 
+  useEffect(() => {
+    const name = postTarget.trim();
+    if (!name) {
+      setTargetStatus(null);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<{ data: any }>(`/storm8/hitlist/status/${encodeURIComponent(name)}`);
+        if (!cancelled) setTargetStatus(res.data);
+      } catch {
+        if (!cancelled) setTargetStatus(null);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [postTarget]);
+
   const handlePostHitlist = async () => {
     setError(null);
     if (!postTarget.trim()) {
@@ -515,10 +582,16 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
       return;
     }
     try {
-      await apiClient.post(withChar('/storm8/hitlist/post', character?.id), {
+      const res = await apiClient.post<{ data: any }>(withChar('/storm8/hitlist/post', character?.id), {
         target_gamertag: postTarget.trim(),
         bounty_amount: bountyAmount,
       });
+      const d = res.data;
+      setNotice(
+        d?.globalled
+          ? `GLOBALLED — ${postTarget.trim()} hit ${d.globalled.listed_count} listings from ${d.globalled.distinct_posters} players. They cannot be listed again for 24h.`
+          : `Bounty posted. ${d?.listings_remaining_from_you ?? 0} more allowed on this target from this character today.`,
+      );
       setPostTarget('');
       fetchHitlist();
       onUpdate();
@@ -565,13 +638,23 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
           />
           <button
             onClick={handlePostHitlist}
-            className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 p-2 rounded font-bold"
+            disabled={!!targetStatus?.is_globalled}
+            className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:opacity-50 p-2 rounded font-bold"
           >
-            Post Bounty ({bountyAmount} currency)
+            {targetStatus?.is_globalled ? 'Target is globalled' : `Post Bounty (${bountyAmount} currency)`}
           </button>
         </div>
+
+        {targetStatus && <GlobalMeter status={targetStatus} />}
+
+        <p className="text-[11px] text-shade-ash mt-3">
+          A character can be listed 200 times a day, and you can only place 25 of
+          those — it takes at least 8 players to global someone. You cannot
+          collect a bounty with the character that posted it.
+        </p>
       </div>
 
+      {notice && <p className="text-amber-300 text-sm mb-4">{notice}</p>}
       {error && <p className="text-shade-red-600 mb-4">{error}</p>}
 
       <div className="space-y-3">
@@ -594,10 +677,11 @@ function HitlistBrowser({ character, onUpdate }: { character: any; onUpdate: () 
               </div>
               <button
                 onClick={() => handleHitlistAttack(hit.id)}
-                disabled={character.current_stamina < 1}
+                disabled={character.current_stamina < 1 || hit.posted_by_character_id === character.id}
+                title={hit.posted_by_character_id === character.id ? 'Hunt your own bounty with a different character' : undefined}
                 className="w-full bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 disabled:bg-shade-black-600 disabled:text-shade-red-300 p-2 rounded font-bold"
               >
-                Attack (1 Stamina)
+                {hit.posted_by_character_id === character.id ? 'Your bounty — switch character' : 'Attack (1 Stamina)'}
               </button>
             </div>
           ))

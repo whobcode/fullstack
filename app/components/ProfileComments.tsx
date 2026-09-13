@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
+import { MentionText, useResolvedMentions } from "./Mentions";
 
 type Comment = {
   id: string;
@@ -10,8 +11,14 @@ type Comment = {
   author_user_id: string;
 };
 
-// Comment wall for a gamer profile. `name` is a username or a character gamertag.
-export function ProfileComments({ name }: { name: string }) {
+/**
+ * Comment wall.
+ *
+ * Pass `gamertag` for a character's own wall — every character has a separate
+ * one. `name` is the legacy user-level wall (a username or gamertag), kept for
+ * callers that address a player rather than a character.
+ */
+export function ProfileComments({ name, gamertag }: { name?: string; gamertag?: string }) {
   const { user, isAuthenticated } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
@@ -19,9 +26,15 @@ export function ProfileComments({ name }: { name: string }) {
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Character walls are addressed by gamertag; the user-level wall by name.
+  const base = gamertag
+    ? `/game/character/${encodeURIComponent(gamertag)}/comments`
+    : `/game/profile/${encodeURIComponent(name || "")}/comments`;
+  const target = gamertag || name;
+
   const load = async () => {
     try {
-      const r = await apiClient.get<{ data: Comment[] }>(`/game/profile/${encodeURIComponent(name)}/comments`);
+      const r = await apiClient.get<{ data: Comment[] }>(base);
       setComments(r.data || []);
     } catch {
       /* ignore */
@@ -31,8 +44,10 @@ export function ProfileComments({ name }: { name: string }) {
   };
 
   useEffect(() => {
-    if (name) load();
-  }, [name]);
+    if (target) load();
+  }, [target]);
+
+  const knownMentions = useResolvedMentions(comments.map((c) => c.body));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +55,7 @@ export function ProfileComments({ name }: { name: string }) {
     setPosting(true);
     setError(null);
     try {
-      await apiClient.post(`/game/profile/${encodeURIComponent(name)}/comments`, { body: body.trim() });
+      await apiClient.post(base, { body: body.trim() });
       setBody("");
       await load();
     } catch (err: any) {
@@ -69,7 +84,7 @@ export function ProfileComments({ name }: { name: string }) {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             maxLength={500}
-            placeholder="Leave a comment…"
+            placeholder="Leave a comment… use @name to tag a character"
             className="flex-1 p-2 rounded bg-shade-black-950 border border-white/10 text-shade-red-100 focus:outline-none focus:ring-2 focus:ring-shade-red-500"
           />
           <button
@@ -94,7 +109,9 @@ export function ProfileComments({ name }: { name: string }) {
                 <span className="text-sm font-bold text-shade-red-200">{c.author}</span>
                 <span className="text-[10px] text-shade-red-500">{new Date(c.created_at).toLocaleString()}</span>
               </div>
-              <p className="text-shade-red-100 text-sm mt-1 break-words">{c.body}</p>
+              <p className="text-shade-red-100 text-sm mt-1 break-words">
+                <MentionText text={c.body} known={knownMentions} />
+              </p>
               {user?.id === c.author_user_id && (
                 <button onClick={() => remove(c.id)} className="text-[10px] text-shade-red-500 hover:text-shade-red-300 mt-1">
                   delete

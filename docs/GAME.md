@@ -67,9 +67,60 @@ lifetime budget and resets to base stats.
 - **Public social profile** — `/u/:id` (cover, avatar, bio), links back to the gamer profile.
 - **Comments** — every profile has a comment wall (`profile_comments`): `GET/POST /api/game/profile/:name/comments`, `DELETE /api/game/comments/:id`.
 - **Leaderboard** — `/shade/leaderboard`, top 25 by level → wins → kills.
-- **Hitlist** — players post bounties; killing the target claims it.
+- **Hitlist** — players post bounties; killing the target claims it. See **Globalling** below.
 - **Clan** — members multiply equipment power in battle.
 - **Ability shop** — buy equipment that adds ATK/DEF (level-gated).
+
+## Globalling (hitlist saturation)
+
+*Globalling* is the term for maxing out how many times a character can be put
+on the hitlist in a day. Rules live in `workers/src/core/hitlist.ts`:
+
+| Limit | Value |
+|---|---|
+| Listings one character can receive per rolling 24h | **200** |
+| Bounties one poster can place on the same target per 24h | **25** |
+| Cooldown once globalled | **24h** |
+| Minimum players needed to global someone | **8** (200 ÷ 25) |
+
+- The two caps are what make it a group act: no single player can global
+  anyone, it takes at least **eight different characters banding together**.
+- Hitting 200 records a row in `character_globals` (with how many listings and
+  how many distinct posters it took), starts the cooldown on
+  `characters.globalled_until`, and awards the target a **global trophy**
+  (`trophies.globals`). Being globalled is notoriety earned, not a penalty.
+- While the cooldown runs the character **cannot be listed again**; `POST
+  /storm8/hitlist/post` returns 429 with the current `global_status`.
+- **You cannot collect on a bounty you posted with the character that posted
+  it** — post on one character, hunt with another.
+- **Attacking a bounty is limited only by stamina.** There is no per-day attack
+  cap; each attack costs 1 stamina (regen 1 per 3 min), so your stamina pool is
+  the whole limiter. `hitlist_attacks` rows are still written, as history.
+- Both counts use a rolling 24h window computed by SQLite (`datetime('now',
+  '-24 hours')`). Don't bind a JS `toISOString()` value against `posted_at`:
+  it defaults to `CURRENT_TIMESTAMP`, whose `"YYYY-MM-DD HH:MM:SS"` format
+  compares `' '` against `'T'` once the date halves match, silently dropping
+  every row that shares a calendar date with the cutoff.
+
+`GET /storm8/hitlist/status/:gamertag` returns a target's saturation (listings
+so far, distinct posters, listings remaining, cooldown) plus their globalling
+history — it backs the meter on the hitlist screen.
+
+## Per-character walls
+
+Every character keeps its **own** comment wall and its **own** battle feed; a
+player with several characters no longer shares one wall across all of them.
+
+- `GET/POST /api/game/character/:gamertag/comments` — that character's wall.
+  Rows carry `profile_comments.profile_character_id`; the older
+  `profile_user_id` is still written so the owner keeps delete rights.
+- `GET /api/game/character/:gamertag/feed` — that character's battle feed.
+  Public, but `currency_stolen` is only filled in for the owner. Hitlist
+  ambushes now write to both combatants' feeds (they previously left no trace).
+- **Mentions** — comment bodies linkify `@handle`, resolving a gamertag first
+  and then a username, matching what `/shade/u/:name` resolves. The client
+  batches candidates through `POST /api/game/mentions/resolve` so unknown
+  handles render as plain text instead of dead links.
 
 ## Bots (the world runs 24/7)
 
@@ -96,7 +147,11 @@ All under `/api`. Game/battle routes require auth.
 | POST | `/storm8/attack` | Attack a target (`defender_gamertag` or `defender_character_id`); `?character_id=` overrides the acting character |
 | POST | `/storm8/skills/allocate` | Allocate storm8 skill points |
 | POST | `/storm8/hospital/heal` | Full heal for currency |
-| GET/POST | `/storm8/hitlist/active`, `/hitlist/post`, `/hitlist/attack` | Bounty system |
+| GET/POST | `/storm8/hitlist/active`, `/hitlist/post`, `/hitlist/attack` | Bounty system (200/day per target, 25 per poster) |
+| GET | `/storm8/hitlist/status/:gamertag` | Globalling saturation + history for a target |
+| GET/POST | `/game/character/:gamertag/comments` | That character's comment wall |
+| GET | `/game/character/:gamertag/feed` | That character's battle feed |
+| POST | `/game/mentions/resolve` | Which `@handles` in a block of text are real |
 | GET/POST | `/storm8/clan`, `/clan/recruit`, `/storm8/abilities*` | Clan & equipment |
 | POST | `/game/character/allocate-points` | Spend stat points (HP×100, SPD×2, ATK/DEF +1% base) |
 | POST | `/game/character/respec` | Refund all points, reset to base |

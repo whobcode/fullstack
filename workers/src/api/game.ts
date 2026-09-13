@@ -383,7 +383,8 @@ game.get('/leaderboard', async (c) => {
     const rows = await db.prepare(`
         SELECT c.id, c.gamertag, c.class, c.level, u.username AS owner,
                COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
-               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
+               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths,
+               COALESCE(t.globals,0) AS globals, c.globalled_until
         FROM characters c
         JOIN users u ON u.id = c.user_id
         LEFT JOIN trophies t ON t.character_id = c.id
@@ -424,7 +425,8 @@ game.get('/profile/:name', async (c) => {
     const characters = await db.prepare(`
         SELECT c.gamertag, c.class, c.level,
                COALESCE(t.wins,0) AS wins, COALESCE(t.losses,0) AS losses,
-               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths
+               COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths,
+               COALESCE(t.globals,0) AS globals, c.globalled_until
         FROM characters c
         LEFT JOIN trophies t ON t.character_id = c.id
         WHERE c.user_id = ? AND c.first_game_access_completed = TRUE
@@ -504,6 +506,137 @@ game.delete('/comments/:id', async (c) => {
     return c.json({ message: 'Comment deleted' });
 });
 
+// ============================================================================
+// PER-CHARACTER WALLS
+//
+// Each character has its own comment wall and its own battle feed — a user
+// with several characters no longer shares one wall across all of them. Walls
+// are addressed by gamertag, which is unique (NOCASE) across characters.
+// ============================================================================
+
+/** Resolve a gamertag to the character and its owner. */
+async function resolveCharacterByTag(db: D1Database, tag: string) {
+    return db
+        .prepare('SELECT id, user_id, gamertag FROM characters WHERE gamertag = ? COLLATE NOCASE')
+        .bind((tag || '').trim())
+        .first<{ id: string; user_id: string; gamertag: string }>();
+}
+
+// A character's comment wall (anyone can read).
+game.get('/character/:gamertag/comments', async (c) => {
+    const db = c.env.DB;
+    const ch = await resolveCharacterByTag(db, c.req.param('gamertag'));
+    if (!ch) return c.json({ error: 'Character not found' }, 404);
+
+    const comments = await db.prepare(`
+        SELECT pc.id, pc.body, pc.created_at, au.username AS author, pc.author_user_id,
+               ac.gamertag AS author_gamertag
+        FROM profile_comments pc
+        JOIN users au ON au.id = pc.author_user_id
+        LEFT JOIN characters ac ON ac.id = au.active_character_id
+        WHERE pc.profile_character_id = ?
+        ORDER BY pc.created_at DESC
+        LIMIT 100
+    `).bind(ch.id).all();
+
+    return c.json({ data: comments.results || [] });
+});
+
+// Post to a character's wall (including your own).
+game.post('/character/:gamertag/comments', zValidator('json', z.object({ body: z.string().min(1).max(500) })), async (c) => {
+    const user = c.get('user');
+    const db = c.env.DB;
+    const ch = await resolveCharacterByTag(db, c.req.param('gamertag'));
+    if (!ch) return c.json({ error: 'Character not found' }, 404);
+
+    const { body } = c.req.valid('json');
+    const id = crypto.randomUUID();
+    // profile_user_id is still written so the wall owner keeps delete rights.
+    await db.prepare('INSERT INTO profile_comments (id, profile_user_id, profile_character_id, author_user_id, body) VALUES (?, ?, ?, ?, ?)')
+        .bind(id, ch.user_id, ch.id, user.id, body)
+        .run();
+
+    return c.json({
+        data: {
+            id,
+            body,
+            author: user.username,
+            author_user_id: user.id,
+            created_at: new Date().toISOString(),
+        },
+    }, 201);
+});
+
+// A character's battle feed (public). Currency stolen is only shown to the
+// character's owner — everything else here is already public via trophies.
+game.get('/character/:gamertag/feed', async (c) => {
+    const db = c.env.DB;
+    const user = c.get('user');
+    const ch = await resolveCharacterByTag(db, c.req.param('gamertag'));
+    if (!ch) return c.json({ error: 'Character not found' }, 404);
+
+    const isOwner = !!user && user.id === ch.user_id;
+
+    const feed = await db.prepare(`
+        SELECT bf.id, bf.attacker_won, bf.damage_dealt, bf.created_at,
+               ${isOwner ? 'bf.currency_stolen' : '0 AS currency_stolen'},
+               c1.gamertag AS attacker_gamertag,
+               c2.gamertag AS defender_gamertag
+        FROM battle_feed bf
+        JOIN characters c1 ON bf.attacker_id = c1.id
+        JOIN characters c2 ON bf.defender_id = c2.id
+        WHERE bf.character_id = ?
+        ORDER BY bf.created_at DESC
+        LIMIT 50
+    `).bind(ch.id).all();
+
+    return c.json({ data: feed.results || [] });
+});
+
+// ============================================================================
+// MENTIONS
+//
+// Comment and feed text may reference a character as "@gamertag" or a user as
+// "@username". The client extracts the candidates and asks here which ones are
+// real, so unknown handles render as plain text instead of dead links.
+// ============================================================================
+
+game.post('/mentions/resolve', zValidator('json', z.object({
+    names: z.array(z.string().min(1).max(32)).max(50),
+})), async (c) => {
+    const db = c.env.DB;
+    const { names } = c.req.valid('json');
+    if (names.length === 0) return c.json({ data: [] });
+
+    const unique = [...new Set(names.map((n) => n.trim().toLowerCase()))].filter(Boolean);
+    if (unique.length === 0) return c.json({ data: [] });
+
+    const placeholders = unique.map(() => '?').join(',');
+
+    // Gamertags win over usernames: a mention points at a character when one
+    // by that name exists, since that is what /shade/u/:name resolves first.
+    const chars = await db.prepare(`
+        SELECT gamertag AS name, 'character' AS kind FROM characters
+        WHERE gamertag COLLATE NOCASE IN (${placeholders})
+    `).bind(...unique).all<{ name: string; kind: string }>();
+
+    const users = await db.prepare(`
+        SELECT username AS name, 'user' AS kind FROM users
+        WHERE username COLLATE NOCASE IN (${placeholders})
+    `).bind(...unique).all<{ name: string; kind: string }>();
+
+    const seen = new Set<string>();
+    const resolved: { name: string; kind: string }[] = [];
+    for (const row of [...(chars.results || []), ...(users.results || [])]) {
+        const key = row.name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        resolved.push(row);
+    }
+
+    return c.json({ data: resolved });
+});
+
 // Set the character the user is "playing as" (defaults all game actions to it).
 game.post('/active-character', zValidator('json', z.object({ characterId: z.string().uuid() })), async (c) => {
     const user = c.get('user');
@@ -543,7 +676,7 @@ game.get('/my-characters', async (c) => {
     await regenUserCharacters(db, user.id);
 
     const characters = await db.prepare(`
-        SELECT c.*, t.wins, t.losses, t.kills, t.deaths
+        SELECT c.*, t.wins, t.losses, t.kills, t.deaths, COALESCE(t.globals,0) AS globals
         FROM characters c
         LEFT JOIN trophies t ON c.id = t.character_id
         WHERE c.user_id = ?
@@ -567,7 +700,7 @@ game.get('/profile', async (c) => {
         .first();
 
     const characters = await db.prepare(`
-        SELECT c.*, t.wins, t.losses, t.kills, t.deaths
+        SELECT c.*, t.wins, t.losses, t.kills, t.deaths, COALESCE(t.globals,0) AS globals
         FROM characters c
         LEFT JOIN trophies t ON c.id = t.character_id
         WHERE c.user_id = ?
@@ -584,7 +717,7 @@ game.get('/character', async (c) => {
     const slotNumber = c.req.query('slot');
 
     let query = `
-        SELECT c.*, t.wins, t.losses, t.kills, t.deaths
+        SELECT c.*, t.wins, t.losses, t.kills, t.deaths, COALESCE(t.globals,0) AS globals
         FROM characters c
         LEFT JOIN trophies t ON c.id = t.character_id
         WHERE c.user_id = ?
@@ -613,7 +746,7 @@ game.get('/character/:id', async (c) => {
     const db = c.env.DB;
 
     const character = await db.prepare(`
-        SELECT c.*, t.wins, t.losses, t.kills, t.deaths
+        SELECT c.*, t.wins, t.losses, t.kills, t.deaths, COALESCE(t.globals,0) AS globals
         FROM characters c
         LEFT JOIN trophies t ON c.id = t.character_id
         WHERE c.id = ? AND c.user_id = ?
