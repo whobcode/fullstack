@@ -15,3 +15,10 @@ worker-configuration.d.ts
 
 # OAuth Secrets (never commit these!)
 client_secret*.json
+
+# Local env. .env.example is the tracked template; everything else stays local.
+# Note that .gitignore does not apply to files already tracked -- .env had to
+# be `git rm --cached`d to take effect.
+.env
+.env.*
+!.env.example
