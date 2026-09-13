@@ -6,6 +6,7 @@ import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 import { SquarePayment } from '../components/SquarePayment';
 import { BankPanel } from '../components/BankPanel';
 import { CharacterAvatar } from '../components/CharacterAvatar';
+import { useStatBreakdowns } from '../lib/useStatBreakdowns';
 
 type SlotInfo = {
   totalSlots: number;
@@ -462,6 +463,13 @@ function PurchaseSlotModal({
 
 export default function GameDashboardPage() {
   const { user, refreshUser } = useAuth();
+  // Stats must match the character sheet, so they come from the breakdown
+  // rather than the stored columns.
+  const { breakdowns, refresh: refreshBreakdowns } = useStatBreakdowns();
+  const statOf = (label: string, fallback: number) =>
+    breakdowns[character?.id ?? '']?.stats.find((r) => r.label === label)?.total ?? fallback;
+  const abilityOf = (label: string) =>
+    breakdowns[character?.id ?? '']?.stats.find((r) => r.label === label)?.ability ?? 0;
   const { activeId, setActive, characters: myChars } = useActiveCharacter();
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
@@ -745,7 +753,7 @@ export default function GameDashboardPage() {
           {character.unspent_stat_points > 0 && (
             <AllocatePointsForm
               character={character}
-              onAllocationComplete={() => fetchCharacter(character.id)}
+              onAllocationComplete={() => { fetchCharacter(character.id); refreshBreakdowns(); }}
             />
           )}
 
@@ -790,14 +798,18 @@ export default function GameDashboardPage() {
               <p className="text-xs text-shade-red-400 mb-3">{character.xp.toLocaleString()} XP</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'HP', val: character.hp, accent: 'from-emerald-600/30 to-emerald-900/10 text-emerald-300' },
-                  { label: 'ATK', val: character.atk, accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
-                  { label: 'DEF', val: character.def, accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
-                  { label: 'SPD', val: character.spd, accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
+                  // Totals come from the breakdown: equipment attack, defence
+                  // and speed are applied in battle and never stored on the
+                  // character, so the raw columns lag behind what was bought.
+                  { label: 'HP', val: statOf('HP', character.hp), extra: abilityOf('HP'), accent: 'from-emerald-600/30 to-emerald-900/10 text-emerald-300' },
+                  { label: 'ATK', val: statOf('ATK', character.atk), extra: abilityOf('ATK'), accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
+                  { label: 'DEF', val: statOf('DEF', character.def), extra: abilityOf('DEF'), accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
+                  { label: 'SPD', val: statOf('SPD', character.spd), extra: abilityOf('SPD'), accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
                 ].map((s) => (
                   <div key={s.label} className={`rounded-lg p-3 bg-gradient-to-br ${s.accent} border border-white/10`}>
                     <div className="text-[10px] uppercase tracking-wider opacity-80">{s.label}</div>
                     <div className="text-lg font-bold">{s.val.toLocaleString()}</div>
+                    {s.extra > 0 && <div className="text-[10px] text-amber-300">+{s.extra.toLocaleString()} abilities</div>}
                   </div>
                 ))}
               </div>

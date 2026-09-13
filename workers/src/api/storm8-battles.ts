@@ -411,19 +411,8 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
  * actually control. Derived rather than stored: characters.atk/def/spd/hp hold
  * the running total, so the allocated share is total minus class base.
  */
-storm8.get('/stats-breakdown', async (c) => {
-  const user = c.get('user');
-  const db = c.env.DB;
-
-  const charId = await actingCharId(db, c, user.id);
-  if (!charId) return c.json({ error: 'Character not found' }, 404);
-
-  const ch = await db
-    .prepare('SELECT id, class, level, atk, def, spd, max_health, max_stamina, health_skill_points, attack_skill_points, defense_skill_points FROM characters WHERE id = ? AND user_id = ?')
-    .bind(charId, user.id)
-    .first<any>();
-  if (!ch) return c.json({ error: 'Character not found' }, 404);
-
+/** Compute one character's stat breakdown. Shared by both breakdown routes. */
+async function statsBreakdownFor(db: D1Database, ch: any) {
   const base = BASE_STATS[ch.class as keyof typeof BASE_STATS] ?? BASE_STATS.phoenix;
   const stats = await getCharacterBattleStats(db, ch.id);
 
@@ -431,7 +420,6 @@ storm8.get('/stats-breakdown', async (c) => {
   // get it once, which is why the multiplier is floored at 1.
   const clan = Math.max(1, stats?.usable_clan_members ?? 1);
 
-  // Health and speed from abilities, summed straight from what is owned.
   const abilityTotals = await db
     .prepare(`
       SELECT
@@ -447,31 +435,72 @@ storm8.get('/stats-breakdown', async (c) => {
 
   const hpFromSkill = (ch.health_skill_points || 0) * 100;
   const hpFlat = abilityTotals?.hp_flat ?? 0;
-  const hpPct = abilityTotals?.hp_pct ?? 0;
-  // max_health already includes both; report the percentage share as the
-  // difference so the three parts add up to what the character actually has.
+  // max_health already includes both contributions; the percentage share is
+  // reported as the remainder so the three parts add up to what they have.
   const hpFromPct = Math.max(0, (ch.max_health || 0) - (base.hp + hpFromSkill + hpFlat));
 
   const row = (label: string, baseVal: number, allocated: number, ability: number) => ({
     label, base: baseVal, allocated, ability, total: baseVal + allocated + ability,
   });
 
-  return c.json({
-    data: {
-      character_id: ch.id,
-      level: ch.level,
-      clan_multiplier: clan,
-      stats: [
-        row('HP',  base.hp,  hpFromSkill, hpFlat + hpFromPct),
-        row('ATK', base.atk, (ch.atk || 0) - base.atk, (stats?.equipment_attack ?? 0) * clan),
-        row('DEF', base.def, (ch.def || 0) - base.def, (stats?.equipment_defense ?? 0) * clan),
-        row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0),
-      ],
-      // What the battle engine actually fights with, after the Storm8 formula.
-      attack_power: stats ? calculateAttackPower(stats) : 0,
-      defense_power: stats ? calculateDefensePower(stats) : 0,
-    },
-  });
+  return {
+    character_id: ch.id,
+    level: ch.level,
+    clan_multiplier: clan,
+    stats: [
+      row('HP',  base.hp,  hpFromSkill, hpFlat + hpFromPct),
+      row('ATK', base.atk, (ch.atk || 0) - base.atk, (stats?.equipment_attack ?? 0) * clan),
+      row('DEF', base.def, (ch.def || 0) - base.def, (stats?.equipment_defense ?? 0) * clan),
+      row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0),
+    ],
+    // What the battle engine actually fights with, after the Storm8 formula.
+    attack_power: stats ? calculateAttackPower(stats) : 0,
+    defense_power: stats ? calculateDefensePower(stats) : 0,
+  };
+}
+
+const BREAKDOWN_COLUMNS =
+  'id, class, level, atk, def, spd, max_health, max_stamina, health_skill_points, attack_skill_points, defense_skill_points';
+
+/**
+ * Where every stat number comes from, split three ways.
+ *
+ * Equipment attack, defence and speed are applied at battle time and never
+ * written to the character row, so anything reading characters.atk/def/spd
+ * directly shows pre-ability numbers. Every view that displays stats goes
+ * through here instead.
+ */
+storm8.get('/stats-breakdown', async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const charId = await actingCharId(db, c, user.id);
+  if (!charId) return c.json({ error: 'Character not found' }, 404);
+
+  const ch = await db
+    .prepare(`SELECT ${BREAKDOWN_COLUMNS} FROM characters WHERE id = ? AND user_id = ?`)
+    .bind(charId, user.id)
+    .first<any>();
+  if (!ch) return c.json({ error: 'Character not found' }, 404);
+
+  return c.json({ data: await statsBreakdownFor(db, ch) });
+});
+
+/** Every character the player owns, so a list view needs one request. */
+storm8.get('/stats-breakdown/all', async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const rows = await db
+    .prepare(`SELECT ${BREAKDOWN_COLUMNS} FROM characters WHERE user_id = ? ORDER BY slot_number`)
+    .bind(user.id)
+    .all<any>();
+
+  const out: Record<string, any> = {};
+  for (const ch of rows.results || []) {
+    out[ch.id] = await statsBreakdownFor(db, ch);
+  }
+  return c.json({ data: out });
 });
 
 // Sell one copy back for a percentage of what it cost (45% by default).

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CharacterChooser } from "../components/CharacterChooser";
+import { useStatBreakdowns, statTotal, statFromAbilities, type Breakdown } from "../lib/useStatBreakdowns";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { useActiveCharacter } from "../lib/ActiveCharacterContext";
@@ -41,7 +42,7 @@ const STAT_KEYS: { key: keyof GamerCharacter; label: string }[] = [
   { key: "spd", label: "SPD" },
 ];
 
-function CharacterPanel({ char }: { char: GamerCharacter }) {
+function CharacterPanel({ char, breakdown }: { char: GamerCharacter; breakdown?: Breakdown }) {
   const winRate = (() => {
     const w = char.wins ?? 0;
     const l = char.losses ?? 0;
@@ -77,14 +78,24 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
       </div>
 
       <div className="grid grid-cols-4 gap-2 mb-4">
-        {STAT_KEYS.map(({ key, label }) => (
+        {STAT_KEYS.map(({ key, label }) => {
+          // Equipment attack/defence/speed never reach the character row, so the
+          // stored column is the pre-ability number. Prefer the computed total.
+          const row = breakdown?.stats.find((s) => s.label === label);
+          const total = row ? row.total : (char[key] as number);
+          const fromAbilities = row?.ability ?? 0;
+          return (
           <div key={label} className="text-center bg-shade-black-800 rounded p-2">
             <div className="text-[10px] uppercase text-shade-red-400">{label}</div>
             <div className="text-shade-red-100 font-semibold">
-              {(char[key] as number).toLocaleString()}
+              {total.toLocaleString()}
             </div>
+            {fromAbilities > 0 && (
+              <div className="text-[10px] text-amber-300">+{fromAbilities.toLocaleString()}</div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-4 gap-2 text-center">
@@ -110,6 +121,9 @@ function CharacterPanel({ char }: { char: GamerCharacter }) {
 }
 
 export default function GamerProfilePage() {
+  // Stats shown here must match the character sheet, which means going through
+  // the breakdown rather than reading the stored columns.
+  const { breakdowns } = useStatBreakdowns();
   const { isAuthenticated, refreshUser, user } = useAuth();
   const [profile, setProfile] = useState<GamerProfile | null>(null);
   const { activeId, setActive } = useActiveCharacter();
@@ -254,7 +268,7 @@ export default function GamerProfilePage() {
                 {char.id === activeId && (
                   <div className="text-[10px] font-bold text-shade-red-300 px-2 pt-1">▶ PLAYING AS</div>
                 )}
-                <CharacterPanel char={char} />
+                <CharacterPanel char={char} breakdown={breakdowns[char.id]} />
               </button>
             ))}
           </div>
