@@ -120,7 +120,7 @@ to know about it.
 - **Public social profile** — `/u/:id` (cover, avatar, bio), links back to the gamer profile.
 - **Comments** — every profile has a comment wall (`profile_comments`): `GET/POST /api/game/profile/:name/comments`, `DELETE /api/game/comments/:id`.
 - **Leaderboard** — `/shade/leaderboard`, top 25 by level → wins → kills.
-- **Hitlist** — players post bounties; killing the target claims it. See **Globalling** below.
+- **Hitlist** — players post bounties; killing the target claims it. A bounty attack resolves like any other fight: **the target strikes back**, so hunting one can get you killed. See **Globalling** below.
 - **Clan** — members multiply equipment power in battle.
 - **Ability shop** — two kinds of ability. `equipment` adds ATK/DEF and feeds
   the battle maths; `utility` never touches battle and is bought for its own
@@ -170,7 +170,7 @@ on the hitlist in a day. Rules live in `workers/src/core/hitlist.ts`:
   /storm8/hitlist/post` returns 429 with the current `global_status`.
 - **You cannot collect on a bounty you posted with the character that posted
   it** — post on one character, hunt with another.
-- **Attacking a bounty is limited only by stamina.** There is no per-day attack
+- **Attacking a bounty is limited only by stamina**, and is not risk-free — the target counterattacks. There is no per-day attack
   cap; each attack costs 1 stamina (regen 1 per 3 min), so your stamina pool is
   the whole limiter. `hitlist_attacks` rows are still written, as history.
 - Both counts use a rolling 24h window computed by SQLite (`datetime('now',

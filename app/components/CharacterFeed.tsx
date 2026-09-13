@@ -14,7 +14,7 @@ type FeedEntry = {
 
 /**
  * One character's battle feed. Every character keeps its own — attacks it made
- * and attacks made against it, including hitlist ambushes.
+ * and attacks made against it, bounty claims included.
  */
 export function CharacterFeed({ gamertag }: { gamertag: string }) {
   const [feed, setFeed] = useState<FeedEntry[]>([]);

@@ -1105,9 +1105,11 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     return c.json({ error: 'Insufficient stamina' }, 400);
   }
 
-  // Resolve battle (hitlist = ambush: no health protection, no counterattack)
+  // Resolved exactly like a normal attack: the target strikes back. Hitlist
+  // fights used to be one-sided ambushes, which made claiming a bounty
+  // risk-free and meant the attacker could never lose.
   const seed = crypto.randomUUID();
-  const result = resolveBattle(attackerStats, defenderStats, seed, {}, true, false);
+  const result = resolveBattle(attackerStats, defenderStats, seed, {});
 
   const now = new Date().toISOString();
   const statements = [
@@ -1119,12 +1121,17 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
     db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
       .bind(result.defender_health_after, defenderStats.id),
 
+    // And the attacker's: the target counterattacks now, so damage taken has
+    // to persist or hunting a bounty would be free.
+    db.prepare('UPDATE characters SET current_health = ? WHERE id = ?')
+      .bind(result.attacker_health_after, attackerStats.id),
+
     // Log hitlist attack
     db.prepare('INSERT INTO hitlist_attacks (hitlist_id, attacker_character_id, damage_dealt, target_killed) VALUES (?, ?, ?, ?)')
       .bind(hitlist_id, attackerStats.id, result.damage_dealt, result.defender_killed),
 
-    // Both characters' feeds. Hitlist attacks were previously missing from
-    // these, so an ambush left no trace on either wall.
+    // Both characters' feeds; hitlist attacks were previously missing from
+    // these entirely, leaving no trace on either wall.
     db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(attackerStats.id, null, attackerStats.id, defenderStats.id, result.attacker_won, result.damage_dealt, result.currency_stolen),
     db.prepare('INSERT INTO battle_feed (character_id, battle_id, attacker_id, defender_id, attacker_won, damage_dealt, currency_stolen) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -1144,12 +1151,17 @@ storm8.post('/hitlist/attack', zValidator('json', attackHitlistSchema), async (c
 
   // Trophies for every outcome, not only kills. A hitlist attack that did not
   // land the kill still has a winner and a loser, and previously recorded
-  // nothing for either side. Mirrors the normal attack flow; attacker_killed
-  // cannot happen here because an ambush gets no counterattack.
+  // nothing for either side.
   if (result.defender_killed) {
     statements.push(
       bumpTrophies(db, attackerStats.id, { kills: 1, wins: 1 }),
       bumpTrophies(db, defenderStats.id, { deaths: 1, losses: 1 }),
+    );
+  } else if (result.attacker_killed) {
+    // Possible now that the target counterattacks: hunting a bounty can kill you.
+    statements.push(
+      bumpTrophies(db, defenderStats.id, { kills: 1, wins: 1 }),
+      bumpTrophies(db, attackerStats.id, { deaths: 1, losses: 1 }),
     );
   } else {
     statements.push(
