@@ -906,17 +906,27 @@ const bankCurrencySchema = z.object({
   amount: z.number().int().min(1),
 });
 
+// Currency is per character, so this banks for the acting character only.
+// It previously keyed on user_id alone: the balance check read an arbitrary
+// one of the user's characters, and the UPDATE hit *every* character they
+// owned — one 500 deposit took 500 from each and credited 450 to each, and
+// could drive the others negative.
 storm8.post('/bank/deposit', zValidator('json', bankCurrencySchema), async (c) => {
   const user = c.get('user');
   const { amount } = c.req.valid('json');
   const db = c.env.DB;
 
-  const char = await db
-    .prepare('SELECT unbanked_currency FROM characters WHERE user_id = ?')
-    .bind(user.id)
-    .first<{ unbanked_currency: number }>();
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id, unbanked_currency FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string; unbanked_currency: number }>() : null;
 
-  if (!char || amount > char.unbanked_currency) {
+  if (!char) {
+    return c.json({ error: 'Character not found' }, 404);
+  }
+
+  if (amount > char.unbanked_currency) {
     return c.json({ error: 'Insufficient unbanked currency' }, 400);
   }
 
@@ -925,11 +935,19 @@ storm8.post('/bank/deposit', zValidator('json', bankCurrencySchema), async (c) =
   const banked = amount - fee;
 
   await db
-    .prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ?, banked_currency = banked_currency + ? WHERE user_id = ?')
-    .bind(amount, banked, user.id)
+    .prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ?, banked_currency = banked_currency + ? WHERE id = ?')
+    .bind(amount, banked, char.id)
     .run();
 
-  return c.json({ message: `Deposited ${banked} currency (${fee} fee)` });
+  return c.json({
+    data: {
+      character_id: char.id,
+      deposited: banked,
+      fee,
+      unbanked_currency: char.unbanked_currency - amount,
+    },
+    message: `Deposited ${banked} currency (${fee} fee)`,
+  });
 });
 
 // ============================================================================
