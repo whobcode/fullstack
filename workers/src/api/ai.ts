@@ -4,7 +4,33 @@ import { authMiddleware } from './middleware/auth';
 
 const ai = new Hono<{ Bindings: Bindings }>();
 
-// Array of shade-themed avatar variations
+/**
+ * Avatar prompts per character class.
+ *
+ * The creature follows the class line: both phoenix classes get a phoenix,
+ * both dragon classes a dragon, and kies a humanoid spirit. The dark variants
+ * share their line's creature and differ in tone rather than in subject.
+ *
+ * All of them keep the .shade look — black ground, red neon rim light, high
+ * contrast, readable at avatar size.
+ */
+const SHADE_LOOK = 'pure black background, red neon rim lighting, high contrast, cinematic, minimalist avatar icon, centered portrait';
+
+const CLASS_PROMPTS: Record<string, string> = {
+  phoenix:  `majestic phoenix with burning crimson plumage, wings spread, embers rising, ${SHADE_LOOK}`,
+  dphoenix: `dark phoenix wreathed in black fire, charred crimson feathers, ash and embers, menacing silhouette, ${SHADE_LOOK}`,
+  dragon:   `armored dragon head in profile, scaled hide, glowing red eyes, coiled and watchful, ${SHADE_LOOK}`,
+  ddragon:  `dark dragon shrouded in shadow, obsidian scales, smouldering red eyes, malevolent presence, ${SHADE_LOOK}`,
+  kies:     `humanoid spirit figure, translucent flowing form, faintly glowing outline, serene and otherworldly, ${SHADE_LOOK}`,
+};
+
+/** Prompt for a class, falling back to the generic shade look. */
+function promptForClass(cls?: string | null): string {
+  if (cls && CLASS_PROMPTS[cls]) return CLASS_PROMPTS[cls];
+  return shadePrompts[Math.floor(Math.random() * shadePrompts.length)];
+}
+
+// Generic shade variations, used when the class is unknown.
 const shadePrompts = [
   'dark hooded figure silhouette, neon red glow outline, cyberpunk style, pure black background, mysterious shadow, red neon rim lighting, high contrast, minimalist avatar',
   'shadowy face portrait, glowing red eyes, dark cyberpunk aesthetic, black void background, neon red highlights, ominous figure, avatar icon',
@@ -87,21 +113,27 @@ async function persistShadeAvatar(
   }
 }
 
-/** The character an avatar request should attach to: ?character_id=, else active. */
-async function avatarCharacterId(env: Bindings, c: any, userId: string): Promise<string | null> {
+/**
+ * The character an avatar request is for: ?character_id=, else the active one.
+ * Returns the class too, so the prompt can match the character's line.
+ */
+async function avatarCharacter(env: Bindings, c: any, userId: string): Promise<{ id: string; class: string | null } | null> {
   const requested = c.req.query('character_id');
   if (requested) {
     const owned = await env.DB
-      .prepare('SELECT id FROM characters WHERE id = ? AND user_id = ?')
+      .prepare('SELECT id, class FROM characters WHERE id = ? AND user_id = ?')
       .bind(requested, userId)
-      .first<{ id: string }>();
-    if (owned) return owned.id;
+      .first<{ id: string; class: string | null }>();
+    if (owned) return owned;
   }
-  const u = await env.DB
-    .prepare('SELECT active_character_id FROM users WHERE id = ?')
+  return env.DB
+    .prepare(`
+      SELECT c.id, c.class FROM characters c
+      JOIN users u ON u.active_character_id = c.id
+      WHERE u.id = ?
+    `)
     .bind(userId)
-    .first<{ active_character_id: string | null }>();
-  return u?.active_character_id ?? null;
+    .first<{ id: string; class: string | null }>();
 }
 
 // Generate a shade-themed avatar (text-to-image), persist it, and return both
@@ -111,7 +143,8 @@ ai.post('/shade-avatar', authMiddleware, async (c) => {
     const userId = (c.get('user') as { id: string } | undefined)?.id;
 
     // Pick a random shade prompt variation
-    const randomPrompt = shadePrompts[Math.floor(Math.random() * shadePrompts.length)];
+    const target = userId ? await avatarCharacter(c.env, c, userId) : null;
+    const randomPrompt = promptForClass(target?.class);
 
     const result = await c.env.AI.run(
       '@cf/bytedance/stable-diffusion-xl-lightning',
@@ -124,7 +157,7 @@ ai.post('/shade-avatar', authMiddleware, async (c) => {
     if (result instanceof ReadableStream) {
       const bytes = await streamToBytes(result);
       const url = userId
-        ? await persistShadeAvatar(c.env, userId, bytes, await avatarCharacterId(c.env, c, userId))
+        ? await persistShadeAvatar(c.env, userId, bytes, target?.id ?? null)
         : undefined;
       return c.json({
         image: `data:image/png;base64,${bytesToBase64(bytes)}`,
@@ -148,10 +181,13 @@ ai.post('/generate-shade-avatar', authMiddleware, async (c) => {
     const customAddition = body.prompt || '';
     const style = body.style || 'random';
 
+    // Default to the character's own class creature; 'style' can override it.
+    const target = userId ? await avatarCharacter(c.env, c, userId) : null;
+
     let basePrompt: string;
 
     if (style === 'random') {
-      basePrompt = shadePrompts[Math.floor(Math.random() * shadePrompts.length)];
+      basePrompt = promptForClass(target?.class);
     } else {
       basePrompt = 'dark silhouette portrait, neon red glow outline, cyberpunk style, black background, mysterious shadow figure, red neon lighting, high contrast, minimalist, avatar icon';
     }
@@ -169,7 +205,7 @@ ai.post('/generate-shade-avatar', authMiddleware, async (c) => {
     if (result instanceof ReadableStream) {
       const bytes = await streamToBytes(result);
       const url = userId
-        ? await persistShadeAvatar(c.env, userId, bytes, await avatarCharacterId(c.env, c, userId))
+        ? await persistShadeAvatar(c.env, userId, bytes, target?.id ?? null)
         : undefined;
       return c.json({
         image: `data:image/png;base64,${bytesToBase64(bytes)}`,

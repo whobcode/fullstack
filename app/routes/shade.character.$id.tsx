@@ -4,6 +4,7 @@ import { apiClient } from "../lib/api";
 import { useActiveCharacter } from "../lib/ActiveCharacterContext";
 import { CharacterFeed } from "../components/CharacterFeed";
 import { ProfileComments } from "../components/ProfileComments";
+import { ClanPanel } from "../components/ClanPanel";
 
 type StatRow = { label: string; base: number; allocated: number; ability: number; total: number };
 type Breakdown = {
@@ -204,6 +205,9 @@ export default function CharacterDetailPage() {
         {notice && <p className="text-emerald-300 text-xs mt-2">{notice}</p>}
         {error && <p className="text-shade-red-500 text-xs mt-2">{error}</p>}
       </div>
+
+      {/* Clan size multiplies this character's equipment in battle. */}
+      <ClanPanel characterId={character.id} onUpdate={() => { load(); refresh(); }} />
 
       {/* Both are per character, so they belong on the character, not the account. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
