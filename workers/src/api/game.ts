@@ -369,10 +369,34 @@ game.post('/character/customize', zValidator('json', customizeCharacterSchema), 
 });
 
 // List all characters to challenge (excludes current user's characters)
+// Attackable opponents for the "find players" list.
+//
+// A defeated character (current_health <= 0) is recovering in the hospital and
+// POST /storm8/attack refuses it, so listing them hands the player a button
+// that can only fail. They are filtered out here and the LIMIT backfills the
+// slot with someone who can actually be fought.
+//
+// Attackability follows the *defender*, not the character shown: an attack is
+// redirected to the owner's defense character when they have set one (see
+// applyDefenseCharacter in storm8-battles.ts), so a listed character with 0 HP
+// is still attackable if the character that answers for them is alive, and a
+// healthy one is not attackable if their defender is down.
 game.get('/characters', async (c) => {
     const user = c.get('user');
     const db = c.env.DB;
-    const characters = await db.prepare('SELECT id, gamertag, level, class FROM characters WHERE first_game_access_completed = TRUE AND user_id != ?').bind(user.id).all();
+    const characters = await db.prepare(`
+        SELECT c.id, c.gamertag, c.level, c.class
+        FROM characters c
+        JOIN users u ON u.id = c.user_id
+        -- the character that would actually answer an attack on c
+        LEFT JOIN characters d
+               ON d.id = u.defense_character_id AND d.user_id = u.id
+        WHERE c.first_game_access_completed = TRUE
+          AND c.user_id != ?
+          AND COALESCE(d.current_health, c.current_health) > 0
+        ORDER BY RANDOM()
+        LIMIT 60
+    `).bind(user.id).all();
     return c.json({ data: characters.results });
 });
 

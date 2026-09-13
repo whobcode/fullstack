@@ -829,8 +829,29 @@ body {
   --color-shade-red-300: #e0a6a8; /* secondary   10.27:1 ->  9.40:1 */
 
   position: relative;
+  min-height: 100vh;
+
+  /* These two are what actually make the retune visible, and retuning the
+     tokens alone was not enough.
+     `<body class="bg-black text-shade-red-100">` resolves both from the GLOBAL
+     tokens, because body sits outside this wrapper. `color` then inherits down
+     as a *computed* value — descendants never re-resolve the var — so every
+     element without an explicit text-* class kept the old #ffe5e5, and the
+     ground stayed pure #000. Restating them here re-resolves both against the
+     overridden tokens for the whole game subtree. */
+  color: var(--color-shade-red-100);
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    #191316 0%,
+    #141113 45%,
+    var(--shade-ground) 100%
+  );
+  background-attachment: fixed;
 }
 
+/* Full-bleed: the wrapper sits inside `main.container`, so its own background
+   stops at the gutters. This covers the rest of the viewport with the same
+   gradient. */
 .shade-dark-bg::before {
   content: "";
   position: fixed;
