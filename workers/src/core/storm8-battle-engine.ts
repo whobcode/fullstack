@@ -38,9 +38,9 @@ export type CharacterBattleStats = {
   // Usable clan members (5 × level)
   usable_clan_members: number;
 
-  // Economy
+  // Economy. Only held currency matters here — banked currency is safe from
+  // theft and lives in bank_accounts, not on the character.
   unbanked_currency: number;
-  banked_currency: number;
 };
 
 export type BattleResult = {

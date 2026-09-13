@@ -10,7 +10,7 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
         c.atk, c.def, c.spd,
         c.attack_skill_points, c.defense_skill_points, c.health_skill_points,
         c.current_health, c.max_health, c.current_stamina,
-        c.unbanked_currency, c.banked_currency
+        c.unbanked_currency
       FROM characters c
       WHERE c.id = ?
     `)
@@ -29,7 +29,6 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
       max_health: number;
       current_stamina: number;
       unbanked_currency: number;
-      banked_currency: number;
     }>();
 
   if (!char) return null;
@@ -71,7 +70,6 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
     equipment_defense,
     usable_clan_members: usableClanMembers,
     unbanked_currency: char.unbanked_currency,
-    banked_currency: char.banked_currency,
   };
 }
 

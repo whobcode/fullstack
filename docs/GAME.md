@@ -70,6 +70,19 @@ lifetime budget and resets to base stats.
 - **Hitlist** — players post bounties; killing the target claims it. See **Globalling** below.
 - **Clan** — members multiply equipment power in battle.
 - **Ability shop** — buy equipment that adds ATK/DEF (level-gated).
+- **Bank** (`workers/src/core/bank.ts`) — currency on hand is spendable but
+  stealable; banked currency is safe but must be withdrawn to spend. Deposits
+  cost 10%, withdrawals are free, and both are **per character**.
+  Balances live in `bank_accounts` with an append-only `bank_ledger`, kept in
+  `social_rpg_db` rather than their own database *on purpose*: D1 has no
+  cross-database transactions, so a separate bank DB would make every transfer
+  a non-atomic debit-here/credit-there pair that can destroy or mint currency
+  if it fails in between. Here a transfer is one `db.batch()`.
+  Two database-level guards back that up, because a guarded `UPDATE` matching
+  no rows is *not* an error in SQLite and would let a batch commit one half of
+  a transfer: the `characters_no_overdraft` trigger aborts on negative
+  holdings, and `bank_accounts.balance CHECK (>= 0)` aborts on an overdraw.
+  Endpoints: `GET /storm8/bank`, `POST /storm8/bank/deposit`, `/withdraw`.
 
 ## Globalling (hitlist saturation)
 

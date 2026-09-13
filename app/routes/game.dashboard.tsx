@@ -4,6 +4,7 @@ import { apiClient } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 import { SquarePayment } from '../components/SquarePayment';
+import { BankPanel } from '../components/BankPanel';
 
 type SlotInfo = {
   totalSlots: number;
@@ -40,7 +41,6 @@ type Character = {
   current_health: number;
   max_health: number;
   unbanked_currency: number;
-  banked_currency: number;
   wins: number;
   losses: number;
   kills: number;
@@ -718,31 +718,7 @@ export default function GameDashboardPage() {
             <h1 className="text-2xl font-bold neon-text">Welcome, {character.gamertag}!</h1>
           </div>
 
-          {/* Currency. Held is what attackers can steal and what every purchase
-              spends; banked is safe but cannot be spent until withdrawn.
-              Both are per character, not per account. */}
-          <div className="p-5 rounded-xl bg-gradient-to-br from-amber-950/40 to-shade-black-900 border border-amber-800/40">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-bold text-amber-300">💰 Currency</h2>
-              <span className="text-[11px] text-shade-ash">{character.gamertag}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg p-3 bg-shade-black-950/60 border border-amber-700/30">
-                <div className="text-[10px] uppercase tracking-wider text-amber-200/70">On hand</div>
-                <div className="text-2xl font-bold text-amber-300">
-                  {(character.unbanked_currency ?? 0).toLocaleString()}
-                </div>
-                <div className="text-[10px] text-shade-ash mt-1">Spendable — and stealable if you lose a fight</div>
-              </div>
-              <div className="rounded-lg p-3 bg-shade-black-950/60 border border-white/10">
-                <div className="text-[10px] uppercase tracking-wider text-shade-red-400">Banked</div>
-                <div className="text-2xl font-bold text-emerald-300">
-                  {(character.banked_currency ?? 0).toLocaleString()}
-                </div>
-                <div className="text-[10px] text-shade-ash mt-1">Safe from attackers</div>
-              </div>
-            </div>
-          </div>
+          <BankPanel characterId={character.id} gamertag={character.gamertag} onChange={() => fetchCharacter(character.id)} />
           {character.unspent_stat_points > 0 && (
             <AllocatePointsForm
               character={character}

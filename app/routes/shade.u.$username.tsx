@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useBattleResult } from "../lib/BattleResultContext";
 import { ProfileComments } from "../components/ProfileComments";
 import { CharacterFeed } from "../components/CharacterFeed";
+import { HitlistButton } from "../components/HitlistButton";
 
 type PublicChar = {
   gamertag: string;
@@ -146,6 +147,11 @@ export default function PublicProfilePage() {
                     <span className="text-xs px-2 py-1 rounded-full bg-shade-red-900/40 text-shade-red-200 border border-shade-red-700/50 capitalize">{c.class} • Lv.{c.level}</span>
                   </div>
                 </div>
+                {isAuthenticated && !isOwnProfile && c.gamertag && (
+                  <div className="mb-3">
+                    <HitlistButton gamertag={c.gamertag} compact />
+                  </div>
+                )}
                 <div className="grid grid-cols-5 gap-2 text-center">
                   {[
                     { label: "Wins", val: c.wins, col: "text-emerald-300" },

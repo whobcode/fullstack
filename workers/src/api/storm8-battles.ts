@@ -33,6 +33,7 @@ import {
 import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
+import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
 import {
   canList,
   getGlobalStatus,
@@ -906,48 +907,68 @@ const bankCurrencySchema = z.object({
   amount: z.number().int().min(1),
 });
 
-// Currency is per character, so this banks for the acting character only.
-// It previously keyed on user_id alone: the balance check read an arbitrary
-// one of the user's characters, and the UPDATE hit *every* character they
-// owned — one 500 deposit took 500 from each and credited 450 to each, and
-// could drive the others negative.
+// Balance, holdings, and recent movements for the acting character.
+storm8.get('/bank', async (c) => {
+  const user = c.get('user');
+  const db = c.env.DB;
+
+  const charId = await actingCharId(db, c, user.id);
+  if (!charId) return c.json({ error: 'Character not found' }, 404);
+
+  const snapshot = await getSnapshot(db, charId);
+  if (!snapshot) return c.json({ error: 'Character not found' }, 404);
+
+  return c.json({
+    data: {
+      ...snapshot,
+      deposit_fee_rate: DEPOSIT_FEE_RATE,
+      ledger: await recentLedger(db, charId),
+    },
+  });
+});
+
+// Currency is per character, so both of these act on the acting character.
+// /bank/deposit previously keyed on user_id alone: the balance check read an
+// arbitrary one of the user's characters and the UPDATE carried no character
+// filter, so a single deposit debited *every* character the account owned.
 storm8.post('/bank/deposit', zValidator('json', bankCurrencySchema), async (c) => {
   const user = c.get('user');
   const { amount } = c.req.valid('json');
   const db = c.env.DB;
 
   const charId = await actingCharId(db, c, user.id);
-  const char = charId ? await db
-    .prepare('SELECT id, unbanked_currency FROM characters WHERE id = ?')
-    .bind(charId)
-    .first<{ id: string; unbanked_currency: number }>() : null;
+  if (!charId) return c.json({ error: 'Character not found' }, 404);
 
-  if (!char) {
-    return c.json({ error: 'Character not found' }, 404);
+  try {
+    const result = await deposit(db, charId, amount);
+    return c.json({
+      data: result,
+      message: `Banked ${result.net.toLocaleString()}${result.fee ? ` (${result.fee.toLocaleString()} fee)` : ''}`,
+    });
+  } catch (e: any) {
+    if (e instanceof BankError) return c.json({ error: e.message }, 400);
+    throw e;
   }
+});
 
-  if (amount > char.unbanked_currency) {
-    return c.json({ error: 'Insufficient unbanked currency' }, 400);
+storm8.post('/bank/withdraw', zValidator('json', bankCurrencySchema), async (c) => {
+  const user = c.get('user');
+  const { amount } = c.req.valid('json');
+  const db = c.env.DB;
+
+  const charId = await actingCharId(db, c, user.id);
+  if (!charId) return c.json({ error: 'Character not found' }, 404);
+
+  try {
+    const result = await withdraw(db, charId, amount);
+    return c.json({
+      data: result,
+      message: `Withdrew ${result.amount.toLocaleString()} — it can be stolen now.`,
+    });
+  } catch (e: any) {
+    if (e instanceof BankError) return c.json({ error: e.message }, 400);
+    throw e;
   }
-
-  // 10% deposit fee
-  const fee = Math.floor(amount * 0.1);
-  const banked = amount - fee;
-
-  await db
-    .prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ?, banked_currency = banked_currency + ? WHERE id = ?')
-    .bind(amount, banked, char.id)
-    .run();
-
-  return c.json({
-    data: {
-      character_id: char.id,
-      deposited: banked,
-      fee,
-      unbanked_currency: char.unbanked_currency - amount,
-    },
-    message: `Deposited ${banked} currency (${fee} fee)`,
-  });
 });
 
 // ============================================================================
