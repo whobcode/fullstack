@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext';
 import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 import { SquarePayment } from '../components/SquarePayment';
 import { BankPanel } from '../components/BankPanel';
+import { CharacterAvatar } from '../components/CharacterAvatar';
 
 type SlotInfo = {
   totalSlots: number;
@@ -42,6 +43,7 @@ type Character = {
   current_health: number;
   max_health: number;
   unbanked_currency: number;
+  shade_avatar_url: string | null;
   wins: number;
   losses: number;
   kills: number;
@@ -98,7 +100,10 @@ function CharacterSlotSelector({
         <div className="text-xs text-shade-red-400 mb-1">Slot {i}</div>
         {char ? (
           <>
-            <div className="font-bold text-shade-red-100">{char.gamertag || 'Setup Required'}</div>
+            <div className="flex items-center gap-1.5 justify-center">
+              <CharacterAvatar src={char.shade_avatar_url} name={char.gamertag} size="sm" />
+              <div className="font-bold text-shade-red-100 truncate">{char.gamertag || 'Setup Required'}</div>
+            </div>
             <div className="text-sm text-shade-red-300">
               {char.class ? `${char.class} Lv.${char.level}` : 'Incomplete'}
             </div>
@@ -725,8 +730,10 @@ export default function GameDashboardPage() {
               className="w-14 h-14 rounded-full overflow-hidden silhouette-avatar breathing-glow flex items-center justify-center shrink-0"
               title="View gamer profile"
             >
-              {user?.shade_avatar_url ? (
-                <img src={user.shade_avatar_url} alt="Shade avatar" className="w-full h-full object-cover" />
+              {/* The character you are playing as, not the account — so it
+                  changes when you switch characters. */}
+              {character.shade_avatar_url ? (
+                <img src={character.shade_avatar_url} alt={`${character.gamertag} avatar`} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-xl neon-text">{character.gamertag?.charAt(0).toUpperCase()}</span>
               )}

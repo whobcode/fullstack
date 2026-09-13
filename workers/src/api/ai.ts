@@ -127,6 +127,10 @@ async function persistShadeAvatar(
  * Returns the class too, so the prompt can match the character's line.
  */
 async function avatarCharacter(env: Bindings, c: any, userId: string): Promise<{ id: string; class: string | null } | null> {
+  // scope=account generates for the profile header rather than a character, so
+  // it must not overwrite whichever character happens to be active.
+  if (c.req.query('scope') === 'account') return null;
+
   const requested = c.req.query('character_id');
   if (requested) {
     const owned = await env.DB

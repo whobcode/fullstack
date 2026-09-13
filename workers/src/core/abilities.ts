@@ -150,22 +150,26 @@ export function maxHealthExpr(baseHpParam: string): string {
       (${baseHpParam} + health_skill_points * 100 + COALESCE((
         SELECT SUM(ca.quantity * a.hp_value)
         FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
-        WHERE ca.character_id = characters.id
+        WHERE ca.character_id = characters.id AND a.kind = 'equipment'
       ), 0))
       * (1 + COALESCE((
         SELECT SUM(ca.quantity * a.hp_pct)
         FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
-        WHERE ca.character_id = characters.id
+        WHERE ca.character_id = characters.id AND a.kind = 'equipment'
       ), 0) / 100.0)
     AS INTEGER)
   `;
 }
 
-/** Flat speed from owned equipment. Not clan-multiplied — it is a battle stat, not a weapon. */
+/**
+ * Flat speed from owned equipment. Not clan-multiplied — it is a battle stat,
+ * not a weapon. Per character: only utility abilities are shared across an
+ * account, and the kind filter keeps it that way.
+ */
 export const EQUIPMENT_SPEED_SUBQUERY = `
   COALESCE((
     SELECT SUM(ca.quantity * a.spd_value)
     FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
-    WHERE ca.character_id = characters.id
+    WHERE ca.character_id = characters.id AND a.kind = 'equipment'
   ), 0)
 `;

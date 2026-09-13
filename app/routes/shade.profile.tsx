@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { CharacterChooser } from "../components/CharacterChooser";
 import { apiClient } from "../lib/api";
 import { useAuth } from "../lib/AuthContext";
 import { useActiveCharacter } from "../lib/ActiveCharacterContext";
@@ -143,7 +144,8 @@ export default function GamerProfilePage() {
     setGenerating(true);
     setError(null);
     try {
-      await apiClient.post("/ai/shade-avatar", {});
+      // Account avatar: scope=account keeps it off the active character.
+      await apiClient.post("/ai/shade-avatar?scope=account", {});
       await Promise.all([load(), refreshUser()]);
     } catch (err: any) {
       setError(err?.message || "Failed to generate avatar");
@@ -192,18 +194,15 @@ export default function GamerProfilePage() {
               <p className="text-sm text-sky-300 mt-1">🛡️ Defender: <span className="font-bold">{defender.gamertag}</span></p>
             ) : null;
           })()}
+          {/* The header avatar above is the account's. Characters carry their
+              own, shown against their names in the chooser. */}
           {completedChars.length > 0 && (
-            <div className="flex items-center gap-2 justify-center sm:justify-start mt-3">
-              <span className="text-xs text-shade-red-300">Playing as:</span>
-              <select
-                value={activeId ?? ''}
-                onChange={(e) => setActive(e.target.value)}
-                className="text-sm p-1.5 rounded bg-shade-black-600 neon-border text-shade-red-100"
-              >
-                {completedChars.map((ch) => (
-                  <option key={ch.id} value={ch.id}>{ch.gamertag} (Lv.{ch.level} {ch.class})</option>
-                ))}
-              </select>
+            <div className="mt-3">
+              <CharacterChooser
+                characters={completedChars}
+                activeId={activeId ?? null}
+                onSelect={setActive}
+              />
             </div>
           )}
           <div className="flex gap-2 justify-center sm:justify-start mt-4">

@@ -6,6 +6,7 @@ import { CharacterFeed } from "../components/CharacterFeed";
 import { ProfileComments } from "../components/ProfileComments";
 import { ClanPanel } from "../components/ClanPanel";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { CharacterAvatar, GenerateAvatarButton } from "../components/CharacterAvatar";
 
 type StatRow = { label: string; base: number; allocated: number; ability: number; total: number };
 type Breakdown = {
@@ -37,6 +38,7 @@ export default function CharacterDetailPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [freshAvatar, setFreshAvatar] = useState<string | null>(null);
 
   const character = characters.find((c: any) => c.id === id);
 
@@ -101,7 +103,8 @@ export default function CharacterDetailPage() {
     );
   }
 
-  const avatar = character.shade_avatar_url;
+  // Freshly generated wins until the context refetches; then the stored one.
+  const avatar = freshAvatar ?? character.shade_avatar_url;
   const perPoint: Record<StatKey, string> = {
     hp: "+100 max health",
     atk: "+1% of base attack",
@@ -117,10 +120,13 @@ export default function CharacterDetailPage() {
       {/* Identity beside the numbers, as one unit. */}
       <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">
         <div className="flex flex-col sm:flex-row gap-5">
-          <div className="w-24 h-24 rounded-full overflow-hidden silhouette-avatar flex items-center justify-center shrink-0 self-center sm:self-start">
-            {avatar
-              ? <img src={avatar} alt={character.gamertag} className="w-full h-full object-cover" />
-              : <span className="text-3xl neon-text">{character.gamertag?.charAt(0)?.toUpperCase()}</span>}
+          <div className="flex flex-col items-center gap-2 self-center sm:self-start">
+            <CharacterAvatar src={avatar} name={character.gamertag} size="lg" />
+            <GenerateAvatarButton
+              characterId={character.id}
+              onGenerated={(url) => { setFreshAvatar(url); refresh(); }}
+              label={avatar ? "Regenerate" : "Generate avatar"}
+            />
           </div>
 
           <div className="flex-1 min-w-0">

@@ -6,6 +6,7 @@ import { useBattleResult } from '../lib/BattleResultContext';
 import { useActiveCharacter } from '../lib/ActiveCharacterContext';
 import { HitlistButton } from '../components/HitlistButton';
 import { ClanPanel } from '../components/ClanPanel';
+import { CharacterChooser } from '../components/CharacterChooser';
 
 // Every game action defaults to the active character; passing character_id
 // lets a page act as a specific one instead.
@@ -205,20 +206,7 @@ export default function Storm8Page() {
     <div className="p-4 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-3xl font-extrabold bg-gradient-to-r from-shade-red-400 via-fuchsia-400 to-shade-red-600 bg-clip-text text-transparent tracking-wide">⚔ Battle</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-shade-red-300">Playing as:</span>
-          <select
-            value={activeId ?? ''}
-            onChange={(e) => setActive(e.target.value)}
-            className="p-2 rounded bg-shade-black-600 neon-border text-shade-red-100"
-          >
-            {characters.map((ch) => (
-              <option key={ch.id} value={ch.id}>
-                {ch.gamertag} — Slot {ch.slot_number} (Lv.{ch.level} {ch.class})
-              </option>
-            ))}
-          </select>
-        </div>
+        <CharacterChooser characters={characters} activeId={activeId ?? null} onSelect={setActive} />
       </div>
 
       {/* Skill points and the store moved to the dashboard; this tab is targets. */}
