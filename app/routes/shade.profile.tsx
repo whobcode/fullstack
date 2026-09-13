@@ -95,6 +95,9 @@ function CharacterPanel({ char, breakdown }: { char: GamerCharacter; breakdown?:
             {fromAbilities > 0 && (
               <div className="text-[10px] text-amber-300">+{fromAbilities.toLocaleString()}</div>
             )}
+            {(row?.bonus ?? 0) > 0 && (
+              <div className="text-[10px] text-fuchsia-300">+{row!.bonus.toLocaleString()}</div>
+            )}
           </div>
           );
         })}

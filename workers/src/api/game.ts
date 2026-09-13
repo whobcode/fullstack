@@ -913,6 +913,9 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
             atk = atk + ?,
             def = def + ?,
             spd = spd + ?,
+            -- Recorded as points too: the pool has to be recomputable, because
+            -- the max-level bonus changes it when another character hits 300.
+            health_skill_points = health_skill_points + ?,
             max_health = max_health + ?,
             current_health = current_health + ?,
             unspent_stat_points = unspent_stat_points - ?
@@ -922,6 +925,7 @@ game.post('/character/allocate-points', zValidator('json', allocatePointsSchema)
         atkGain,
         defGain,
         pointsToAllocate.spd * SPD_PER_POINT,
+        pointsToAllocate.hp,   // health_skill_points: the count, not the gain
         hpGain,
         hpGain,
         totalPointsToSpend,

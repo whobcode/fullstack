@@ -5,18 +5,9 @@ import { useActiveCharacter } from "../lib/ActiveCharacterContext";
 import { CharacterFeed } from "../components/CharacterFeed";
 import { ProfileComments } from "../components/ProfileComments";
 import { ClanPanel } from "../components/ClanPanel";
+import type { Breakdown } from "../lib/useStatBreakdowns";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { CharacterAvatar, GenerateAvatarButton } from "../components/CharacterAvatar";
-
-type StatRow = { label: string; base: number; allocated: number; ability: number; total: number };
-type Breakdown = {
-  character_id: string;
-  level: number;
-  clan_multiplier: number;
-  stats: StatRow[];
-  attack_power: number;
-  defense_power: number;
-};
 
 const STATS = ["hp", "atk", "def", "spd"] as const;
 type StatKey = (typeof STATS)[number];
@@ -142,8 +133,19 @@ export default function CharacterDetailPage() {
               <span className="text-shade-ash">base</span>
               <span className="text-sky-300">skill points</span>
               <span className="text-amber-300">abilities</span>
+              {(breakdown?.max_level_characters ?? 0) > 0 && (
+                <span className="text-fuchsia-300">max-level bonus</span>
+              )}
               <span className="text-shade-red-100 font-bold">total</span>
             </div>
+
+            {(breakdown?.max_level_characters ?? 0) > 0 && (
+              <p className="text-[11px] text-fuchsia-300 mb-2">
+                ×{breakdown!.max_level_multiplier} to ATK, HP and DEF —{" "}
+                {breakdown!.max_level_characters} character
+                {breakdown!.max_level_characters === 1 ? "" : "s"} at level 300. Speed is excluded.
+              </p>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               {(breakdown?.stats ?? []).map((s) => (
@@ -154,6 +156,7 @@ export default function CharacterDetailPage() {
                     <span className="text-shade-ash">{s.base.toLocaleString()}</span>
                     {s.allocated > 0 && <span className="text-sky-300">+{s.allocated.toLocaleString()}</span>}
                     {s.ability > 0 && <span className="text-amber-300">+{s.ability.toLocaleString()}</span>}
+                    {s.bonus > 0 && <span className="text-fuchsia-300">+{s.bonus.toLocaleString()}</span>}
                   </div>
                 </div>
               ))}

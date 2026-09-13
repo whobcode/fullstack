@@ -1,5 +1,5 @@
 import { calculateRegeneration } from './storm8-battle-engine';
-import { STAMINA_REGEN_PCT_SUBQUERY, staminaRegenMinutes } from './abilities';
+import { STAMINA_REGEN_PCT_SUBQUERY, staminaRegenMinutes, maxHealthExpr } from './abilities';
 
 // Health regenerates 2% of max per minute (≈50 min from 0 to full), so a
 // defeated character recovers over time without needing the hospital.
@@ -66,7 +66,18 @@ export async function applyResourceRegeneration(db: D1Database, characterId: str
       UPDATE characters SET
         current_energy = ?, last_energy_regen = ?,
         current_stamina = ?, last_stamina_regen = ?,
-        current_health = ?, last_health_regen = ?
+        -- Recomputed here so the max-level bonus converges without every
+        -- level-up path having to know about it: a character reaching 300
+        -- grants +100% account-wide, which regeneration would otherwise never
+        -- notice. The cron runs this for everyone every 15 minutes.
+        --
+        -- Safe only because 0032 made health_skill_points authoritative. Before
+        -- that the character sheet added to max_health without recording the
+        -- points, so recomputing erased them; verified after the backfill that
+        -- 0 of 306 characters lose health and 5 broken ones gain.
+        max_health = ${maxHealthExpr()},
+        current_health = MIN(?, ${maxHealthExpr()}),
+        last_health_regen = ?
       WHERE id = ?
     `)
     .bind(

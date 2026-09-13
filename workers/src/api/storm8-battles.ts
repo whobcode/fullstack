@@ -37,6 +37,7 @@ import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
 import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
 import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, maxHealthExpr, statGainFromPoints, type AbilityRow } from '../core/abilities';
+import { maxLevelMultiplier } from '../core/max-level-bonus';
 import { BASE_STATS } from '../core/classes';
 import {
   canList,
@@ -435,15 +436,28 @@ async function statsBreakdownFor(db: D1Database, ch: any) {
     .bind(ch.id)
     .first<{ hp_flat: number; hp_pct: number; spd: number; atk_points: number; def_points: number }>();
 
+  // Level-300 characters on this account: each adds +100% to ATK, HP and DEF.
+  const mlRow = await db
+    .prepare('SELECT COUNT(*) AS n FROM characters WHERE user_id = (SELECT user_id FROM characters WHERE id = ?) AND level >= 300')
+    .bind(ch.id)
+    .first<{ n: number }>();
+  const maxLevelChars = mlRow?.n ?? 0;
+  const mult = maxLevelMultiplier(maxLevelChars);
+
   const hpFromSkill = (ch.health_skill_points || 0) * 100;
   const hpFlat = abilityTotals?.hp_flat ?? 0;
-  // max_health already includes both contributions; the percentage share is
-  // reported as the remainder so the three parts add up to what they have.
-  const hpFromPct = Math.max(0, (ch.max_health || 0) - (base.hp + hpFromSkill + hpFlat));
+  // max_health already carries the multiplier, so divide it back out to
+  // recover the pre-bonus pool the three parts should add up to.
+  const hpPreBonus = Math.round((ch.max_health || 0) / mult);
+  const hpFromPct = Math.max(0, hpPreBonus - (base.hp + hpFromSkill + hpFlat));
 
-  const row = (label: string, baseVal: number, allocated: number, ability: number) => ({
-    label, base: baseVal, allocated, ability, total: baseVal + allocated + ability,
-  });
+  // `bonus` is what the max-level multiplier adds on top of the other three,
+  // shown separately so a stat still reads as base + points + abilities.
+  const row = (label: string, baseVal: number, allocated: number, ability: number, boosted = true) => {
+    const subtotal = baseVal + allocated + ability;
+    const total = boosted ? Math.round(subtotal * mult) : subtotal;
+    return { label, base: baseVal, allocated, ability, bonus: total - subtotal, total };
+  };
 
   return {
     character_id: ch.id,
@@ -455,8 +469,11 @@ async function statsBreakdownFor(db: D1Database, ch: any) {
       // gain those points buy — not a clan-multiplied equipment term.
       row('ATK', base.atk, (ch.atk || 0) - base.atk, statGainFromPoints(abilityTotals?.atk_points ?? 0, base.atk)),
       row('DEF', base.def, (ch.def || 0) - base.def, statGainFromPoints(abilityTotals?.def_points ?? 0, base.def)),
-      row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0),
+      // Speed is the one stat the max-level bonus does not touch.
+      row('SPD', base.spd, (ch.spd || 0) - base.spd, abilityTotals?.spd ?? 0, false),
     ],
+    max_level_characters: maxLevelChars,
+    max_level_multiplier: mult,
     // What the battle engine actually fights with, after the Storm8 formula.
     attack_power: stats ? calculateAttackPower(stats) : 0,
     defense_power: stats ? calculateDefensePower(stats) : 0,

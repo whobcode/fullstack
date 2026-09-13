@@ -65,6 +65,30 @@ Because ATK/DEF scale off **base**, your starting class shapes which stats are
 efficient. **Respec** (`POST /api/game/character/respec`) refunds the full
 lifetime budget and resets to base stats.
 
+## Max-level bonus
+
+Every character a player has at **level 300** grants **+100% to ATK, HP and DEF
+on every character they own**, including the level-300 characters themselves.
+Two at 300 is +200%, so each of that player's characters fights with three
+times its computed attack, health and defence
+(`workers/src/core/max-level-bonus.ts`).
+
+**Speed is excluded.** It already decides initiative and the multi-hit count,
+so multiplying it would hand anyone with a level-300 character a permanent
+five-hit first strike against everyone else.
+
+The bonus is derived from the current roster rather than stored, so it appears
+the moment a character reaches 300. ATK and DEF get it at battle time; health
+carries it in `max_health`, which is recomputed during regeneration (on read
+and by the 15-minute cron) so it converges without every level-up path needing
+to know about it.
+
+> `health_skill_points` is authoritative for allocated health. Two paths spend
+> points on it — `/storm8/skills/allocate` and the character sheet — and only
+> the first used to record them, so anything recomputing the pool erased health
+> bought through the sheet. Migration 0032 derived the count back out of
+> `max_health` and the character sheet now records it.
+
 ## Battle system (storm8)
 
 `resolveBattle()` (`workers/src/core/storm8-battle-engine.ts`):

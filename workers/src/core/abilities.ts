@@ -1,3 +1,4 @@
+import { BASE_HP_SQL, MAX_LEVEL_MULTIPLIER_SQL } from './max-level-bonus';
 /**
  * Ability purchasing rules and the non-combat effects utility abilities grant.
  *
@@ -142,9 +143,13 @@ export const STAMINA_BONUS_SUBQUERY = `
  * allocate, respec, purchase and sell — or one of those paths silently erases
  * bought abilities, the same trap the Stamina Stone hit.
  *
- * `baseHpParam` is the SQL for the class base HP (a bound `?` or a literal).
+ * Also folds in the max-level bonus, so a pool recomputed here already
+ * accounts for the owner's level-300 characters.
+ *
+ * `baseHpParam` defaults to the class base looked up in SQL; pass a literal
+ * only when the caller already has it.
  */
-export function maxHealthExpr(baseHpParam: string): string {
+export function maxHealthExpr(baseHpParam: string = BASE_HP_SQL): string {
   return `
     CAST(
       (${baseHpParam} + health_skill_points * 100 + COALESCE((
@@ -157,6 +162,8 @@ export function maxHealthExpr(baseHpParam: string): string {
         FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
         WHERE ca.character_id = characters.id AND a.kind = 'equipment'
       ), 0) / 100.0)
+      -- Every level-300 character the owner has adds +100% to the pool.
+      * ${MAX_LEVEL_MULTIPLIER_SQL}
     AS INTEGER)
   `;
 }

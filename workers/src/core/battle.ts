@@ -1,6 +1,7 @@
 import { calculateUsableClanMembers, type CharacterBattleStats } from './storm8-battle-engine';
 import { BASE_STATS } from './classes';
 import { statGainFromPoints } from './abilities';
+import { maxLevelMultiplier } from './max-level-bonus';
 
 // Build a character's full battle stats (core + skill points + equipment + clan).
 // Shared by the live attack endpoints and the autonomous bot loop.
@@ -32,7 +33,9 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
           SELECT SUM(ca.quantity * a.defense_value)
           FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
           WHERE ca.character_id = c.id AND a.kind = 'equipment'
-        ), 0) AS ability_defense_points
+        ), 0) AS ability_defense_points,
+        -- Level-300 characters on this account, each worth +100% ATK/HP/DEF.
+        (SELECT COUNT(*) FROM characters mlc WHERE mlc.user_id = c.user_id AND mlc.level >= 300) AS max_level_chars
       FROM characters c
       WHERE c.id = ?
     `)
@@ -54,6 +57,7 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
       equipment_speed: number;
       ability_attack_points: number;
       ability_defense_points: number;
+      max_level_chars: number;
     }>();
 
   if (!char) return null;
@@ -87,12 +91,17 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
   const abilityAttack = statGainFromPoints(char.ability_attack_points || 0, base.atk);
   const abilityDefense = statGainFromPoints(char.ability_defense_points || 0, base.def);
 
+  // Applied last, to the finished totals. Health already carries it: max_health
+  // is stored and maxHealthExpr folds the bonus in when the pool is recomputed.
+  // Speed is deliberately left out.
+  const mlMult = maxLevelMultiplier(char.max_level_chars || 0);
+
   return {
     id: char.id,
     level: char.level,
     char_class: char.class,
-    attack: (char.atk || 0) + abilityAttack,
-    defense: (char.def || 0) + abilityDefense,
+    attack: Math.round(((char.atk || 0) + abilityAttack) * mlMult),
+    defense: Math.round(((char.def || 0) + abilityDefense) * mlMult),
     speed: (char.spd || 0) + (char.equipment_speed || 0),
     attack_skill_points: char.attack_skill_points,
     defense_skill_points: char.defense_skill_points,

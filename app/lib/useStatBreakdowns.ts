@@ -6,6 +6,8 @@ export type StatRow = {
   base: number;
   allocated: number;
   ability: number;
+  /** Added by the max-level bonus. Always 0 for SPD, which it does not touch. */
+  bonus: number;
   total: number;
 };
 
@@ -13,6 +15,10 @@ export type Breakdown = {
   character_id: string;
   level: number;
   clan_multiplier: number;
+  /** How many of the owner's characters are level 300. */
+  max_level_characters: number;
+  /** 1 + 1.0 per level-300 character, applied to ATK/HP/DEF. */
+  max_level_multiplier: number;
   stats: StatRow[];
   attack_power: number;
   defense_power: number;

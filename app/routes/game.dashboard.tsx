@@ -470,6 +470,8 @@ export default function GameDashboardPage() {
     breakdowns[character?.id ?? '']?.stats.find((r) => r.label === label)?.total ?? fallback;
   const abilityOf = (label: string) =>
     breakdowns[character?.id ?? '']?.stats.find((r) => r.label === label)?.ability ?? 0;
+  const bonusOf = (label: string) =>
+    breakdowns[character?.id ?? '']?.stats.find((r) => r.label === label)?.bonus ?? 0;
   const { activeId, setActive, characters: myChars } = useActiveCharacter();
   const [slotInfo, setSlotInfo] = useState<SlotInfo | null>(null);
   const [character, setCharacter] = useState<Character | null>(null);
@@ -789,27 +791,28 @@ export default function GameDashboardPage() {
             )}
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4">
+          <div className="mt-6 space-y-4">
             <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60 shadow-[0_0_25px_rgba(255,42,42,0.12)]">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xl font-bold neon-text">Stats</h2>
                 <span className="text-xs px-2 py-1 rounded-full bg-shade-red-900/40 text-shade-red-200 border border-shade-red-700/50 capitalize">{character.class} • Lv.{character.level}</span>
               </div>
               <p className="text-xs text-shade-red-400 mb-3">{character.xp.toLocaleString()} XP</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   // Totals come from the breakdown: equipment attack, defence
                   // and speed are applied in battle and never stored on the
                   // character, so the raw columns lag behind what was bought.
-                  { label: 'HP', val: statOf('HP', character.hp), extra: abilityOf('HP'), accent: 'from-emerald-600/30 to-emerald-900/10 text-emerald-300' },
-                  { label: 'ATK', val: statOf('ATK', character.atk), extra: abilityOf('ATK'), accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
-                  { label: 'DEF', val: statOf('DEF', character.def), extra: abilityOf('DEF'), accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
-                  { label: 'SPD', val: statOf('SPD', character.spd), extra: abilityOf('SPD'), accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
+                  { label: 'HP', val: statOf('HP', character.hp), extra: abilityOf('HP'), bonusExtra: bonusOf('HP'), accent: 'from-emerald-600/30 to-emerald-900/10 text-emerald-300' },
+                  { label: 'ATK', val: statOf('ATK', character.atk), extra: abilityOf('ATK'), bonusExtra: bonusOf('ATK'), accent: 'from-rose-600/30 to-rose-900/10 text-rose-300' },
+                  { label: 'DEF', val: statOf('DEF', character.def), extra: abilityOf('DEF'), bonusExtra: bonusOf('DEF'), accent: 'from-sky-600/30 to-sky-900/10 text-sky-300' },
+                  { label: 'SPD', val: statOf('SPD', character.spd), extra: abilityOf('SPD'), bonusExtra: bonusOf('SPD'), accent: 'from-amber-600/30 to-amber-900/10 text-amber-300' },
                 ].map((s) => (
                   <div key={s.label} className={`rounded-lg p-3 bg-gradient-to-br ${s.accent} border border-white/10`}>
                     <div className="text-[10px] uppercase tracking-wider opacity-80">{s.label}</div>
                     <div className="text-lg font-bold">{s.val.toLocaleString()}</div>
                     {s.extra > 0 && <div className="text-[10px] text-amber-300">+{s.extra.toLocaleString()} abilities</div>}
+                    {s.bonusExtra > 0 && <div className="text-[10px] text-fuchsia-300">+{s.bonusExtra.toLocaleString()} max-level</div>}
                   </div>
                 ))}
               </div>
@@ -825,7 +828,7 @@ export default function GameDashboardPage() {
             </div>
             <div className="p-5 rounded-xl bg-gradient-to-br from-shade-black-800 via-shade-black-900 to-black border border-shade-red-800/60">
               <h2 className="text-xl font-bold neon-text mb-3">Trophies</h2>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: 'Wins', val: character.wins, c: 'text-emerald-300' },
                   { label: 'Losses', val: character.losses, c: 'text-shade-red-300' },
