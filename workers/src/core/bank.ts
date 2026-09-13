@@ -6,6 +6,10 @@
  * currency is safe but has to be withdrawn before it can be spent. Depositing
  * costs a fee; withdrawing is free.
  *
+ * The account is per PLAYER, shared by all their characters: currency banked
+ * by one character is spendable by any of them after a withdrawal. The ledger
+ * still records which character moved it, so history stays attributable.
+ *
  * Balances live in `bank_accounts` with an append-only `bank_ledger` beside
  * them, both in social_rpg_db rather than a database of their own. That is
  * deliberate: D1 has no cross-database transactions, so a bank in a separate
@@ -31,7 +35,10 @@ export function depositFee(amount: number): number {
 
 export interface BankSnapshot {
   character_id: string;
+  user_id: string;
+  /** Shared across every character this player owns. */
   balance: number;
+  /** Held by this character alone. */
   unbanked_currency: number;
 }
 
@@ -52,10 +59,11 @@ export async function getSnapshot(db: D1Database, characterId: string): Promise<
   const row = await db
     .prepare(`
       SELECT c.id AS character_id,
+             c.user_id,
              c.unbanked_currency,
              COALESCE(b.balance, 0) AS balance
       FROM characters c
-      LEFT JOIN bank_accounts b ON b.character_id = c.id
+      LEFT JOIN bank_accounts b ON b.user_id = c.user_id
       WHERE c.id = ?
     `)
     .bind(characterId)
@@ -64,17 +72,20 @@ export async function getSnapshot(db: D1Database, characterId: string): Promise<
 }
 
 /** Most recent movements, newest first. */
-export async function recentLedger(db: D1Database, characterId: string, limit = 20) {
+export async function recentLedger(db: D1Database, userId: string, limit = 20) {
+  // The account is shared, so the history is the player's, not one character's.
   const rows = await db
     .prepare(`
-      SELECT id, kind, amount, fee, balance_after,
-             strftime('%Y-%m-%dT%H:%M:%SZ', created_at) AS created_at
-      FROM bank_ledger
-      WHERE character_id = ?
-      ORDER BY created_at DESC, rowid DESC
+      SELECT l.id, l.kind, l.amount, l.fee, l.balance_after,
+             c.gamertag AS by_gamertag,
+             strftime('%Y-%m-%dT%H:%M:%SZ', l.created_at) AS created_at
+      FROM bank_ledger l
+      LEFT JOIN characters c ON c.id = l.character_id
+      WHERE l.user_id = ?
+      ORDER BY l.created_at DESC, l.rowid DESC
       LIMIT ?
     `)
-    .bind(characterId, limit)
+    .bind(userId, limit)
     .all();
   return rows.results || [];
 }
@@ -104,16 +115,16 @@ export async function deposit(db: D1Database, characterId: string, amount: numbe
       db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ? WHERE id = ?')
         .bind(amount, characterId),
       db.prepare(`
-        INSERT INTO bank_accounts (character_id, balance) VALUES (?, ?)
-        ON CONFLICT(character_id) DO UPDATE SET
+        INSERT INTO bank_accounts (user_id, balance) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
           balance = balance + excluded.balance,
           updated_at = CURRENT_TIMESTAMP
-      `).bind(characterId, net),
+      `).bind(before.user_id, net),
       // Runs after the credit, so balance_after reads the new balance.
       db.prepare(`
-        INSERT INTO bank_ledger (character_id, kind, amount, fee, balance_after)
-        SELECT ?, 'deposit', ?, ?, balance FROM bank_accounts WHERE character_id = ?
-      `).bind(characterId, amount, fee, characterId),
+        INSERT INTO bank_ledger (character_id, user_id, kind, amount, fee, balance_after)
+        SELECT ?, ?, 'deposit', ?, ?, balance FROM bank_accounts WHERE user_id = ?
+      `).bind(characterId, before.user_id, amount, fee, before.user_id),
     ]);
   } catch (e: any) {
     throw new BankError(describe(e, 'Deposit failed and nothing was moved.'));
@@ -139,14 +150,14 @@ export async function withdraw(db: D1Database, characterId: string, amount: numb
     await db.batch([
       // Guarded by CHECK (balance >= 0): overdrawing aborts the whole batch,
       // so the credit below never commits on its own.
-      db.prepare('UPDATE bank_accounts SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE character_id = ?')
-        .bind(amount, characterId),
+      db.prepare('UPDATE bank_accounts SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
+        .bind(amount, before.user_id),
       db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency + ? WHERE id = ?')
         .bind(amount, characterId),
       db.prepare(`
-        INSERT INTO bank_ledger (character_id, kind, amount, fee, balance_after)
-        SELECT ?, 'withdraw', ?, 0, balance FROM bank_accounts WHERE character_id = ?
-      `).bind(characterId, amount, characterId),
+        INSERT INTO bank_ledger (character_id, user_id, kind, amount, fee, balance_after)
+        SELECT ?, ?, 'withdraw', ?, 0, balance FROM bank_accounts WHERE user_id = ?
+      `).bind(characterId, before.user_id, amount, before.user_id),
     ]);
   } catch (e: any) {
     throw new BankError(describe(e, 'Withdrawal failed and nothing was moved.'));

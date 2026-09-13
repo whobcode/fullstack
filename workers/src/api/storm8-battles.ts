@@ -34,7 +34,8 @@ import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
 import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
-import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, type AbilityRow } from '../core/abilities';
+import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, maxHealthExpr, type AbilityRow } from '../core/abilities';
+import { BASE_STATS } from '../core/classes';
 import {
   canList,
   getGlobalStatus,
@@ -309,9 +310,9 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
 
   const charId = await actingCharId(db, c, user.id);
   const char = charId ? await db
-    .prepare('SELECT id, unbanked_currency, level FROM characters WHERE id = ?')
+    .prepare('SELECT id, unbanked_currency, level, class FROM characters WHERE id = ?')
     .bind(charId)
-    .first<{ id: string; unbanked_currency: number; level: number }>() : null;
+    .first<{ id: string; unbanked_currency: number; level: number; class: keyof typeof BASE_STATS }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
@@ -355,12 +356,30 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
     );
   }
 
+  // Health abilities change the pool, so it is recomputed from scratch rather
+  // than incremented — hp_pct is a percentage of the whole and cannot be
+  // applied as a delta. Runs after the ability row so it sees the new copy.
+  if (ability.hp_value > 0 || ability.hp_pct > 0) {
+    const baseHp = (BASE_STATS[char.class] ?? BASE_STATS.phoenix).hp;
+    statements.push(
+      db.prepare(`
+        UPDATE characters
+        SET max_health = ${maxHealthExpr(String(baseHp))},
+            current_health = current_health + (${maxHealthExpr(String(baseHp))} - max_health)
+        WHERE id = ?
+      `).bind(char.id),
+    );
+  }
+
   try {
     await db.batch(statements);
   } catch (e: any) {
     const msg = String(e?.message ?? '');
     if (msg.includes('ability stack limit')) {
       return c.json({ error: `You already hold the maximum of ${ability.max_quantity} ${ability.name}.` }, 400);
+    }
+    if (msg.includes('ability slot limit')) {
+      return c.json({ error: 'You already hold 12 abilities. Sell one before buying another.' }, 400);
     }
     if (msg.includes('insufficient unbanked currency')) {
       return c.json({ error: 'You are not holding that much.' }, 400);
@@ -379,6 +398,81 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
         : null,
     },
     message: `${ability.name} purchased (${owned + 1}/${ability.max_quantity})`,
+  });
+});
+
+// Sell one copy back for a percentage of what it cost (45% by default).
+const sellAbilitySchema = z.object({ ability_id: z.string() });
+
+storm8.post('/abilities/sell', zValidator('json', sellAbilitySchema), async (c) => {
+  const user = c.get('user');
+  const { ability_id } = c.req.valid('json');
+  const db = c.env.DB;
+
+  const charId = await actingCharId(db, c, user.id);
+  const char = charId ? await db
+    .prepare('SELECT id, class FROM characters WHERE id = ?')
+    .bind(charId)
+    .first<{ id: string; class: keyof typeof BASE_STATS }>() : null;
+
+  if (!char) return c.json({ error: 'Character not found' }, 404);
+
+  const row = await db
+    .prepare(`
+      SELECT a.id, a.name, a.cost, a.sellback_pct, a.stamina_bonus, a.hp_value, a.hp_pct,
+             ca.quantity
+      FROM abilities a
+      JOIN character_abilities ca ON ca.ability_id = a.id AND ca.character_id = ?
+      WHERE a.id = ?
+    `)
+    .bind(char.id, ability_id)
+    .first<{ id: string; name: string; cost: number; sellback_pct: number; stamina_bonus: number; hp_value: number; hp_pct: number; quantity: number }>();
+
+  if (!row || row.quantity <= 0) {
+    return c.json({ error: 'You do not own that ability.' }, 400);
+  }
+
+  const refund = Math.floor((row.cost * row.sellback_pct) / 100);
+  const baseHp = (BASE_STATS[char.class] ?? BASE_STATS.phoenix).hp;
+
+  const statements = [
+    row.quantity > 1
+      ? db.prepare('UPDATE character_abilities SET quantity = quantity - 1 WHERE character_id = ? AND ability_id = ?')
+          .bind(char.id, row.id)
+      : db.prepare('DELETE FROM character_abilities WHERE character_id = ? AND ability_id = ?')
+          .bind(char.id, row.id),
+    db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency + ? WHERE id = ?')
+      .bind(refund, char.id),
+  ];
+
+  // Undo the stat the ability was granting. Health is recomputed rather than
+  // decremented because hp_pct is a share of the whole pool.
+  if (row.stamina_bonus > 0) {
+    statements.push(
+      db.prepare(`
+        UPDATE characters
+        SET max_stamina = max_stamina - ?,
+            current_stamina = MIN(current_stamina, max_stamina - ?)
+        WHERE id = ?
+      `).bind(row.stamina_bonus, row.stamina_bonus, char.id),
+    );
+  }
+  if (row.hp_value > 0 || row.hp_pct > 0) {
+    statements.push(
+      db.prepare(`
+        UPDATE characters
+        SET max_health = ${maxHealthExpr(String(baseHp))},
+            current_health = MIN(current_health, ${maxHealthExpr(String(baseHp))})
+        WHERE id = ?
+      `).bind(char.id),
+    );
+  }
+
+  await db.batch(statements);
+
+  return c.json({
+    data: { ability_id: row.id, name: row.name, refund, remaining: row.quantity - 1 },
+    message: `Sold ${row.name} for ${refund.toLocaleString()} (${row.sellback_pct}% of ${row.cost.toLocaleString()}).`,
   });
 });
 
@@ -984,7 +1078,7 @@ storm8.get('/bank', async (c) => {
     data: {
       ...snapshot,
       deposit_fee_rate: DEPOSIT_FEE_RATE,
-      ledger: await recentLedger(db, charId),
+      ledger: await recentLedger(db, snapshot.user_id),
     },
   });
 });

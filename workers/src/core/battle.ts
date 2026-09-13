@@ -10,7 +10,14 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
         c.atk, c.def, c.spd,
         c.attack_skill_points, c.defense_skill_points, c.health_skill_points,
         c.current_health, c.max_health, c.current_stamina,
-        c.unbanked_currency
+        c.unbanked_currency,
+        -- Equipment speed is flat: it decides initiative and multi-hit, and
+        -- clan-multiplying it would let one item dominate every fight.
+        COALESCE((
+          SELECT SUM(ca.quantity * a.spd_value)
+          FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+          WHERE ca.character_id = c.id AND a.kind = 'equipment'
+        ), 0) AS equipment_speed
       FROM characters c
       WHERE c.id = ?
     `)
@@ -29,6 +36,7 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
       max_health: number;
       current_stamina: number;
       unbanked_currency: number;
+      equipment_speed: number;
     }>();
 
   if (!char) return null;
@@ -59,7 +67,7 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
     char_class: char.class,
     attack: char.atk || 0,
     defense: char.def || 0,
-    speed: char.spd || 0,
+    speed: (char.spd || 0) + (char.equipment_speed || 0),
     attack_skill_points: char.attack_skill_points,
     defense_skill_points: char.defense_skill_points,
     health_skill_points: char.health_skill_points,

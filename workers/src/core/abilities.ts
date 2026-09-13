@@ -23,6 +23,14 @@ export interface AbilityRow {
   level_step: number;
   stamina_bonus: number;
   stamina_regen_pct: number;
+  /** 'atk' | 'def' | 'hp' — which stat this variant favours. */
+  focus: string;
+  /** Groups the three focus variants that share a cost and level. */
+  family: string | null;
+  hp_value: number;
+  hp_pct: number;
+  spd_value: number;
+  sellback_pct: number;
 }
 
 /** Level a character needs to buy their next copy of an ability. */
@@ -106,6 +114,43 @@ export const STAMINA_BONUS_SUBQUERY = `
     SELECT SUM(ca.quantity * a.stamina_bonus)
     FROM character_abilities ca
     JOIN abilities a ON a.id = ca.ability_id
+    WHERE ca.character_id = characters.id
+  ), 0)
+`;
+
+/**
+ * Canonical max-health expression.
+ *
+ * Health abilities contribute two ways: `hp_value` is a flat addition to the
+ * pool, `hp_pct` a percentage of it (the three endgame ones, so they keep
+ * scaling). Both must be folded in wherever max_health is recomputed —
+ * allocate, respec, purchase and sell — or one of those paths silently erases
+ * bought abilities, the same trap the Stamina Stone hit.
+ *
+ * `baseHpParam` is the SQL for the class base HP (a bound `?` or a literal).
+ */
+export function maxHealthExpr(baseHpParam: string): string {
+  return `
+    CAST(
+      (${baseHpParam} + health_skill_points * 100 + COALESCE((
+        SELECT SUM(ca.quantity * a.hp_value)
+        FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+        WHERE ca.character_id = characters.id
+      ), 0))
+      * (1 + COALESCE((
+        SELECT SUM(ca.quantity * a.hp_pct)
+        FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
+        WHERE ca.character_id = characters.id
+      ), 0) / 100.0)
+    AS INTEGER)
+  `;
+}
+
+/** Flat speed from owned equipment. Not clan-multiplied — it is a battle stat, not a weapon. */
+export const EQUIPMENT_SPEED_SUBQUERY = `
+  COALESCE((
+    SELECT SUM(ca.quantity * a.spd_value)
+    FROM character_abilities ca JOIN abilities a ON a.id = ca.ability_id
     WHERE ca.character_id = characters.id
   ), 0)
 `;
