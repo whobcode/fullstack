@@ -25,7 +25,7 @@ type CharacterSlot = {
   level: number;
   first_game_access_completed: boolean;
   unspent_stat_points?: number;
-  shade_avatar_url?: string | null;
+  avatar_url?: string | null;
 };
 
 type Character = {
@@ -44,7 +44,7 @@ type Character = {
   current_health: number;
   max_health: number;
   unbanked_currency: number;
-  shade_avatar_url: string | null;
+  avatar_url: string | null;
   wins: number;
   losses: number;
   kills: number;
@@ -102,7 +102,7 @@ function CharacterSlotSelector({
         {char ? (
           <>
             <div className="flex items-center gap-1.5 justify-center">
-              <CharacterAvatar src={char.shade_avatar_url} name={char.gamertag} size="sm" />
+              <CharacterAvatar src={char.avatar_url} name={char.gamertag} size="sm" />
               <div className="font-bold text-shade-red-100 truncate">{char.gamertag || 'Setup Required'}</div>
             </div>
             <div className="text-sm text-shade-red-300">
@@ -740,8 +740,8 @@ export default function GameDashboardPage() {
             >
               {/* The character you are playing as, not the account — so it
                   changes when you switch characters. */}
-              {character.shade_avatar_url ? (
-                <img src={character.shade_avatar_url} alt={`${character.gamertag} avatar`} className="w-full h-full object-cover" />
+              {character.avatar_url ? (
+                <img src={character.avatar_url} alt={`${character.gamertag} avatar`} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-xl neon-text">{character.gamertag?.charAt(0).toUpperCase()}</span>
               )}

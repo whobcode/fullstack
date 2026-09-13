@@ -6,7 +6,7 @@ type Choice = {
   class?: string | null;
   level?: number;
   slot_number?: number;
-  shade_avatar_url?: string | null;
+  avatar_url?: string | null;
   first_game_access_completed?: boolean;
 };
 
@@ -51,7 +51,7 @@ export function CharacterChooser({
                   : "bg-shade-black-800 border-shade-red-800/40 text-shade-red-300 hover:text-shade-red-100 hover:border-shade-red-700/60"
               }`}
             >
-              <CharacterAvatar src={c.shade_avatar_url} name={c.gamertag} size="sm" />
+              <CharacterAvatar src={c.avatar_url} name={c.gamertag} size="sm" />
               <span className="text-sm font-bold whitespace-nowrap">{c.gamertag}</span>
               {typeof c.level === "number" && (
                 <span className="text-[10px] text-shade-ash whitespace-nowrap">Lv.{c.level}</span>

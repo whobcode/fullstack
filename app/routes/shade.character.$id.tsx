@@ -104,7 +104,7 @@ export default function CharacterDetailPage() {
   }
 
   // Freshly generated wins until the context refetches; then the stored one.
-  const avatar = freshAvatar ?? character.shade_avatar_url;
+  const avatar = freshAvatar ?? character.avatar_url;
   const perPoint: Record<StatKey, string> = {
     hp: "+100 max health",
     atk: "+1% of base attack",

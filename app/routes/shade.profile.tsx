@@ -21,6 +21,8 @@ type GamerCharacter = {
   spd: number;
   unspent_stat_points: number;
   first_game_access_completed: boolean;
+  /** The character's own picture — distinct from the account's shade avatar. */
+  avatar_url: string | null;
   wins: number | null;
   losses: number | null;
   kills: number | null;
@@ -158,8 +160,9 @@ export default function GamerProfilePage() {
     setGenerating(true);
     setError(null);
     try {
-      // Account avatar: scope=account keeps it off the active character.
-      await apiClient.post("/ai/shade-avatar?scope=account", {});
+      // The account's shade avatar: a shadowy persona, not a class creature,
+      // and separate from every character's own picture.
+      await apiClient.post("/ai/shade-avatar", {});
       await Promise.all([load(), refreshUser()]);
     } catch (err: any) {
       setError(err?.message || "Failed to generate avatar");

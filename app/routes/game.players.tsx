@@ -16,7 +16,7 @@ type Player = {
   deaths: number;
   globals: number;
   globalled_until: string | null;
-  shade_avatar_url: string | null;
+  avatar_url: string | null;
   defeated: number;
 };
 
@@ -110,8 +110,8 @@ export default function PlayersDirectoryPage() {
             className="flex items-center gap-3 rounded-lg p-3 bg-shade-black-950/60 border border-white/10 hover:border-shade-red-700/50 transition-all"
           >
             <div className="w-10 h-10 rounded-full overflow-hidden silhouette-avatar flex items-center justify-center shrink-0">
-              {p.shade_avatar_url
-                ? <img src={p.shade_avatar_url} alt="" className="w-full h-full object-cover" />
+              {p.avatar_url
+                ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
                 : <span className="text-sm neon-text">{p.gamertag?.charAt(0)?.toUpperCase()}</span>}
             </div>
 

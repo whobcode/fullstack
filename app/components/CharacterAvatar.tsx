@@ -43,9 +43,10 @@ export function CharacterAvatar({
 /**
  * Generate an avatar for one specific character.
  *
- * The prompt follows the character's class — a phoenix for the phoenix line, a
- * dragon for the dragon line, a spirit for kies — so the button belongs on the
- * character rather than on the account.
+ * This is the character's class creature — a phoenix for the phoenix line, a
+ * dragon for the dragon line, a spirit for kies. Distinct from the account's
+ * shade avatar, which is a shadowy persona with no creature in it and is
+ * generated from the profile page instead.
  */
 export function GenerateAvatarButton({
   characterId,
@@ -64,7 +65,7 @@ export function GenerateAvatarButton({
     setError(null);
     try {
       const r = await apiClient.post<{ image?: string; url?: string }>(
-        `/ai/shade-avatar?character_id=${encodeURIComponent(characterId)}`,
+        `/ai/character-avatar?character_id=${encodeURIComponent(characterId)}`,
         {},
       );
       // `image` is an inline preview; `url` is the stored one. Prefer the

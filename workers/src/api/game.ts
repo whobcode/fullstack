@@ -109,7 +109,7 @@ game.get('/slots', async (c) => {
   const db = c.env.DB;
 
   const availableSlots = await getAvailableSlots(db, user.id);
-  const characters = await db.prepare('SELECT id, slot_number, gamertag, class, level, first_game_access_completed, unspent_stat_points, shade_avatar_url FROM characters WHERE user_id = ? ORDER BY slot_number').bind(user.id).all();
+  const characters = await db.prepare('SELECT id, slot_number, gamertag, class, level, first_game_access_completed, unspent_stat_points, avatar_url FROM characters WHERE user_id = ? ORDER BY slot_number').bind(user.id).all();
 
   const specialAccount = await getSpecialAccount(db, user.id);
 
@@ -431,7 +431,7 @@ game.get('/directory', async (c) => {
                COALESCE(t.kills,0) AS kills, COALESCE(t.deaths,0) AS deaths,
                COALESCE(t.globals,0) AS globals,
                c.globalled_until,
-               c.shade_avatar_url,
+               c.avatar_url,
                (c.current_health <= 0) AS defeated
         FROM characters c
         JOIN users u ON u.id = c.user_id
