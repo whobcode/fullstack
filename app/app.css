@@ -45,6 +45,13 @@
   --color-shade-black-900: #000000;
   --color-shade-black-950: #000000;
 
+  /* Neutral helper text for the game. The shade-black ramp is a *surface*
+     ramp, so its values were never readable as text; these are the text
+     equivalents, and they are what .shade-dark-bg remaps the old
+     text-shade-black-* mistakes onto. */
+  --color-shade-ash: #a2969a;
+  --color-shade-ash-dim: #998d92;
+
   /* Social Color Palette - Sharp, Adult, Professional */
   --color-social-orange-dark: #D35400;
   --color-social-orange: #E67E22;
@@ -782,3 +789,161 @@ body {
 .social-dark-bg .bg-white\/25 { background-color: rgb(255 255 255 / 0.06); }
 .social-dark-bg .bg-white\/15 { background-color: rgb(255 255 255 / 0.05); }
 .social-dark-bg .bg-white\/10 { background-color: rgb(255 255 255 / 0.04); }
+
+/* ============================================ */
+/* .shade Game Theme - Readability Scope        */
+/* ============================================ */
+
+/* The game used to render neon red (#ff2a2a) and near-white pink (#ffe5e5) on a
+   pure #000 ground. That reads at up to 17.6:1 — roughly 4x WCAG AA — which
+   makes glyphs bloom on OLED, and saturated red on black shimmers because the
+   eye cannot focus red and black in the same plane. Everything below pulls the
+   ground off pure black and the text off maximum brightness, landing the whole
+   game in a ~5-13:1 band.
+
+   Scoped to .shade-dark-bg (applied by routes/shade.layout.tsx) so the social
+   side and the shared NavBar, which sit outside this tree, are untouched —
+   the same containment .social-dark-bg uses above. */
+
+.shade-dark-bg {
+  /* Ground: a warm near-black instead of the void. Painted as a fixed layer
+     below the content so it covers the viewport, not just the container. */
+  --shade-ground: #0f0d0e;
+
+  /* Surfaces lifted off #000. `black` is overridden too because the game's
+     panel gradients terminate in a literal `to-black`. */
+  --color-black: #0f0d0e;
+  --color-shade-black-950: #0f0d0e;
+  --color-shade-black-900: #121013;
+  --color-shade-black-800: #171417;
+  --color-shade-black-700: #1b181b;
+  --color-shade-black-600: #1f1b1f;
+  --color-shade-black-500: #262227;
+  --color-shade-black-400: #2e292e;
+
+  /* Text reds, dimmed. 100/200/300 are text-only across the game, so retuning
+     the token is safe; 400+ also drive gradients and fills and are left alone
+     (their text uses are remapped by class below instead). */
+  --color-shade-red-100: #e2d5d7; /* body        17.59:1 -> 13.59:1 */
+  --color-shade-red-200: #d4c2c5; /* emphasis    14.76:1 -> 11.37:1 */
+  --color-shade-red-300: #e0a6a8; /* secondary   10.27:1 ->  9.40:1 */
+
+  position: relative;
+}
+
+.shade-dark-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    #191316 0%,
+    #141113 45%,
+    var(--shade-ground) 100%
+  );
+}
+
+/* Saturated #ff2a2a / #ff3b3b as *text* is the single worst offender for
+   shimmer. Remapped only where they are text, so `bg-shade-red-500/600`
+   buttons keep the full-strength brand red. 5.20:1 -> 7.76:1. */
+.shade-dark-bg .text-shade-red-600,
+.shade-dark-bg .text-shade-red-500,
+.shade-dark-bg .text-red-200,
+.shade-dark-bg .text-red-300,
+.shade-dark-bg .text-red-400 {
+  color: #ff8f8f;
+}
+
+/* Opacity variants (text-shade-red-500/70 and friends) resolve through the
+   token rather than the class above, so they need their own catch — otherwise
+   they quietly keep the full-saturation red. Attribute match so new ones are
+   covered as they appear. */
+.shade-dark-bg [class*="text-shade-red-500/"],
+.shade-dark-bg [class*="text-shade-red-600/"] {
+  color: color-mix(in oklab, #ff8f8f 78%, transparent);
+}
+
+/* Helper text was rendering black-on-black: #1a1a1a on a #0d0d0d panel is
+   1.12:1, i.e. invisible. These are surface tokens used as text by mistake. */
+.shade-dark-bg .text-shade-black-400 {
+  color: var(--color-shade-ash); /* 1.12:1 -> 5.96:1 */
+}
+
+.shade-dark-bg .text-shade-black-500 {
+  color: var(--color-shade-ash-dim); /* 1.06:1 -> 4.91:1 */
+}
+
+/* The neon text-shadow is a blur halo on every glyph — the main reason copy
+   read as fuzzy rather than merely bright. Kept as a glow, at ~a third of the
+   radius, with the color doing the work instead of the spread. */
+.shade-dark-bg .neon-text {
+  color: #ff8f8f;
+  text-shadow: 0 0 6px rgba(255, 90, 90, 0.28);
+}
+
+.shade-dark-bg .neon-text-strong {
+  color: #ffa5a5;
+  text-shadow:
+    0 0 8px rgba(255, 90, 90, 0.35),
+    0 0 16px rgba(255, 42, 42, 0.16);
+}
+
+/* Panel glare: borders stay, the halo around them comes down. */
+.shade-dark-bg .neon-border {
+  border-color: rgba(255, 42, 42, 0.45);
+  box-shadow:
+    0 0 4px rgba(255, 42, 42, 0.18),
+    inset 0 0 4px rgba(255, 42, 42, 0.10);
+}
+
+.shade-dark-bg .neon-border-thick {
+  border-color: rgba(255, 42, 42, 0.55);
+  box-shadow:
+    0 0 6px rgba(255, 42, 42, 0.22),
+    inset 0 0 6px rgba(255, 42, 42, 0.12);
+}
+
+.shade-dark-bg .neon-glow {
+  box-shadow:
+    0 0 5px rgba(255, 42, 42, 0.20),
+    0 0 12px rgba(255, 42, 42, 0.12);
+}
+
+.shade-dark-bg .neon-glow-strong {
+  box-shadow:
+    0 0 8px rgba(255, 42, 42, 0.30),
+    0 0 20px rgba(255, 42, 42, 0.16),
+    0 0 32px rgba(255, 42, 42, 0.10);
+}
+
+.shade-dark-bg .glass-panel,
+.shade-dark-bg .beveled-panel {
+  border-color: rgba(255, 42, 42, 0.40);
+}
+
+.shade-dark-bg .glass-panel {
+  background: rgba(25, 21, 24, 0.85);
+  box-shadow:
+    0 0 12px rgba(255, 42, 42, 0.14),
+    inset 0 0 20px rgba(255, 42, 42, 0.04);
+}
+
+.shade-dark-bg .beveled-panel {
+  background: linear-gradient(135deg, #1a1619 0%, var(--shade-ground) 100%);
+  box-shadow:
+    0 0 8px rgba(255, 42, 42, 0.16),
+    inset 0 0 10px rgba(255, 42, 42, 0.06),
+    inset 2px 2px 4px rgba(255, 42, 42, 0.10),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* A pulsing/flickering glow is an accessibility problem, not just a taste one.
+   Global on purpose: these animations only exist in the game. */
+@media (prefers-reduced-motion: reduce) {
+  .neon-pulse,
+  .neon-flicker,
+  .breathing-glow {
+    animation: none;
+  }
+}

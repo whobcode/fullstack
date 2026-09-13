@@ -1,4 +1,4 @@
-import { type RouteConfig, index, route } from "@react-router/dev/routes";
+import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
 export default [
   // Social Routes (main app)
@@ -15,15 +15,18 @@ export default [
   route("u/:id", "routes/u.$id.tsx"),  // Public social profile
   route("settings", "routes/settings.tsx"),
 
-  // Game Routes (under /shade prefix)
-  route("shade", "routes/shade.index.tsx"),  // Game landing/login page
-  route("shade/dashboard", "routes/game.dashboard.tsx"),
-  route("shade/profile", "routes/shade.profile.tsx"),
-  route("shade/u/:username", "routes/shade.u.$username.tsx"),  // Public profile (trophies only)
-  route("shade/battle", "routes/game.storm8.tsx"),
-  route("shade/players", "routes/game.players.tsx"),
-  route("shade/battles/:id", "routes/battles.$id.tsx"),
-  route("shade/leaderboard", "routes/game.leaderboard.tsx"),
+  // Game Routes (under /shade prefix). The layout carries the game-only theme
+  // scope (.shade-dark-bg); it adds no path segment.
+  layout("routes/shade.layout.tsx", [
+    route("shade", "routes/shade.index.tsx"),  // Game landing/login page
+    route("shade/dashboard", "routes/game.dashboard.tsx"),
+    route("shade/profile", "routes/shade.profile.tsx"),
+    route("shade/u/:username", "routes/shade.u.$username.tsx"),  // Public profile (trophies only)
+    route("shade/battle", "routes/game.storm8.tsx"),
+    route("shade/players", "routes/game.players.tsx"),
+    route("shade/battles/:id", "routes/battles.$id.tsx"),
+    route("shade/leaderboard", "routes/game.leaderboard.tsx"),
+  ]),
 
   // Legacy game URLs -> redirect to /shade/* (the game section was renamed)
   route("game", "routes/game-redirect.tsx", { id: "game-redirect-root" }),
