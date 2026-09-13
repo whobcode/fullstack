@@ -34,6 +34,7 @@ import { checkForLevelUp } from '../core/leveling';
 import { applyResourceRegeneration } from '../core/regen';
 import { getCharacterBattleStats, bumpTrophies } from '../core/battle';
 import { deposit, withdraw, getSnapshot, recentLedger, BankError, DEPOSIT_FEE_RATE } from '../core/bank';
+import { canPurchase, requiredLevelFor, STAMINA_BONUS_SUBQUERY, type AbilityRow } from '../core/abilities';
 import {
   canList,
   getGlobalStatus,
@@ -136,7 +137,9 @@ storm8.post('/skills/allocate', zValidator('json', allocateSkillsSchema), async 
         max_health = max_health + (? * 100),
         current_health = current_health + (? * 100),
         max_energy = 20 + (energy_skill_points + ?),
-        max_stamina = 5 + (stamina_skill_points + ?)
+        -- The ability bonus is added back explicitly; recomputing from skill
+        -- points alone would silently erase every Stamina Stone owned.
+        max_stamina = 5 + (stamina_skill_points + ?) + ${STAMINA_BONUS_SUBQUERY}
       WHERE id = ?
     `)
     .bind(
@@ -256,21 +259,43 @@ storm8.get('/abilities', async (c) => {
 
   const charId = await actingCharId(db, c, user.id);
   const char = charId ? await db
-    .prepare('SELECT level FROM characters WHERE id = ?')
+    .prepare('SELECT id, level FROM characters WHERE id = ?')
     .bind(charId)
-    .first<{ level: number }>() : null;
+    .first<{ id: string; level: number }>() : null;
 
   if (!char) {
     return c.json({ error: 'Character not found' }, 404);
   }
 
-  // Get available abilities for purchase (at or below character level)
+  // Everything the character could ever buy, with how many they hold and the
+  // level the next copy needs. Abilities that stack are deliberately still
+  // listed once the base requirement is met but the *next* copy is out of
+  // reach, so the shop can show the schedule rather than hiding the row.
   const abilities = await db
-    .prepare('SELECT * FROM abilities WHERE level_requirement <= ? ORDER BY cost ASC')
-    .bind(char.level)
-    .all();
+    .prepare(`
+      SELECT a.*, COALESCE(ca.quantity, 0) AS owned
+      FROM abilities a
+      LEFT JOIN character_abilities ca
+             ON ca.ability_id = a.id AND ca.character_id = ?
+      WHERE a.level_requirement <= ?
+      ORDER BY a.cost ASC
+    `)
+    .bind(char.id, char.level)
+    .all<AbilityRow & { owned: number }>();
 
-  return c.json({ data: abilities.results });
+  const rows = (abilities.results || []).map((a) => {
+    const check = canPurchase(a, a.owned, char.level, Number.MAX_SAFE_INTEGER);
+    return {
+      ...a,
+      owned: a.owned,
+      required_level: requiredLevelFor(a, a.owned),
+      at_max: a.owned >= a.max_quantity,
+      // Currency is checked at purchase time, not here.
+      unlocked: check.ok,
+    };
+  });
+
+  return c.json({ data: rows });
 });
 
 const purchaseAbilitySchema = z.object({
@@ -295,29 +320,66 @@ storm8.post('/abilities/purchase', zValidator('json', purchaseAbilitySchema), as
   const ability = await db
     .prepare('SELECT * FROM abilities WHERE id = ?')
     .bind(ability_id)
-    .first<{ id: string; cost: number; level_requirement: number }>();
+    .first<AbilityRow>();
 
   if (!ability) {
     return c.json({ error: 'Ability not found' }, 404);
   }
 
-  if (ability.level_requirement > char.level) {
-    return c.json({ error: 'Level requirement not met' }, 400);
+  const ownedRow = await db
+    .prepare('SELECT quantity FROM character_abilities WHERE character_id = ? AND ability_id = ?')
+    .bind(char.id, ability.id)
+    .first<{ quantity: number }>();
+  const owned = ownedRow?.quantity ?? 0;
+
+  const check = canPurchase(ability, owned, char.level, char.unbanked_currency);
+  if (!check.ok) {
+    return c.json({ error: check.error, owned, required_level: check.required_level }, 400);
   }
 
-  if (ability.cost > char.unbanked_currency) {
-    return c.json({ error: 'Insufficient currency' }, 400);
-  }
-
-  // Purchase the ability
-  await db.batch([
+  // One batch: the overdraft trigger and the stack-cap triggers abort the whole
+  // thing rather than letting a half-purchase commit.
+  const statements = [
     db.prepare('UPDATE characters SET unbanked_currency = unbanked_currency - ? WHERE id = ?')
       .bind(ability.cost, char.id),
     db.prepare('INSERT INTO character_abilities (character_id, ability_id, quantity) VALUES (?, ?, 1) ON CONFLICT(character_id, ability_id) DO UPDATE SET quantity = quantity + 1')
       .bind(char.id, ability.id),
-  ]);
+  ];
 
-  return c.json({ message: 'Ability purchased successfully' });
+  // Utility abilities raise the stamina cap. Current stamina rises with it so
+  // buying a stone is immediately useful rather than leaving a gap to refill.
+  if (ability.stamina_bonus > 0) {
+    statements.push(
+      db.prepare('UPDATE characters SET max_stamina = max_stamina + ?, current_stamina = current_stamina + ? WHERE id = ?')
+        .bind(ability.stamina_bonus, ability.stamina_bonus, char.id),
+    );
+  }
+
+  try {
+    await db.batch(statements);
+  } catch (e: any) {
+    const msg = String(e?.message ?? '');
+    if (msg.includes('ability stack limit')) {
+      return c.json({ error: `You already hold the maximum of ${ability.max_quantity} ${ability.name}.` }, 400);
+    }
+    if (msg.includes('insufficient unbanked currency')) {
+      return c.json({ error: 'You are not holding that much.' }, 400);
+    }
+    throw e;
+  }
+
+  return c.json({
+    data: {
+      ability_id: ability.id,
+      name: ability.name,
+      owned: owned + 1,
+      max_quantity: ability.max_quantity,
+      next_level_required: owned + 1 < ability.max_quantity
+        ? requiredLevelFor(ability, owned + 1)
+        : null,
+    },
+    message: `${ability.name} purchased (${owned + 1}/${ability.max_quantity})`,
+  });
 });
 
 storm8.get('/abilities/owned', async (c) => {

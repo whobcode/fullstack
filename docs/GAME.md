@@ -69,7 +69,18 @@ lifetime budget and resets to base stats.
 - **Leaderboard** — `/shade/leaderboard`, top 25 by level → wins → kills.
 - **Hitlist** — players post bounties; killing the target claims it. See **Globalling** below.
 - **Clan** — members multiply equipment power in battle.
-- **Ability shop** — buy equipment that adds ATK/DEF (level-gated).
+- **Ability shop** — two kinds of ability. `equipment` adds ATK/DEF and feeds
+  the battle maths; `utility` never touches battle and is bought for its own
+  effect. Any one ability stacks to **10** copies, enforced by the
+  `character_abilities_stack_cap_*` triggers rather than only in the handler.
+  Repeat purchases can also be spaced by `level_step`: the level needed for the
+  next copy is `level_requirement + level_step × copies_owned`.
+- **Stamina Stone** (utility) — **+5 max stamina and +5% stamina regeneration
+  per stone**, 10,000,000 each, max 10. `level_step` 5 puts the unlock schedule
+  at 25, 30, 35 … 70 for the tenth, so a fully stacked character has **+50
+  stamina and +50% regeneration** (the 3-minute tick becomes 2 minutes).
+  Allocate and respec both add the bonus back explicitly — recomputing
+  `max_stamina` from skill points alone would erase every stone owned.
 - **Bank** (`workers/src/core/bank.ts`) — currency on hand is spendable but
   stealable; banked currency is safe but must be withdrawn to spend. Deposits
   cost 10%, withdrawals are free, and both are **per character**.

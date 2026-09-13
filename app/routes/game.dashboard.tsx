@@ -12,7 +12,6 @@ type SlotInfo = {
   availableSlots: number[];
   characters: CharacterSlot[];
   slotPrices: Record<number, number>;
-  isSpecialAccount: boolean;
   canCreateMore: boolean;
 };
 
@@ -116,11 +115,6 @@ function CharacterSlotSelector({
   return (
     <div className="mb-6">
       <h2 className="text-lg font-bold neon-text mb-3">Character Slots</h2>
-      {slotInfo.isSpecialAccount && (
-        <div className="mb-2 text-xs text-shade-red-400 bg-shade-black-800 p-2 rounded">
-          ⭐ Special Account - All slots unlocked, characters start at max level!
-        </div>
-      )}
       <div className="grid grid-cols-7 gap-2">{slots}</div>
     </div>
   );

@@ -42,11 +42,11 @@ export async function getCharacterBattleStats(db: D1Database, characterId: strin
 
   // Best attack/defense ability per category (SQLite has no DISTINCT ON — GROUP BY).
   const attackAbilities = await db
-    .prepare(`SELECT MAX(a.attack_value) AS attack_value FROM character_abilities ca JOIN abilities a ON ca.ability_id = a.id WHERE ca.character_id = ? GROUP BY a.category`)
+    .prepare(`SELECT MAX(a.attack_value) AS attack_value FROM character_abilities ca JOIN abilities a ON ca.ability_id = a.id WHERE ca.character_id = ? AND a.kind = 'equipment' GROUP BY a.category`)
     .bind(characterId)
     .all();
   const defenseAbilities = await db
-    .prepare(`SELECT MAX(a.defense_value) AS defense_value FROM character_abilities ca JOIN abilities a ON ca.ability_id = a.id WHERE ca.character_id = ? GROUP BY a.category`)
+    .prepare(`SELECT MAX(a.defense_value) AS defense_value FROM character_abilities ca JOIN abilities a ON ca.ability_id = a.id WHERE ca.character_id = ? AND a.kind = 'equipment' GROUP BY a.category`)
     .bind(characterId)
     .all();
 

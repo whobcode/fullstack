@@ -282,18 +282,43 @@ function AbilityShop({ character, onUpdate }: { character: any; onUpdate: () => 
           ) : (
             abilities.map(ability => (
               <div key={ability.id} className="rounded-lg p-4 bg-gradient-to-br from-shade-black-800 to-shade-black-900 border border-shade-red-800/50 hover:border-shade-red-600/70 transition-all">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
+                <div className="flex justify-between items-start mb-2 gap-3">
+                  <div className="min-w-0">
                     <h3 className="font-bold text-lg text-shade-red-100">{ability.name}</h3>
-                    <p className="text-sm text-shade-red-300">{ability.category}</p>
+                    <p className="text-sm text-shade-red-300">
+                      {ability.kind === 'utility' ? 'utility' : ability.category}
+                      {ability.max_quantity > 1 && (
+                        <span className="text-shade-ash"> · {ability.owned ?? 0}/{ability.max_quantity} owned</span>
+                      )}
+                    </p>
                   </div>
                   <button
                     onClick={() => handlePurchase(ability.id)}
-                    className="bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 px-4 py-2 rounded font-bold"
+                    disabled={ability.at_max || !ability.unlocked}
+                    title={
+                      ability.at_max
+                        ? 'You hold the maximum'
+                        : !ability.unlocked
+                          ? `Needs level ${ability.required_level}`
+                          : undefined
+                    }
+                    className="shrink-0 bg-gradient-to-r from-shade-red-700 to-shade-red-500 text-white hover:from-shade-red-600 hover:to-shade-red-400 transition-all shadow-lg shadow-shade-red-900/40 px-4 py-2 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Buy {ability.cost}
+                    {ability.at_max
+                      ? 'Maxed'
+                      : !ability.unlocked
+                        ? `Lv.${ability.required_level}`
+                        : `Buy ${Number(ability.cost).toLocaleString()}`}
                   </button>
                 </div>
+                {(ability.stamina_bonus > 0 || ability.stamina_regen_pct > 0) && (
+                  <p className="text-xs text-amber-300 mb-2">
+                    +{ability.stamina_bonus} max stamina · +{ability.stamina_regen_pct}% stamina regen
+                    {ability.level_step > 0 && (
+                      <span className="text-shade-ash"> · each copy needs {ability.level_step} more levels</span>
+                    )}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="bg-shade-red-900 bg-opacity-30 p-2 rounded neon-border">
                     <span className="text-shade-red-600">ATK:</span> +{ability.attack_value}

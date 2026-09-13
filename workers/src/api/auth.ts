@@ -289,8 +289,11 @@ export async function generateUniqueUsername(db: D1Database, base: string): Prom
   return `${base}_${Date.now()}`;
 }
 
-// Special account usernames that get elevated privileges
-export const SPECIAL_USERNAMES = ['trubone'];
+// Usernames granted elevated privileges (all 7 slots, characters created at
+// max level) on signup. Emptied deliberately: trubone's founder flag was
+// removed in migration 0023, and listing the name here would re-grant it on
+// the next login. The mechanism is kept so a future account can be flagged.
+export const SPECIAL_USERNAMES: string[] = [];
 
 // Helper to check and grant special account status
 export async function checkAndGrantSpecialAccount(db: D1Database, userId: string, username: string): Promise<void> {

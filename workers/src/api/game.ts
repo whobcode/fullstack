@@ -803,6 +803,7 @@ game.delete('/character/:id', async (c) => {
 });
 
 import { allocatePointsSchema, respecSchema } from '../shared/schemas/game';
+import { STAMINA_BONUS_SUBQUERY } from '../core/abilities';
 
 // Allocate stat points
 game.post('/character/allocate-points', zValidator('json', allocatePointsSchema), async (c) => {
@@ -890,7 +891,10 @@ game.post('/character/respec', zValidator('json', respecSchema), async (c) => {
             energy_skill_points = 0, stamina_skill_points = 0,
             max_health = ?, current_health = ?,
             max_energy = 20, current_energy = 20,
-            max_stamina = 5, current_stamina = 5,
+            -- Respec refunds stat points; it must not confiscate bought
+            -- abilities, so the Stamina Stone bonus is added back.
+            max_stamina = 5 + ${STAMINA_BONUS_SUBQUERY},
+            current_stamina = 5 + ${STAMINA_BONUS_SUBQUERY},
             unspent_stat_points = ?
         WHERE id = ?
     `).bind(

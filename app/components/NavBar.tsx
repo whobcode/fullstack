@@ -1,12 +1,22 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function NavBar() {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the game menu on Escape, and whenever the route changes.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   const isShadeRoute = location.pathname.startsWith('/shade');
 
@@ -19,36 +29,101 @@ export function NavBar() {
     return <header className={`${isShadeRoute ? 'bg-shade-black-600 neon-border text-shade-red-100' : 'bg-gradient-to-r from-social-green-600 to-social-green-500'} p-4 h-[72px]`}></header>;
   }
 
-  // Game/Shade Navigation (neon-red theme)
+  // Game/Shade Navigation (neon-red theme).
+  // Every destination lives in the hamburger: the inline row ran wider than a
+  // phone screen and the right-hand items were pushed off. The panel closes on
+  // navigation, on Escape, and on a click outside it.
   if (isShadeRoute) {
+    const gameLinks = [
+      { to: '/shade/dashboard', label: 'Dashboard' },
+      { to: '/shade/profile', label: 'Profile' },
+      { to: '/shade/battle', label: 'Battle' },
+      { to: '/shade/players', label: 'Find Players' },
+      { to: '/shade/leaderboard', label: 'Leaderboard' },
+    ];
+
     return (
-      <header className="bg-shade-black-600 neon-border text-shade-red-100 p-4 shadow-lg">
-        <nav className="container mx-auto flex justify-between items-center">
-          <Link to="/shade" className="text-2xl font-bold neon-text-strong neon-flicker tracking-wider">
+      <header className="bg-shade-black-600 neon-border text-shade-red-100 p-4 shadow-lg relative z-50">
+        <nav className="container mx-auto flex justify-between items-center gap-3">
+          <Link to="/shade" className="text-2xl font-bold neon-text-strong neon-flicker tracking-wider shrink-0">
             .shade
           </Link>
-          <div className="flex items-center space-x-6">
-            <Link to="/shade/dashboard" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Dashboard</Link>
-            <Link to="/shade/profile" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Profile</Link>
-            <Link to="/shade/battle" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Battle</Link>
-            <Link to="/shade/players" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Find Players</Link>
-            <Link to="/shade/leaderboard" className="text-shade-red-200 hover:text-shade-red-600 transition-colors duration-200">Leaderboard</Link>
-            <div className="border-l border-shade-red-600 h-6 shadow-[0_0_5px_rgba(255,42,42,0.5)]"></div>
-            <Link to="/feed" className="text-shade-red-300 hover:text-shade-red-100 transition-colors duration-200 text-sm">
-              Back to me
-            </Link>
-          </div>
-          <div className="flex items-center space-x-4">
-            {isAuthenticated ? (
-              <>
-                <span className="text-shade-red-200">{user?.username}</span>
-                <button onClick={handleLogout} className="bg-shade-black-900 neon-border text-shade-red-600 px-4 py-2 rounded hover:neon-glow transition-all duration-200">Logout</button>
-              </>
-            ) : (
-              <Link to="/login" className="bg-shade-black-900 neon-border text-shade-red-600 px-4 py-2 rounded hover:neon-glow transition-all duration-200">Login</Link>
-            )}
-          </div>
+
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-controls="shade-menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            className="flex items-center gap-2 px-3 py-2 rounded bg-shade-black-900 neon-border text-shade-red-300 hover:text-shade-red-100 transition-all"
+          >
+            <span className="relative w-5 h-4 shrink-0" aria-hidden="true">
+              <span className={`absolute left-0 w-5 h-0.5 bg-current transition-all ${menuOpen ? 'top-[7px] rotate-45' : 'top-0'}`} />
+              <span className={`absolute left-0 top-[7px] w-5 h-0.5 bg-current transition-all ${menuOpen ? 'opacity-0' : 'opacity-100'}`} />
+              <span className={`absolute left-0 w-5 h-0.5 bg-current transition-all ${menuOpen ? 'top-[7px] -rotate-45' : 'top-[14px]'}`} />
+            </span>
+            <span className="text-sm font-bold">Menu</span>
+          </button>
         </nav>
+
+        {menuOpen && (
+          <>
+            {/* Click-outside target. Sits under the panel, over the page. */}
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+            <div
+              id="shade-menu"
+              className="absolute right-4 top-full mt-2 w-60 z-50 rounded-xl overflow-hidden bg-shade-black-900 neon-border shadow-xl"
+            >
+              <div className="p-2">
+                {gameLinks.map((l) => (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    onClick={() => setMenuOpen(false)}
+                    className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                      location.pathname === l.to
+                        ? 'bg-shade-red-900/40 text-shade-red-100 font-bold'
+                        : 'text-shade-red-200 hover:bg-shade-red-900/25 hover:text-shade-red-100'
+                    }`}
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="border-t border-shade-red-800/50 p-2">
+                <Link
+                  to="/feed"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-2 rounded-lg text-sm text-shade-red-300 hover:bg-shade-red-900/25 hover:text-shade-red-100 transition-colors"
+                >
+                  Back to me
+                </Link>
+              </div>
+
+              <div className="border-t border-shade-red-800/50 p-2">
+                {isAuthenticated ? (
+                  <>
+                    <p className="px-3 py-1 text-xs text-shade-ash truncate">{user?.username}</p>
+                    <button
+                      onClick={() => { setMenuOpen(false); handleLogout(); }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-shade-red-300 hover:bg-shade-red-900/25 hover:text-shade-red-100 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-3 py-2 rounded-lg text-sm text-shade-red-300 hover:bg-shade-red-900/25 hover:text-shade-red-100 transition-colors"
+                  >
+                    Login
+                  </Link>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </header>
     );
   }

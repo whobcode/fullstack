@@ -1,8 +1,12 @@
 import { calculateRegeneration } from './storm8-battle-engine';
+import { STAMINA_REGEN_PCT_SUBQUERY, staminaRegenMinutes } from './abilities';
 
 // Health regenerates 2% of max per minute (≈50 min from 0 to full), so a
 // defeated character recovers over time without needing the hospital.
 const HEALTH_REGEN_PCT_PER_MIN = 0.02;
+
+// Base stamina tick, before any Stamina Stone bonus.
+const STAMINA_BASE_REGEN_MINUTES = 3;
 
 type RegenRow = {
   current_energy: number;
@@ -14,6 +18,8 @@ type RegenRow = {
   current_health: number;
   max_health: number;
   last_health_regen: string | null;
+  /** Summed stamina_regen_pct across owned utility abilities. */
+  stamina_regen_pct: number;
 };
 
 // Bring a single character's time-based resources (energy, stamina, health)
@@ -24,7 +30,8 @@ export async function applyResourceRegeneration(db: D1Database, characterId: str
       SELECT
         current_energy, max_energy, last_energy_regen,
         current_stamina, max_stamina, last_stamina_regen,
-        current_health, max_health, last_health_regen
+        current_health, max_health, last_health_regen,
+        ${STAMINA_REGEN_PCT_SUBQUERY} AS stamina_regen_pct
       FROM characters WHERE id = ?
     `)
     .bind(characterId)
@@ -33,9 +40,11 @@ export async function applyResourceRegeneration(db: D1Database, characterId: str
 
   const nowIso = new Date().toISOString();
 
-  // Energy: +1 per 5 min. Stamina: +1 per 3 min.
+  // Energy: +1 per 5 min. Stamina: +1 per 3 min, shortened by Stamina Stones
+  // (+5% each, so ten stones take the interval from 3 min to 2).
   const energyRegen = calculateRegeneration(char.last_energy_regen || nowIso, char.current_energy, char.max_energy, 5);
-  const staminaRegen = calculateRegeneration(char.last_stamina_regen || nowIso, char.current_stamina, char.max_stamina, 3);
+  const staminaMinutes = staminaRegenMinutes(STAMINA_BASE_REGEN_MINUTES, char.stamina_regen_pct || 0);
+  const staminaRegen = calculateRegeneration(char.last_stamina_regen || nowIso, char.current_stamina, char.max_stamina, staminaMinutes);
 
   // Health: percentage of max per minute (works from 0, i.e. revives the defeated).
   let newHealth = char.current_health;

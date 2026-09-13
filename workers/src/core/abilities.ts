@@ -1,0 +1,111 @@
+/**
+ * Ability purchasing rules and the non-combat effects utility abilities grant.
+ *
+ * Abilities come in two kinds:
+ *   - `equipment` feeds the battle maths (best attack/defense per category,
+ *     multiplied by usable clan members).
+ *   - `utility` never touches battle. It is bought for its own effect, like
+ *     the Stamina Stone's +5 max stamina and +5% regeneration per copy.
+ *
+ * Repeat purchases are limited two ways. `max_quantity` caps the stack, and
+ * `level_step` pushes each additional copy further out: the required level is
+ * `level_requirement + level_step * copies_owned`. For the Stamina Stone that
+ * is 25, 30, 35 … 70 for the tenth and last one.
+ */
+
+export interface AbilityRow {
+  id: string;
+  name: string;
+  kind: string;
+  cost: number;
+  level_requirement: number;
+  max_quantity: number;
+  level_step: number;
+  stamina_bonus: number;
+  stamina_regen_pct: number;
+}
+
+/** Level a character needs to buy their next copy of an ability. */
+export function requiredLevelFor(ability: Pick<AbilityRow, 'level_requirement' | 'level_step'>, owned: number): number {
+  return ability.level_requirement + ability.level_step * owned;
+}
+
+export interface PurchaseCheck {
+  ok: boolean;
+  error?: string;
+  owned: number;
+  required_level: number;
+}
+
+/** Whether this character may buy one more copy right now. */
+export function canPurchase(ability: AbilityRow, owned: number, level: number, currency: number): PurchaseCheck {
+  const required = requiredLevelFor(ability, owned);
+
+  if (owned >= ability.max_quantity) {
+    return {
+      ok: false,
+      error: `You already hold the maximum of ${ability.max_quantity} ${ability.name}.`,
+      owned,
+      required_level: required,
+    };
+  }
+
+  if (level < required) {
+    const next = owned === 0 ? '' : ` Each copy needs ${ability.level_step} more levels than the last.`;
+    return {
+      ok: false,
+      error: `${ability.name} #${owned + 1} needs level ${required}.${next}`,
+      owned,
+      required_level: required,
+    };
+  }
+
+  if (currency < ability.cost) {
+    return {
+      ok: false,
+      error: `${ability.name} costs ${ability.cost.toLocaleString()} and you are holding ${currency.toLocaleString()}.`,
+      owned,
+      required_level: required,
+    };
+  }
+
+  return { ok: true, owned, required_level: required };
+}
+
+/**
+ * Stamina regeneration bonus a character has bought, as a percentage.
+ *
+ * Kept as one scalar subquery so callers that already read the character can
+ * fold it into their existing SELECT rather than making a second round trip —
+ * regeneration runs on every read and across every character in the cron.
+ */
+export const STAMINA_REGEN_PCT_SUBQUERY = `
+  COALESCE((
+    SELECT SUM(ca.quantity * a.stamina_regen_pct)
+    FROM character_abilities ca
+    JOIN abilities a ON a.id = ca.ability_id
+    WHERE ca.character_id = characters.id
+  ), 0)
+`;
+
+/**
+ * Minutes between stamina ticks for a character.
+ *
+ * Base is one per `baseMinutes`; each percent shortens the interval, so +50%
+ * means 1.5x the ticks, i.e. 3 min -> 2 min. Floored at 10 seconds so a
+ * runaway bonus can never make the interval zero and divide by nothing.
+ */
+export function staminaRegenMinutes(baseMinutes: number, bonusPct: number): number {
+  const multiplier = 1 + Math.max(0, bonusPct) / 100;
+  return Math.max(1 / 6, baseMinutes / multiplier);
+}
+
+/** Extra max stamina from owned utility abilities, for recomputing the cap. */
+export const STAMINA_BONUS_SUBQUERY = `
+  COALESCE((
+    SELECT SUM(ca.quantity * a.stamina_bonus)
+    FROM character_abilities ca
+    JOIN abilities a ON a.id = ca.ability_id
+    WHERE ca.character_id = characters.id
+  ), 0)
+`;
