@@ -29,7 +29,9 @@ async function generateUniqueGamertag(db: D1Database, base: string): Promise<str
   let candidate = base || 'player';
   let suffix = 0;
   while (suffix < 10000) {
-    const exists = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ?').bind(candidate).first();
+    // NOCASE to match idx_characters_gamertag_nocase, or "Kayla" passes this
+    // check against an existing "kayla" and then fails the insert.
+    const exists = await db.prepare('SELECT 1 FROM characters WHERE gamertag = ? COLLATE NOCASE').bind(candidate).first();
     if (!exists) return candidate.slice(0, 20);
     suffix += 1;
     candidate = `${base}${suffix}`.slice(0, 20);

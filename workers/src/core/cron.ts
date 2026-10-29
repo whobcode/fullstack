@@ -2,6 +2,7 @@ import type { Bindings } from "../bindings";
 import { checkForLevelUp } from "./leveling";
 import { applyResourceRegeneration } from "./regen";
 import { runBotAttacks, runBotHitlistClaims, runBotBounties } from "./bots";
+import { syncHuesMembers } from "./hues-sync";
 
 interface CharacterWithLedger {
     id: string;
@@ -13,6 +14,15 @@ interface CharacterWithLedger {
 }
 
 export async function handleScheduled(env: Bindings) {
+    // First and on its own, so new 8hues members get their account (and
+    // their character joins the XP/regen pass below) even if the rest fails.
+    try {
+        const { created, pending } = await syncHuesMembers(env);
+        if (created || pending) console.log(`8hues sync: created ${created}, ${pending} still pending`);
+    } catch (e) {
+        console.error('8hues sync error:', e);
+    }
+
     console.log('Cron job started: Awarding offline XP');
     const db = env.DB;
     const now = new Date();
